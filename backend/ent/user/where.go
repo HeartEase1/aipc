@@ -110,6 +110,11 @@ func Username(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldUsername, v))
 }
 
+// LeaderboardEnabled applies equality check predicate on the "leaderboard_enabled" field. It's identical to LeaderboardEnabledEQ.
+func LeaderboardEnabled(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldLeaderboardEnabled, v))
+}
+
 // Notes applies equality check predicate on the "notes" field. It's identical to NotesEQ.
 func Notes(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldNotes, v))
@@ -748,6 +753,16 @@ func UsernameEqualFold(v string) predicate.User {
 // UsernameContainsFold applies the ContainsFold predicate on the "username" field.
 func UsernameContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldUsername, v))
+}
+
+// LeaderboardEnabledEQ applies the EQ predicate on the "leaderboard_enabled" field.
+func LeaderboardEnabledEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldLeaderboardEnabled, v))
+}
+
+// LeaderboardEnabledNEQ applies the NEQ predicate on the "leaderboard_enabled" field.
+func LeaderboardEnabledNEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldLeaderboardEnabled, v))
 }
 
 // NotesEQ applies the EQ predicate on the "notes" field.

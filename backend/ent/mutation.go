@@ -45931,6 +45931,7 @@ type UserMutation struct {
 	addconcurrency                *int
 	status                        *string
 	username                      *string
+	leaderboard_enabled           *bool
 	notes                         *string
 	totp_secret_encrypted         *string
 	totp_enabled                  *bool
@@ -46557,6 +46558,42 @@ func (m *UserMutation) OldUsername(ctx context.Context) (v string, err error) {
 // ResetUsername resets all changes to the "username" field.
 func (m *UserMutation) ResetUsername() {
 	m.username = nil
+}
+
+// SetLeaderboardEnabled sets the "leaderboard_enabled" field.
+func (m *UserMutation) SetLeaderboardEnabled(b bool) {
+	m.leaderboard_enabled = &b
+}
+
+// LeaderboardEnabled returns the value of the "leaderboard_enabled" field in the mutation.
+func (m *UserMutation) LeaderboardEnabled() (r bool, exists bool) {
+	v := m.leaderboard_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLeaderboardEnabled returns the old "leaderboard_enabled" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldLeaderboardEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLeaderboardEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLeaderboardEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLeaderboardEnabled: %w", err)
+	}
+	return oldValue.LeaderboardEnabled, nil
+}
+
+// ResetLeaderboardEnabled resets all changes to the "leaderboard_enabled" field.
+func (m *UserMutation) ResetLeaderboardEnabled() {
+	m.leaderboard_enabled = nil
 }
 
 // SetNotes sets the "notes" field.
@@ -47889,7 +47926,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 24)
+	fields := make([]string, 0, 25)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -47922,6 +47959,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.username != nil {
 		fields = append(fields, user.FieldUsername)
+	}
+	if m.leaderboard_enabled != nil {
+		fields = append(fields, user.FieldLeaderboardEnabled)
 	}
 	if m.notes != nil {
 		fields = append(fields, user.FieldNotes)
@@ -47992,6 +48032,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case user.FieldUsername:
 		return m.Username()
+	case user.FieldLeaderboardEnabled:
+		return m.LeaderboardEnabled()
 	case user.FieldNotes:
 		return m.Notes()
 	case user.FieldTotpSecretEncrypted:
@@ -48049,6 +48091,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldStatus(ctx)
 	case user.FieldUsername:
 		return m.OldUsername(ctx)
+	case user.FieldLeaderboardEnabled:
+		return m.OldLeaderboardEnabled(ctx)
 	case user.FieldNotes:
 		return m.OldNotes(ctx)
 	case user.FieldTotpSecretEncrypted:
@@ -48160,6 +48204,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUsername(v)
+		return nil
+	case user.FieldLeaderboardEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLeaderboardEnabled(v)
 		return nil
 	case user.FieldNotes:
 		v, ok := value.(string)
@@ -48447,6 +48498,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldUsername:
 		m.ResetUsername()
+		return nil
+	case user.FieldLeaderboardEnabled:
+		m.ResetLeaderboardEnabled()
 		return nil
 	case user.FieldNotes:
 		m.ResetNotes()

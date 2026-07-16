@@ -32,7 +32,7 @@ const (
 	updateCacheTTL = 1200 // 20 minutes
 	// Custom releases are published from this repository. WebUI updates and
 	// rollback candidates must use the same source as the deployed binary.
-	githubRepo     = "HeartEase1/aipc"
+	githubRepo = "HeartEase1/aipc"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"

@@ -30,12 +30,12 @@ type LeaderboardUsageEntry struct {
 }
 
 type LeaderboardRebateEntry struct {
-	Rank          int     `json:"rank"`
-	UserID        int64   `json:"-"`
-	DisplayName   string  `json:"display_name"`
-	InvitedUsers  int64   `json:"invited_users"`
-	RebateCount   int64   `json:"rebate_count"`
-	RebateAmount  float64 `json:"rebate_amount"`
+	Rank         int     `json:"rank"`
+	UserID       int64   `json:"-"`
+	DisplayName  string  `json:"display_name"`
+	InvitedUsers int64   `json:"invited_users"`
+	RebateCount  int64   `json:"rebate_count"`
+	RebateAmount float64 `json:"rebate_amount"`
 }
 
 type LeaderboardUsageSummary struct {
@@ -53,13 +53,13 @@ type LeaderboardRebateSummary struct {
 type LeaderboardUsageBoard struct {
 	Summary LeaderboardUsageSummary `json:"summary"`
 	Entries []LeaderboardUsageEntry `json:"entries"`
-	Current *LeaderboardUsageEntry `json:"current,omitempty"`
+	Current *LeaderboardUsageEntry  `json:"current,omitempty"`
 }
 
 type LeaderboardRebateBoard struct {
 	Summary LeaderboardRebateSummary `json:"summary"`
 	Entries []LeaderboardRebateEntry `json:"entries"`
-	Current *LeaderboardRebateEntry `json:"current,omitempty"`
+	Current *LeaderboardRebateEntry  `json:"current,omitempty"`
 }
 
 // LeaderboardSnapshot is shared across viewers for one time period. It never
@@ -71,9 +71,9 @@ type LeaderboardSnapshot struct {
 }
 
 type LeaderboardCurrent struct {
-	Participating bool                   `json:"participating"`
-	Usage         *LeaderboardUsageEntry `json:"usage,omitempty"`
-	Consumption   *LeaderboardUsageEntry `json:"consumption,omitempty"`
+	Participating bool                    `json:"participating"`
+	Usage         *LeaderboardUsageEntry  `json:"usage,omitempty"`
+	Consumption   *LeaderboardUsageEntry  `json:"consumption,omitempty"`
 	Rebate        *LeaderboardRebateEntry `json:"rebate,omitempty"`
 }
 

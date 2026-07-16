@@ -172,6 +172,20 @@ func (_c *UserCreate) SetNillableUsername(v *string) *UserCreate {
 	return _c
 }
 
+// SetLeaderboardEnabled sets the "leaderboard_enabled" field.
+func (_c *UserCreate) SetLeaderboardEnabled(v bool) *UserCreate {
+	_c.mutation.SetLeaderboardEnabled(v)
+	return _c
+}
+
+// SetNillableLeaderboardEnabled sets the "leaderboard_enabled" field if the given value is not nil.
+func (_c *UserCreate) SetNillableLeaderboardEnabled(v *bool) *UserCreate {
+	if v != nil {
+		_c.SetLeaderboardEnabled(*v)
+	}
+	return _c
+}
+
 // SetNotes sets the "notes" field.
 func (_c *UserCreate) SetNotes(v string) *UserCreate {
 	_c.mutation.SetNotes(v)
@@ -624,6 +638,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultUsername
 		_c.mutation.SetUsername(v)
 	}
+	if _, ok := _c.mutation.LeaderboardEnabled(); !ok {
+		v := user.DefaultLeaderboardEnabled
+		_c.mutation.SetLeaderboardEnabled(v)
+	}
 	if _, ok := _c.mutation.Notes(); !ok {
 		v := user.DefaultNotes
 		_c.mutation.SetNotes(v)
@@ -715,6 +733,9 @@ func (_c *UserCreate) check() error {
 		if err := user.UsernameValidator(v); err != nil {
 			return &ValidationError{Name: "username", err: fmt.Errorf(`ent: validator failed for field "User.username": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.LeaderboardEnabled(); !ok {
+		return &ValidationError{Name: "leaderboard_enabled", err: errors.New(`ent: missing required field "User.leaderboard_enabled"`)}
 	}
 	if _, ok := _c.mutation.Notes(); !ok {
 		return &ValidationError{Name: "notes", err: errors.New(`ent: missing required field "User.notes"`)}
@@ -815,6 +836,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)
 		_node.Username = value
+	}
+	if value, ok := _c.mutation.LeaderboardEnabled(); ok {
+		_spec.SetField(user.FieldLeaderboardEnabled, field.TypeBool, value)
+		_node.LeaderboardEnabled = value
 	}
 	if value, ok := _c.mutation.Notes(); ok {
 		_spec.SetField(user.FieldNotes, field.TypeString, value)
@@ -1276,6 +1301,18 @@ func (u *UserUpsert) UpdateUsername() *UserUpsert {
 	return u
 }
 
+// SetLeaderboardEnabled sets the "leaderboard_enabled" field.
+func (u *UserUpsert) SetLeaderboardEnabled(v bool) *UserUpsert {
+	u.Set(user.FieldLeaderboardEnabled, v)
+	return u
+}
+
+// UpdateLeaderboardEnabled sets the "leaderboard_enabled" field to the value that was provided on create.
+func (u *UserUpsert) UpdateLeaderboardEnabled() *UserUpsert {
+	u.SetExcluded(user.FieldLeaderboardEnabled)
+	return u
+}
+
 // SetNotes sets the "notes" field.
 func (u *UserUpsert) SetNotes(v string) *UserUpsert {
 	u.Set(user.FieldNotes, v)
@@ -1690,6 +1727,20 @@ func (u *UserUpsertOne) SetUsername(v string) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateUsername() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateUsername()
+	})
+}
+
+// SetLeaderboardEnabled sets the "leaderboard_enabled" field.
+func (u *UserUpsertOne) SetLeaderboardEnabled(v bool) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLeaderboardEnabled(v)
+	})
+}
+
+// UpdateLeaderboardEnabled sets the "leaderboard_enabled" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateLeaderboardEnabled() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLeaderboardEnabled()
 	})
 }
 
@@ -2307,6 +2358,20 @@ func (u *UserUpsertBulk) SetUsername(v string) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateUsername() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateUsername()
+	})
+}
+
+// SetLeaderboardEnabled sets the "leaderboard_enabled" field.
+func (u *UserUpsertBulk) SetLeaderboardEnabled(v bool) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetLeaderboardEnabled(v)
+	})
+}
+
+// UpdateLeaderboardEnabled sets the "leaderboard_enabled" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateLeaderboardEnabled() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateLeaderboardEnabled()
 	})
 }
 
