@@ -152,6 +152,7 @@ export default {
     apiKeys: 'API 密钥',
     batchImage: '批量生图',
     usage: '使用记录',
+    leaderboard: '排行榜',
     redeem: '兑换',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
@@ -420,6 +421,34 @@ export default {
     verifyFailed: '验证失败，请重试',
     notEnabled: '此操作需要开启二次验证，请先在个人资料中启用 TOTP。',
     adminApiKeyForbidden: '管理 API Key 无法执行此操作，请使用已通过二次验证的管理员会话。'
+  },
+
+  leaderboard: {
+    title: '排行榜',
+    description: '查看参与用户的使用、消费和邀请返利排行。',
+    privacyNote: '未设置用户名时，邮箱地址会以脱敏形式显示。',
+    participation: '参与排行榜',
+    notParticipating: '你当前未参与排行榜。打开上方开关后，将重新进入排名和总览统计。',
+    notRanked: '当前时间段内暂无你的排名数据。',
+    period24h: '24小时',
+    period72h: '72小时',
+    period7d: '7天',
+    period30d: '30天',
+    usageTab: '使用榜',
+    consumptionTab: '消费榜',
+    rebateTab: '返利榜',
+    rank: '排名',
+    currentRank: '当前排名：#{rank}',
+    user: '用户',
+    requests: '请求数',
+    tokens: 'Token',
+    cost: '消耗额度',
+    invitedUsers: '邀请用户',
+    rebateCount: '返利笔数',
+    rebateAmount: '返利金额',
+    empty: '当前时间段暂无排行榜数据。',
+    loadFailed: '排行榜加载失败。',
+    saveFailed: '排行榜参与状态保存失败。'
   },
 
   // Dashboard

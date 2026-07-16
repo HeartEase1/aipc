@@ -152,6 +152,7 @@ export default {
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
     usage: 'Usage',
+    leaderboard: 'Leaderboard',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
@@ -421,6 +422,34 @@ export default {
     verifyFailed: 'Verification failed, please try again',
     notEnabled: 'This operation requires two-factor authentication. Please enable TOTP in your profile first.',
     adminApiKeyForbidden: 'Admin API keys cannot perform this operation. Use a two-factor verified admin session.'
+  },
+
+  leaderboard: {
+    title: 'Leaderboard',
+    description: 'Compare usage, spending, and referral rebates across participating users.',
+    privacyNote: 'Users without a username are shown with a masked email address.',
+    participation: 'Join leaderboard',
+    notParticipating: 'You are not participating. Turn on the switch above to appear in rankings and totals.',
+    notRanked: 'You have no ranking data for this period.',
+    period24h: '24h',
+    period72h: '72h',
+    period7d: '7 days',
+    period30d: '30 days',
+    usageTab: 'Usage',
+    consumptionTab: 'Spending',
+    rebateTab: 'Rebates',
+    rank: 'Rank',
+    currentRank: 'Current: #{rank}',
+    user: 'User',
+    requests: 'Requests',
+    tokens: 'Tokens',
+    cost: 'Spent',
+    invitedUsers: 'New invitees',
+    rebateCount: 'Rebates',
+    rebateAmount: 'Rebate amount',
+    empty: 'No ranking data for this period.',
+    loadFailed: 'Failed to load leaderboard.',
+    saveFailed: 'Failed to update leaderboard participation.'
   },
 
   // Dashboard

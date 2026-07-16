@@ -62,6 +62,9 @@ func (User) Fields() []ent.Field {
 		field.String("username").
 			MaxLen(100).
 			Default(""),
+		field.Bool("leaderboard_enabled").
+			Default(true).
+			Comment("Whether the user is included in public leaderboard aggregates"),
 		// wechat field migrated to user_attribute_values (see migration 019)
 		field.String("notes").
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
