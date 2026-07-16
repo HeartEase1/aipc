@@ -96,6 +96,24 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('Consumer')
   })
 
+  it('labels summary totals and explains the active ranking scope', async () => {
+    const wrapper = mountLeaderboardView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('leaderboard.totalRequests')
+    expect(wrapper.text()).toContain('leaderboard.totalTokens')
+    expect(wrapper.text()).toContain('leaderboard.totalCost')
+    expect(wrapper.text()).toContain('leaderboard.summaryScope')
+    expect(wrapper.text()).toContain('leaderboard.usageRule')
+    expect(wrapper.text()).toContain('leaderboard.top20')
+
+    await buttonByText(wrapper, 'leaderboard.rebateTab').trigger('click')
+    expect(wrapper.text()).toContain('leaderboard.totalInvitedUsers')
+    expect(wrapper.text()).toContain('leaderboard.totalRebateCount')
+    expect(wrapper.text()).toContain('leaderboard.totalRebateAmount')
+    expect(wrapper.text()).toContain('leaderboard.rebateRule')
+  })
+
   it('updates participation and refreshes the current period', async () => {
     const wrapper = mountLeaderboardView()
     await flushPromises()
