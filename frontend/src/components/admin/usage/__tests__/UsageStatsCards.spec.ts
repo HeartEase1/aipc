@@ -17,6 +17,7 @@ const messages: Record<string, string> = {
   'usage.accountCost': 'Cost',
   'usage.standardCost': 'Standard',
   'usage.avgDuration': 'Avg Duration',
+  'usage.cacheHitRate': 'Cache hit rate',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -63,5 +64,23 @@ describe('UsageStatsCards', () => {
     expect(text).toContain('12')
     expect(text).toContain('Cache Read')
     expect(text).toContain('22')
+    expect(text).not.toContain('Cache hit rate')
+  })
+
+  it('shows aggregate cache hit rate when enabled', () => {
+    const wrapper = mount(UsageStatsCards, {
+      props: {
+        stats,
+        showCacheHitRate: true,
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Cache hit rate')
+    expect(wrapper.text()).toContain('16.4%')
   })
 })

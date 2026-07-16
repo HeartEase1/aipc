@@ -1,7 +1,12 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <UsageStatsCards :stats="usageStats" :show-account-cost="false" :strike-standard-cost="true" />
+      <UsageStatsCards
+        :stats="usageStats"
+        :show-account-cost="false"
+        :strike-standard-cost="true"
+        show-cache-hit-rate
+      />
 
       <div class="space-y-4">
         <div class="card p-4">
@@ -708,7 +713,6 @@ const allColumns = computed<Column[]>(() => [
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
   { key: 'tokens', label: t('usage.tokens'), sortable: false },
-  { key: 'cache_hit_rate', label: t('usage.cacheHitRate'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },

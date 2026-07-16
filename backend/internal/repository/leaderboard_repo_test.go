@@ -34,6 +34,8 @@ func TestLeaderboardQueriesUseStableOrderingAndInviteBindingTime(t *testing.T) {
 
 	require.Contains(t, usageQuery, "ORDER BY total_tokens DESC, request_count DESC, user_id ASC")
 	require.Contains(t, consumptionQuery, "ORDER BY actual_cost DESC, request_count DESC, user_id ASC")
+	require.Contains(t, usageQuery, "COALESCE(u.username, '') AS username")
+	require.Contains(t, usageQuery, "COALESCE(u.email, '') AS email")
 	require.Contains(t, rebateQuery, "ua.inviter_bound_at >= $1")
 	require.Contains(t, rebateQuery, "ORDER BY rebate_amount DESC, rebate_count DESC, user_id ASC")
 }

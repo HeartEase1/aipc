@@ -1,5 +1,8 @@
 <template>
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <div
+    class="grid grid-cols-2 gap-4"
+    :class="showCacheHitRate ? 'lg:grid-cols-5' : 'lg:grid-cols-4'"
+  >
     <div class="card p-4 flex items-center gap-3">
       <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30 text-blue-600">
         <Icon name="document" size="md" />
@@ -85,6 +88,18 @@
       </div>
       <div><p class="text-xs font-medium text-gray-500">{{ t('usage.avgDuration') }}</p><p class="text-xl font-bold">{{ formatDuration(stats?.average_duration_ms || 0) }}</p></div>
     </div>
+    <div v-if="showCacheHitRate" class="card p-4 flex items-center gap-3">
+      <div class="rounded-lg bg-cyan-100 p-2 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400">
+        <Icon name="database" size="md" />
+      </div>
+      <div>
+        <p class="text-xs font-medium text-gray-500">{{ t('usage.cacheHitRate') }}</p>
+        <p class="text-xl font-bold tabular-nums text-cyan-600 dark:text-cyan-400">
+          {{ cacheHitRate.toFixed(1) }}%
+        </p>
+        <p class="text-xs text-gray-400">{{ t('usage.inSelectedRange') }}</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -99,9 +114,11 @@ const props = withDefaults(defineProps<{
   stats: (AdminUsageStatsResponse | UsageStatsResponse) | null
   showAccountCost?: boolean
   strikeStandardCost?: boolean
+  showCacheHitRate?: boolean
 }>(), {
   showAccountCost: true,
   strikeStandardCost: false,
+  showCacheHitRate: false,
 })
 
 const { t } = useI18n()
@@ -112,6 +129,15 @@ const totalAccountCost = computed(() => {
 })
 const showAccountCost = computed(() => props.showAccountCost)
 const strikeStandardCost = computed(() => props.strikeStandardCost)
+const showCacheHitRate = computed(() => props.showCacheHitRate)
+const cacheHitRate = computed(() => {
+  const inputTokens = Math.max(props.stats?.total_input_tokens ?? 0, 0)
+  const cacheCreationTokens = Math.max(props.stats?.total_cache_creation_tokens ?? 0, 0)
+  const cacheReadTokens = Math.max(props.stats?.total_cache_read_tokens ?? 0, 0)
+  const totalPromptTokens = inputTokens + cacheCreationTokens + cacheReadTokens
+
+  return totalPromptTokens > 0 ? (cacheReadTokens / totalPromptTokens) * 100 : 0
+})
 
 const formatDuration = (ms: number) =>
   ms < 1000 ? `${ms.toFixed(0)}ms` : `${(ms / 1000).toFixed(2)}s`

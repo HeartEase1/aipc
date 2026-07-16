@@ -15,8 +15,8 @@ const leaderboardLimit = 20
 const leaderboardUsageAggregateSQL = `
 WITH aggregated AS (
     SELECT ul.user_id,
-           COALESCE(u.username, ''),
-           COALESCE(u.email, ''),
+           COALESCE(u.username, '') AS username,
+           COALESCE(u.email, '') AS email,
            COUNT(*)::bigint AS request_count,
            COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0)::bigint AS total_tokens,
            COALESCE(SUM(ul.actual_cost), 0)::double precision AS actual_cost

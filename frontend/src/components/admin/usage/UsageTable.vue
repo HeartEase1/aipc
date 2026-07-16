@@ -170,15 +170,6 @@
           </div>
         </template>
 
-        <template #cell-cache_hit_rate="{ row }">
-          <span
-            data-testid="cache-hit-rate"
-            class="text-sm font-medium tabular-nums text-violet-600 dark:text-violet-400"
-          >
-            {{ formatCacheHitRate(row) }}
-          </span>
-        </template>
-
         <template #cell-cost="{ row }">
           <div class="text-sm">
             <div class="flex items-center gap-1.5">
@@ -621,16 +612,6 @@ const formatDuration = (ms: number | null | undefined): string => {
   const totalSec = Math.round(ms / 1000)
   if (totalSec < 3600) return `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`
   return `${Math.floor(totalSec / 3600)}h ${Math.floor((totalSec % 3600) / 60)}m`
-}
-
-const formatCacheHitRate = (row: AdminUsageLog): string => {
-  const inputTokens = Math.max(row.input_tokens ?? 0, 0)
-  const cacheCreationTokens = Math.max(row.cache_creation_tokens ?? 0, 0)
-  const cacheReadTokens = Math.max(row.cache_read_tokens ?? 0, 0)
-  const totalPromptTokens = inputTokens + cacheCreationTokens + cacheReadTokens
-
-  if (totalPromptTokens === 0) return '-'
-  return `${((cacheReadTokens / totalPromptTokens) * 100).toFixed(1)}%`
 }
 
 // Cost tooltip functions
