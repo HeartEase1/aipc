@@ -327,6 +327,21 @@ const ChartIcon = {
     )
 }
 
+const TrophyIcon = {
+  render: () =>
+    h(
+      'svg',
+      { fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', 'stroke-width': '1.5' },
+      [
+        h('path', {
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          d: 'M8.25 4.5h7.5v3a3.75 3.75 0 01-7.5 0v-3zM8.25 6H5.625A1.125 1.125 0 004.5 7.125v.75a3.375 3.375 0 003.375 3.375m7.875-5.25h2.625a1.125 1.125 0 011.125 1.125v.75a3.375 3.375 0 01-3.375 3.375M12 11.25V15m-3 4.5h6m-3-4.5a3 3 0 00-3 3v1.5h6V18a3 3 0 00-3-3z'
+        })
+      ]
+    )
+}
+
 const GiftIcon = {
   render: () =>
     h(
@@ -703,7 +718,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/batch-image', label: t('nav.batchImage'), icon: BatchImageIcon, hideInSimpleMode: true, featureFlag: flagBatchImageAccess },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon, hideInSimpleMode: true },
-    { path: '/leaderboard', label: t('nav.leaderboard'), icon: ChartIcon },
+    { path: '/leaderboard', label: t('nav.leaderboard'), icon: TrophyIcon },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
     { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
