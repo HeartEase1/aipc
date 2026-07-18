@@ -148,7 +148,7 @@
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="hidden w-full min-w-[680px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[680px] text-left text-sm sm:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -182,7 +182,7 @@
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="hidden w-full min-w-[680px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[680px] text-left text-sm sm:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -216,7 +216,7 @@
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="hidden w-full min-w-[680px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[680px] text-left text-sm sm:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -251,7 +251,6 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { leaderboardAPI, type LeaderboardPeriod, type LeaderboardRebateEntry, type LeaderboardResponse, type LeaderboardUsageEntry } from '@/api/leaderboard'
 import { useAppStore } from '@/stores/app'
-import { formatCurrency } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
 type LeaderboardTabKey = 'usage' | 'consumption' | 'rebate'
@@ -331,19 +330,29 @@ const summaryItems = computed<SummaryItem[]>(() => {
     return [
       { label: t('leaderboard.totalInvitedUsers'), value: formatNumber(data.value.rebate.summary.invited_users), icon: 'users', borderClass: 'border-t-blue-500', iconClass: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
       { label: t('leaderboard.totalRebateCount'), value: formatNumber(data.value.rebate.summary.rebate_count), icon: 'document', borderClass: 'border-t-violet-500', iconClass: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
-      { label: t('leaderboard.totalRebateAmount'), value: formatCurrency(data.value.rebate.summary.rebate_amount), icon: 'gift', borderClass: 'border-t-amber-500', iconClass: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' }
+      { label: t('leaderboard.totalRebateAmount'), value: formatLeaderboardCurrency(data.value.rebate.summary.rebate_amount), icon: 'gift', borderClass: 'border-t-amber-500', iconClass: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' }
     ]
   }
   const summary = activeTab.value === 'usage' ? data.value.usage.summary : data.value.consumption.summary
   return [
     { label: t('leaderboard.totalRequests'), value: formatNumber(summary.request_count), icon: 'document', borderClass: 'border-t-blue-500', iconClass: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300' },
     { label: t('leaderboard.totalTokens'), value: formatNumber(summary.total_tokens), icon: 'cube', borderClass: 'border-t-violet-500', iconClass: 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' },
-    { label: t('leaderboard.totalCost'), value: formatCurrency(summary.actual_cost), icon: 'dollar', borderClass: 'border-t-emerald-500', iconClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' }
+    { label: t('leaderboard.totalCost'), value: formatLeaderboardCurrency(summary.actual_cost), icon: 'dollar', borderClass: 'border-t-emerald-500', iconClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' }
   ]
 })
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value || 0)
+}
+
+function formatLeaderboardCurrency(value: number): string {
+  const amount = Number.isFinite(value) ? value : 0
+  const fractionDigits = amount > 0 && amount < 0.01 ? 6 : 2
+  const formattedAmount = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  }).format(amount)
+  return `$${formattedAmount}`
 }
 
 async function load(): Promise<void> {
@@ -415,7 +424,7 @@ const UsageRow = defineComponent({
       h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.request_count)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.total_tokens)),
-      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatCurrency(props.entry.actual_cost))
+      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.actual_cost))
     ])
   }
 })
@@ -435,7 +444,7 @@ const RebateRow = defineComponent({
       h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.invited_users)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.rebate_count)),
-      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatCurrency(props.entry.rebate_amount))
+      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.rebate_amount))
     ])
   }
 })
@@ -467,7 +476,7 @@ const MobileUsageRow = defineComponent({
       h('div', { class: 'mt-3 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50/90 py-2.5 dark:divide-dark-700 dark:bg-dark-900/55' }, [
         mobileMetric(t('leaderboard.requests'), formatNumber(props.entry.request_count)),
         mobileMetric(t('leaderboard.tokens'), formatNumber(props.entry.total_tokens)),
-        mobileMetric(t('leaderboard.cost'), formatCurrency(props.entry.actual_cost), true)
+        mobileMetric(t('leaderboard.cost'), formatLeaderboardCurrency(props.entry.actual_cost), true)
       ])
     ])
   }
@@ -491,7 +500,7 @@ const MobileRebateRow = defineComponent({
       h('div', { class: 'mt-3 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50/90 py-2.5 dark:divide-dark-700 dark:bg-dark-900/55' }, [
         mobileMetric(t('leaderboard.invitedUsers'), formatNumber(props.entry.invited_users)),
         mobileMetric(t('leaderboard.rebateCount'), formatNumber(props.entry.rebate_count)),
-        mobileMetric(t('leaderboard.rebateAmount'), formatCurrency(props.entry.rebate_amount), true)
+        mobileMetric(t('leaderboard.rebateAmount'), formatLeaderboardCurrency(props.entry.rebate_amount), true)
       ])
     ])
   }
@@ -601,6 +610,27 @@ watch(period, () => { void load() }, { immediate: true })
     inset 0 1px 0 rgb(255 255 255 / 0.9),
     0 5px 0 rgb(209 213 219 / 0.78),
     0 22px 38px -28px rgb(15 23 42 / 0.7);
+}
+
+.leaderboard-desktop-table {
+  table-layout: fixed;
+}
+
+.leaderboard-desktop-table th:nth-child(1),
+.leaderboard-desktop-table td:nth-child(1) {
+  width: 26%;
+}
+
+.leaderboard-desktop-table th:nth-child(2),
+.leaderboard-desktop-table td:nth-child(2) {
+  width: 29%;
+}
+
+.leaderboard-desktop-table th:nth-child(n + 3),
+.leaderboard-desktop-table td:nth-child(n + 3) {
+  width: 15%;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .leaderboard-mobile-row {

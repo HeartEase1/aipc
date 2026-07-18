@@ -17,10 +17,6 @@ vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ showError })
 }))
 
-vi.mock('@/utils/format', () => ({
-  formatCurrency: (value: number) => `$${value.toFixed(2)}`
-}))
-
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {
@@ -106,6 +102,8 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('leaderboard.summaryScope')
     expect(wrapper.text()).toContain('leaderboard.usageRule')
     expect(wrapper.text()).toContain('leaderboard.top20')
+    expect(wrapper.text()).toContain('$1.20')
+    expect(wrapper.text()).not.toContain('US$')
 
     await buttonByText(wrapper, 'leaderboard.rebateTab').trigger('click')
     expect(wrapper.text()).toContain('leaderboard.totalInvitedUsers')
