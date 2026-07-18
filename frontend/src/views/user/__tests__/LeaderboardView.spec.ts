@@ -25,6 +25,13 @@ vi.mock('vue-i18n', async (importOriginal) => {
   }
 })
 
+vi.mock('vue-chartjs', () => ({
+  Doughnut: {
+    props: ['data'],
+    template: '<div data-testid="share-doughnut-chart">{{ JSON.stringify(data) }}</div>'
+  }
+}))
+
 const leaderboard = {
   period: '24h' as const,
   start_at: '2026-07-16T00:00:00Z',
@@ -110,6 +117,34 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('leaderboard.totalRebateCount')
     expect(wrapper.text()).toContain('leaderboard.totalRebateAmount')
     expect(wrapper.text()).toContain('leaderboard.rebateRule')
+  })
+
+  it('shows top-ranked and other-user shares for all three leaderboards', async () => {
+    const wrapper = mountLeaderboardView()
+    await flushPromises()
+
+    let overview = wrapper.get('[data-testid="leaderboard-share-overview"]')
+    expect(overview.text()).toContain('leaderboard.shareOverview')
+    expect(overview.text()).toContain('leaderboard.usageShareDescription')
+    expect(overview.get('[data-share-rank="1"]').text()).toContain('86.8%')
+    expect(overview.get('[data-share-rank="other"]').text()).toContain('13.2%')
+    expect(overview.get('[data-share-rank="1"]').text()).toContain('3,000')
+    expect(overview.text()).not.toContain('57.9%')
+    expect(wrapper.text()).toContain('leaderboard.share 57.9%')
+
+    await buttonByText(wrapper, 'leaderboard.consumptionTab').trigger('click')
+    overview = wrapper.get('[data-testid="leaderboard-share-overview"]')
+    expect(overview.text()).toContain('leaderboard.consumptionShareDescription')
+    expect(overview.get('[data-share-rank="1"]').text()).toContain('91.7%')
+    expect(overview.get('[data-share-rank="other"]').text()).toContain('8.3%')
+    expect(overview.get('[data-share-rank="1"]').text()).toContain('$1.10')
+
+    await buttonByText(wrapper, 'leaderboard.rebateTab').trigger('click')
+    overview = wrapper.get('[data-testid="leaderboard-share-overview"]')
+    expect(overview.text()).toContain('leaderboard.rebateShareDescription')
+    expect(overview.get('[data-share-rank="1"]').text()).toContain('60.0%')
+    expect(overview.get('[data-share-rank="other"]').text()).toContain('40.0%')
+    expect(overview.get('[data-share-rank="1"]').text()).toContain('$0.30')
   })
 
   it('updates participation and refreshes the current period', async () => {

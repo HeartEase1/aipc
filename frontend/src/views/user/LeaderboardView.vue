@@ -103,6 +103,13 @@
               </div>
             </div>
           </div>
+
+          <LeaderboardShareOverview
+            class="mt-4"
+            :items="shareOverviewItems"
+            :description="shareOverviewDescription"
+            :value-heading="shareOverviewValueHeading"
+          />
         </section>
 
         <div class="leaderboard-tabs grid grid-cols-3 gap-1.5 bg-gray-100 p-1.5 dark:bg-dark-900" role="tablist">
@@ -139,16 +146,26 @@
 
           <section v-if="activeTab === 'usage'" class="overflow-x-auto">
             <div class="space-y-3 p-3 sm:hidden">
-              <MobileUsageRow v-if="data.usage.current" :entry="data.usage.current" :self="true" />
+              <MobileUsageRow
+                v-if="data.usage.current"
+                :entry="data.usage.current"
+                :share="calculateShare(data.usage.current.total_tokens, data.usage.summary.total_tokens)"
+                :self="true"
+              />
               <div v-else-if="data.participating" class="rounded-xl border border-primary-200 bg-primary-50 p-4 text-center text-sm text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-300">
                 {{ t('leaderboard.notRanked') }}
               </div>
-              <MobileUsageRow v-for="entry in data.usage.entries" :key="entry.rank" :entry="entry" />
+              <MobileUsageRow
+                v-for="entry in data.usage.entries"
+                :key="entry.rank"
+                :entry="entry"
+                :share="calculateShare(entry.total_tokens, data.usage.summary.total_tokens)"
+              />
               <div v-if="data.usage.entries.length === 0" class="py-8 text-center text-sm text-gray-500 dark:text-dark-400">
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="leaderboard-desktop-table hidden w-full min-w-[680px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[800px] text-left text-sm sm:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -156,16 +173,27 @@
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.requests') }}</th>
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.tokens') }}</th>
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.cost') }}</th>
+                  <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.share') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <UsageRow v-if="data.usage.current" :entry="data.usage.current" :self="true" />
+                <UsageRow
+                  v-if="data.usage.current"
+                  :entry="data.usage.current"
+                  :share="calculateShare(data.usage.current.total_tokens, data.usage.summary.total_tokens)"
+                  :self="true"
+                />
                 <tr v-else-if="data.participating" class="border-b border-primary-200 bg-primary-50/70 dark:border-primary-900/40 dark:bg-primary-950/20">
-                  <td colspan="5" class="border-l-4 border-primary-500 px-4 py-3 text-center text-sm text-primary-700 dark:text-primary-300">{{ t('leaderboard.notRanked') }}</td>
+                  <td colspan="6" class="border-l-4 border-primary-500 px-4 py-3 text-center text-sm text-primary-700 dark:text-primary-300">{{ t('leaderboard.notRanked') }}</td>
                 </tr>
-                <UsageRow v-for="entry in data.usage.entries" :key="entry.rank" :entry="entry" />
+                <UsageRow
+                  v-for="entry in data.usage.entries"
+                  :key="entry.rank"
+                  :entry="entry"
+                  :share="calculateShare(entry.total_tokens, data.usage.summary.total_tokens)"
+                />
                 <tr v-if="data.usage.entries.length === 0" class="border-b border-gray-100 dark:border-dark-800">
-                  <td colspan="5" class="px-4 py-10 text-center text-gray-500 dark:text-dark-400">{{ t('leaderboard.empty') }}</td>
+                  <td colspan="6" class="px-4 py-10 text-center text-gray-500 dark:text-dark-400">{{ t('leaderboard.empty') }}</td>
                 </tr>
               </tbody>
             </table>
@@ -173,16 +201,26 @@
 
           <section v-else-if="activeTab === 'consumption'" class="overflow-x-auto">
             <div class="space-y-3 p-3 sm:hidden">
-              <MobileUsageRow v-if="data.consumption.current" :entry="data.consumption.current" :self="true" />
+              <MobileUsageRow
+                v-if="data.consumption.current"
+                :entry="data.consumption.current"
+                :share="calculateShare(data.consumption.current.actual_cost, data.consumption.summary.actual_cost)"
+                :self="true"
+              />
               <div v-else-if="data.participating" class="rounded-xl border border-primary-200 bg-primary-50 p-4 text-center text-sm text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-300">
                 {{ t('leaderboard.notRanked') }}
               </div>
-              <MobileUsageRow v-for="entry in data.consumption.entries" :key="entry.rank" :entry="entry" />
+              <MobileUsageRow
+                v-for="entry in data.consumption.entries"
+                :key="entry.rank"
+                :entry="entry"
+                :share="calculateShare(entry.actual_cost, data.consumption.summary.actual_cost)"
+              />
               <div v-if="data.consumption.entries.length === 0" class="py-8 text-center text-sm text-gray-500 dark:text-dark-400">
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="leaderboard-desktop-table hidden w-full min-w-[680px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[800px] text-left text-sm sm:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -190,16 +228,27 @@
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.requests') }}</th>
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.tokens') }}</th>
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.cost') }}</th>
+                  <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.share') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <UsageRow v-if="data.consumption.current" :entry="data.consumption.current" :self="true" />
+                <UsageRow
+                  v-if="data.consumption.current"
+                  :entry="data.consumption.current"
+                  :share="calculateShare(data.consumption.current.actual_cost, data.consumption.summary.actual_cost)"
+                  :self="true"
+                />
                 <tr v-else-if="data.participating" class="border-b border-primary-200 bg-primary-50/70 dark:border-primary-900/40 dark:bg-primary-950/20">
-                  <td colspan="5" class="border-l-4 border-primary-500 px-4 py-3 text-center text-sm text-primary-700 dark:text-primary-300">{{ t('leaderboard.notRanked') }}</td>
+                  <td colspan="6" class="border-l-4 border-primary-500 px-4 py-3 text-center text-sm text-primary-700 dark:text-primary-300">{{ t('leaderboard.notRanked') }}</td>
                 </tr>
-                <UsageRow v-for="entry in data.consumption.entries" :key="entry.rank" :entry="entry" />
+                <UsageRow
+                  v-for="entry in data.consumption.entries"
+                  :key="entry.rank"
+                  :entry="entry"
+                  :share="calculateShare(entry.actual_cost, data.consumption.summary.actual_cost)"
+                />
                 <tr v-if="data.consumption.entries.length === 0" class="border-b border-gray-100 dark:border-dark-800">
-                  <td colspan="5" class="px-4 py-10 text-center text-gray-500 dark:text-dark-400">{{ t('leaderboard.empty') }}</td>
+                  <td colspan="6" class="px-4 py-10 text-center text-gray-500 dark:text-dark-400">{{ t('leaderboard.empty') }}</td>
                 </tr>
               </tbody>
             </table>
@@ -207,16 +256,26 @@
 
           <section v-else class="overflow-x-auto">
             <div class="space-y-3 p-3 sm:hidden">
-              <MobileRebateRow v-if="data.rebate.current" :entry="data.rebate.current" :self="true" />
+              <MobileRebateRow
+                v-if="data.rebate.current"
+                :entry="data.rebate.current"
+                :share="calculateShare(data.rebate.current.rebate_amount, data.rebate.summary.rebate_amount)"
+                :self="true"
+              />
               <div v-else-if="data.participating" class="rounded-xl border border-primary-200 bg-primary-50 p-4 text-center text-sm text-primary-700 dark:border-primary-900/40 dark:bg-primary-950/20 dark:text-primary-300">
                 {{ t('leaderboard.notRanked') }}
               </div>
-              <MobileRebateRow v-for="entry in data.rebate.entries" :key="entry.rank" :entry="entry" />
+              <MobileRebateRow
+                v-for="entry in data.rebate.entries"
+                :key="entry.rank"
+                :entry="entry"
+                :share="calculateShare(entry.rebate_amount, data.rebate.summary.rebate_amount)"
+              />
               <div v-if="data.rebate.entries.length === 0" class="py-8 text-center text-sm text-gray-500 dark:text-dark-400">
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="leaderboard-desktop-table hidden w-full min-w-[680px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[800px] text-left text-sm sm:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -224,16 +283,27 @@
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.invitedUsers') }}</th>
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.rebateCount') }}</th>
                   <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.rebateAmount') }}</th>
+                  <th scope="col" class="px-4 py-3 text-right font-medium">{{ t('leaderboard.share') }}</th>
                 </tr>
               </thead>
               <tbody>
-                <RebateRow v-if="data.rebate.current" :entry="data.rebate.current" :self="true" />
+                <RebateRow
+                  v-if="data.rebate.current"
+                  :entry="data.rebate.current"
+                  :share="calculateShare(data.rebate.current.rebate_amount, data.rebate.summary.rebate_amount)"
+                  :self="true"
+                />
                 <tr v-else-if="data.participating" class="border-b border-primary-200 bg-primary-50/70 dark:border-primary-900/40 dark:bg-primary-950/20">
-                  <td colspan="5" class="border-l-4 border-primary-500 px-4 py-3 text-center text-sm text-primary-700 dark:text-primary-300">{{ t('leaderboard.notRanked') }}</td>
+                  <td colspan="6" class="border-l-4 border-primary-500 px-4 py-3 text-center text-sm text-primary-700 dark:text-primary-300">{{ t('leaderboard.notRanked') }}</td>
                 </tr>
-                <RebateRow v-for="entry in data.rebate.entries" :key="entry.rank" :entry="entry" />
+                <RebateRow
+                  v-for="entry in data.rebate.entries"
+                  :key="entry.rank"
+                  :entry="entry"
+                  :share="calculateShare(entry.rebate_amount, data.rebate.summary.rebate_amount)"
+                />
                 <tr v-if="data.rebate.entries.length === 0" class="border-b border-gray-100 dark:border-dark-800">
-                  <td colspan="5" class="px-4 py-10 text-center text-gray-500 dark:text-dark-400">{{ t('leaderboard.empty') }}</td>
+                  <td colspan="6" class="px-4 py-10 text-center text-gray-500 dark:text-dark-400">{{ t('leaderboard.empty') }}</td>
                 </tr>
               </tbody>
             </table>
@@ -249,6 +319,7 @@ import { computed, defineComponent, h, ref, type PropType, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import LeaderboardShareOverview from '@/components/user/leaderboard/LeaderboardShareOverview.vue'
 import { leaderboardAPI, type LeaderboardPeriod, type LeaderboardRebateEntry, type LeaderboardResponse, type LeaderboardUsageEntry } from '@/api/leaderboard'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -271,6 +342,16 @@ interface SummaryItem {
   icon: LeaderboardIcon
   borderClass: string
   iconClass: string
+}
+
+interface LeaderboardShareItem {
+  key: string
+  rank?: number
+  displayName: string
+  percentage: number
+  percentageLabel: string
+  valueLabel: string
+  isOther?: boolean
 }
 
 const { t } = useI18n()
@@ -341,6 +422,77 @@ const summaryItems = computed<SummaryItem[]>(() => {
   ]
 })
 
+const shareOverviewDescription = computed(() => {
+  if (activeTab.value === 'consumption') return t('leaderboard.consumptionShareDescription')
+  if (activeTab.value === 'rebate') return t('leaderboard.rebateShareDescription')
+  return t('leaderboard.usageShareDescription')
+})
+
+const shareOverviewValueHeading = computed(() => {
+  if (activeTab.value === 'consumption') return t('leaderboard.cost')
+  if (activeTab.value === 'rebate') return t('leaderboard.rebateAmount')
+  return t('leaderboard.tokens')
+})
+
+const shareOverviewItems = computed<LeaderboardShareItem[]>(() => {
+  if (!data.value) return []
+
+  let total = data.value.usage.summary.total_tokens
+  let entries = data.value.usage.entries.map((entry) => ({
+    rank: entry.rank,
+    displayName: entry.display_name,
+    value: entry.total_tokens
+  }))
+
+  if (activeTab.value === 'consumption') {
+    total = data.value.consumption.summary.actual_cost
+    entries = data.value.consumption.entries.map((entry) => ({
+      rank: entry.rank,
+      displayName: entry.display_name,
+      value: entry.actual_cost
+    }))
+  } else if (activeTab.value === 'rebate') {
+    total = data.value.rebate.summary.rebate_amount
+    entries = data.value.rebate.entries.map((entry) => ({
+      rank: entry.rank,
+      displayName: entry.display_name,
+      value: entry.rebate_amount
+    }))
+  }
+
+  const rankedTotal = entries.reduce((sum, entry) => sum + Math.max(entry.value, 0), 0)
+  const rankedItems = entries.map((entry) => {
+    const value = Math.max(entry.value, 0)
+    const percentage = calculateShare(value, total)
+    return {
+      key: `rank-${entry.rank}`,
+      rank: entry.rank,
+      displayName: entry.displayName,
+      percentage,
+      percentageLabel: formatSharePercentage(percentage),
+      valueLabel: activeTab.value === 'usage'
+        ? formatNumber(value)
+        : formatLeaderboardCurrency(value)
+    }
+  })
+  const otherValue = Math.max(total - rankedTotal, 0)
+  const otherPercentage = calculateShare(otherValue, total)
+
+  return [
+    ...rankedItems,
+    {
+      key: 'other',
+      displayName: t('leaderboard.otherUsers'),
+      percentage: otherPercentage,
+      percentageLabel: formatSharePercentage(otherPercentage),
+      valueLabel: activeTab.value === 'usage'
+        ? formatNumber(otherValue)
+        : formatLeaderboardCurrency(otherValue),
+      isOther: true
+    }
+  ]
+})
+
 function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value || 0)
 }
@@ -353,6 +505,18 @@ function formatLeaderboardCurrency(value: number): string {
     maximumFractionDigits: fractionDigits
   }).format(amount)
   return `$${formattedAmount}`
+}
+
+function calculateShare(value: number, total: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(total) || value <= 0 || total <= 0) return 0
+  return Math.min((value / total) * 100, 100)
+}
+
+function formatSharePercentage(value: number): string {
+  if (value <= 0) return '0%'
+  if (value < 0.1) return '<0.1%'
+  if (value < 1) return `${value.toFixed(2)}%`
+  return `${value.toFixed(1)}%`
 }
 
 async function load(): Promise<void> {
@@ -403,15 +567,34 @@ function currentRankCell(rank: number) {
 }
 
 function displayNameCell(displayName: string, self: boolean) {
-  return h('div', { class: 'flex items-center gap-2' }, [
-    h('span', { class: 'font-medium text-gray-900 dark:text-white' }, displayName),
+  return h('div', { class: 'flex min-w-0 items-center gap-2' }, [
+    h('span', { class: 'min-w-0 truncate font-medium text-gray-900 dark:text-white', title: displayName }, displayName),
     self ? h('span', { class: 'rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-inset ring-primary-200 dark:bg-primary-500/15 dark:text-primary-300 dark:ring-primary-500/20' }, t('leaderboard.myData')) : null
+  ])
+}
+
+function shareCell(share: number) {
+  return h('div', { class: 'ml-auto w-full max-w-20' }, [
+    h('span', { class: 'block text-right text-xs font-bold tabular-nums text-gray-900 dark:text-white' }, formatSharePercentage(share)),
+    h('span', { class: 'mt-1.5 block h-1.5 overflow-hidden rounded-full bg-gray-100 shadow-inner dark:bg-dark-900' }, [
+      h('span', {
+        class: 'block h-full rounded-full bg-primary-500',
+        style: { width: `${share}%` }
+      })
+    ])
+  ])
+}
+
+function mobileShareBadge(share: number) {
+  return h('span', { class: 'rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold tabular-nums text-gray-700 ring-1 ring-inset ring-gray-200 dark:bg-dark-900/70 dark:text-dark-200 dark:ring-dark-600' }, [
+    `${t('leaderboard.share')} ${formatSharePercentage(share)}`
   ])
 }
 
 const UsageRow = defineComponent({
   props: {
     entry: { type: Object as PropType<LeaderboardUsageEntry>, required: true },
+    share: { type: Number, required: true },
     self: { type: Boolean, default: false }
   },
   setup(props) {
@@ -424,7 +607,8 @@ const UsageRow = defineComponent({
       h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.request_count)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.total_tokens)),
-      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.actual_cost))
+      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.actual_cost)),
+      h('td', { class: 'px-4 py-3' }, shareCell(props.share))
     ])
   }
 })
@@ -432,6 +616,7 @@ const UsageRow = defineComponent({
 const RebateRow = defineComponent({
   props: {
     entry: { type: Object as PropType<LeaderboardRebateEntry>, required: true },
+    share: { type: Number, required: true },
     self: { type: Boolean, default: false }
   },
   setup(props) {
@@ -444,7 +629,8 @@ const RebateRow = defineComponent({
       h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.invited_users)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.rebate_count)),
-      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.rebate_amount))
+      h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.rebate_amount)),
+      h('td', { class: 'px-4 py-3' }, shareCell(props.share))
     ])
   }
 })
@@ -461,6 +647,7 @@ function mobileMetric(label: string, value: string, emphasized = false) {
 const MobileUsageRow = defineComponent({
   props: {
     entry: { type: Object as PropType<LeaderboardUsageEntry>, required: true },
+    share: { type: Number, required: true },
     self: { type: Boolean, default: false }
   },
   setup(props) {
@@ -471,7 +658,10 @@ const MobileUsageRow = defineComponent({
     }, [
       h('div', { class: 'flex items-center justify-between gap-3' }, [
         props.self ? currentRankCell(props.entry.rank) : rankBadge(props.entry.rank),
-        displayNameCell(props.entry.display_name, props.self)
+        h('div', { class: 'flex min-w-0 flex-col items-end gap-1.5' }, [
+          displayNameCell(props.entry.display_name, props.self),
+          mobileShareBadge(props.share)
+        ])
       ]),
       h('div', { class: 'mt-3 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50/90 py-2.5 dark:divide-dark-700 dark:bg-dark-900/55' }, [
         mobileMetric(t('leaderboard.requests'), formatNumber(props.entry.request_count)),
@@ -485,6 +675,7 @@ const MobileUsageRow = defineComponent({
 const MobileRebateRow = defineComponent({
   props: {
     entry: { type: Object as PropType<LeaderboardRebateEntry>, required: true },
+    share: { type: Number, required: true },
     self: { type: Boolean, default: false }
   },
   setup(props) {
@@ -495,7 +686,10 @@ const MobileRebateRow = defineComponent({
     }, [
       h('div', { class: 'flex items-center justify-between gap-3' }, [
         props.self ? currentRankCell(props.entry.rank) : rankBadge(props.entry.rank),
-        displayNameCell(props.entry.display_name, props.self)
+        h('div', { class: 'flex min-w-0 flex-col items-end gap-1.5' }, [
+          displayNameCell(props.entry.display_name, props.self),
+          mobileShareBadge(props.share)
+        ])
       ]),
       h('div', { class: 'mt-3 grid grid-cols-3 divide-x divide-gray-200 rounded-lg bg-gray-50/90 py-2.5 dark:divide-dark-700 dark:bg-dark-900/55' }, [
         mobileMetric(t('leaderboard.invitedUsers'), formatNumber(props.entry.invited_users)),
@@ -618,19 +812,35 @@ watch(period, () => { void load() }, { immediate: true })
 
 .leaderboard-desktop-table th:nth-child(1),
 .leaderboard-desktop-table td:nth-child(1) {
-  width: 26%;
+  width: 21%;
 }
 
 .leaderboard-desktop-table th:nth-child(2),
 .leaderboard-desktop-table td:nth-child(2) {
-  width: 29%;
+  width: 24%;
 }
 
 .leaderboard-desktop-table th:nth-child(n + 3),
 .leaderboard-desktop-table td:nth-child(n + 3) {
-  width: 15%;
   text-align: right;
   white-space: nowrap;
+}
+
+.leaderboard-desktop-table th:nth-child(3),
+.leaderboard-desktop-table td:nth-child(3) {
+  width: 12%;
+}
+
+.leaderboard-desktop-table th:nth-child(4),
+.leaderboard-desktop-table td:nth-child(4),
+.leaderboard-desktop-table th:nth-child(5),
+.leaderboard-desktop-table td:nth-child(5) {
+  width: 15%;
+}
+
+.leaderboard-desktop-table th:nth-child(6),
+.leaderboard-desktop-table td:nth-child(6) {
+  width: 13%;
 }
 
 .leaderboard-mobile-row {

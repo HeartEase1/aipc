@@ -99,13 +99,12 @@
     <div v-if="activeView === 'model_distribution' && loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
     </div>
-    <div
+    <DoughnutDistributionLayout
       v-else-if="activeView === 'model_distribution' && displayModelStats.length > 0 && chartData"
-      class="flex items-center gap-6"
+      :data="chartData"
+      :options="doughnutOptions"
+      :chart-label="t('admin.dashboard.modelDistribution')"
     >
-      <div class="h-48 w-48">
-        <Doughnut :data="chartData" :options="doughnutOptions" />
-      </div>
       <div class="max-h-48 flex-1 overflow-y-auto">
         <table class="w-full text-xs">
           <thead>
@@ -165,7 +164,7 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </DoughnutDistributionLayout>
     <div
       v-else-if="activeView === 'model_distribution'"
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
@@ -182,10 +181,12 @@
     >
       {{ t('admin.dashboard.failedToLoad') }}
     </div>
-    <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="flex items-center gap-6">
-      <div class="h-48 w-48">
-        <Doughnut :data="rankingChartData" :options="rankingDoughnutOptions" />
-      </div>
+    <DoughnutDistributionLayout
+      v-else-if="rankingDisplayItems.length > 0 && rankingChartData"
+      :data="rankingChartData"
+      :options="rankingDoughnutOptions"
+      :chart-label="t('admin.dashboard.spendingRankingTitle')"
+    >
       <div class="max-h-48 flex-1 overflow-y-auto">
         <table class="w-full text-xs">
           <thead>
@@ -232,7 +233,7 @@
           </tbody>
         </table>
       </div>
-    </div>
+    </DoughnutDistributionLayout>
     <div
       v-else
       class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
@@ -245,14 +246,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Doughnut } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import DoughnutDistributionLayout from './DoughnutDistributionLayout.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
+import { DISTRIBUTION_CHART_COLORS, DISTRIBUTION_OTHER_COLOR } from './distributionChart'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import { getUserBreakdown } from '@/api/admin/dashboard'
-
-ChartJS.register(ArcElement, Tooltip, Legend)
 
 const { t } = useI18n()
 
@@ -339,21 +338,6 @@ const showAccountCost = computed(() => props.showAccountCost)
 const distributionColspan = computed(() => showAccountCost.value ? 6 : 5)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
 
-const chartColors = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-  '#6366f1',
-  '#84cc16',
-  '#06b6d4',
-  '#a855f7'
-]
-
 const displayModelStats = computed(() => {
   const sourceStats = props.source === 'upstream'
     ? props.upstreamModelStats
@@ -374,7 +358,7 @@ const chartData = computed(() => {
     datasets: [
       {
         data: displayModelStats.value.map((m) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)),
-        backgroundColor: chartColors.slice(0, displayModelStats.value.length),
+        backgroundColor: DISTRIBUTION_CHART_COLORS.slice(0, displayModelStats.value.length),
         borderWidth: 0
       }
     ]
@@ -386,12 +370,12 @@ const rankingChartData = computed(() => {
 
   const labels = props.rankingItems.map((item, index) => `#${index + 1} ${getRankingUserLabel(item)}`)
   const data = props.rankingItems.map((item) => toFiniteNumber(item.actual_cost))
-  const backgroundColor = chartColors.slice(0, props.rankingItems.length)
+  const backgroundColor: string[] = DISTRIBUTION_CHART_COLORS.slice(0, props.rankingItems.length)
 
   if (otherRankingItem.value) {
     labels.push(t('admin.dashboard.spendingRankingOther'))
     data.push(otherRankingItem.value.actual_cost)
-    backgroundColor.push('#94a3b8')
+    backgroundColor.push(DISTRIBUTION_OTHER_COLOR)
   }
 
   return {
