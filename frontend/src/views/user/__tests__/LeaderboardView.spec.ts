@@ -97,6 +97,22 @@ describe('LeaderboardView', () => {
     expect(wrapper.findAll('td').some((cell) => cell.text().startsWith('0'))).toBe(true)
     await buttonByText(wrapper, 'leaderboard.consumptionTab').trigger('click')
     expect(wrapper.text()).toContain('Consumer')
+    expect(wrapper.text()).not.toContain('leaderboard.platformId')
+  })
+
+  it('shows platform IDs included in an administrator response', async () => {
+    getLeaderboard.mockResolvedValueOnce({
+      ...leaderboard,
+      usage: {
+        ...leaderboard.usage,
+        entries: [{ ...leaderboard.usage.entries[0], platform_id: 101 }]
+      }
+    })
+
+    const wrapper = mountLeaderboardView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('leaderboard.platformId #101')
   })
 
   it('labels summary totals and explains the active ranking scope', async () => {

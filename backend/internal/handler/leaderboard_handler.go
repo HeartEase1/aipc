@@ -29,7 +29,8 @@ func (h *LeaderboardHandler) Get(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	result, err := h.service.Get(c.Request.Context(), subject.UserID, period)
+	role, _ := middleware2.GetUserRoleFromContext(c)
+	result, err := h.service.Get(c.Request.Context(), subject.UserID, period, role == service.RoleAdmin)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

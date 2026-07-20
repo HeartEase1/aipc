@@ -86,13 +86,42 @@ func TestLeaderboardUsesSnapshotCacheAndAlwaysLoadsCurrentUser(t *testing.T) {
 	svc := NewLeaderboardService(repo, cache)
 	svc.now = func() time.Time { return time.Date(2026, 7, 17, 0, 0, 0, 0, time.UTC) }
 
-	result, err := svc.Get(context.Background(), 9, LeaderboardPeriod24Hours)
+	result, err := svc.Get(context.Background(), 9, LeaderboardPeriod24Hours, false)
 	require.NoError(t, err)
 	require.Zero(t, repo.snapshotCalls)
 	require.Equal(t, 1, repo.currentCalls)
 	require.True(t, result.Participating)
 	require.NotNil(t, result.Usage.Current)
 	require.Equal(t, 3, result.Usage.Current.Rank)
+}
+
+func TestLeaderboardPlatformIDsAreAdminOnlyAndDoNotContaminateCache(t *testing.T) {
+	snapshot := &LeaderboardSnapshot{
+		Usage:  LeaderboardUsageBoard{Entries: []LeaderboardUsageEntry{{Rank: 1, UserID: 2}}},
+		Rebate: LeaderboardRebateBoard{Entries: []LeaderboardRebateEntry{{Rank: 1, UserID: 3}}},
+	}
+	repo := &leaderboardRepositoryStub{
+		snapshot: snapshot,
+		current: &LeaderboardCurrent{
+			Participating: true,
+			Usage:         &LeaderboardUsageEntry{Rank: 4, UserID: 9},
+		},
+	}
+	cache := &leaderboardCacheStub{snapshot: snapshot}
+	svc := NewLeaderboardService(repo, cache)
+
+	adminResult, err := svc.Get(context.Background(), 9, LeaderboardPeriod24Hours, true)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), *adminResult.Usage.Entries[0].PlatformID)
+	require.Equal(t, int64(3), *adminResult.Rebate.Entries[0].PlatformID)
+	require.Equal(t, int64(9), *adminResult.Usage.Current.PlatformID)
+
+	userResult, err := svc.Get(context.Background(), 9, LeaderboardPeriod24Hours, false)
+	require.NoError(t, err)
+	require.Nil(t, userResult.Usage.Entries[0].PlatformID)
+	require.Nil(t, userResult.Rebate.Entries[0].PlatformID)
+	require.Nil(t, userResult.Usage.Current.PlatformID)
+	require.Nil(t, snapshot.Usage.Entries[0].PlatformID)
 }
 
 func TestLeaderboardParticipationInvalidatesSnapshots(t *testing.T) {

@@ -45,6 +45,7 @@ export default {
     rank: '順位',
     currentRank: '現在の順位: #{rank}',
     user: 'ユーザー',
+    platformId: 'プラットフォームID',
     requests: 'リクエスト数',
     tokens: 'トークン',
     cost: '消費額',

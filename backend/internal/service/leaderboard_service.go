@@ -23,6 +23,7 @@ const (
 type LeaderboardUsageEntry struct {
 	Rank         int     `json:"rank"`
 	UserID       int64   `json:"-"`
+	PlatformID   *int64  `json:"platform_id,omitempty"`
 	DisplayName  string  `json:"display_name"`
 	RequestCount int64   `json:"request_count"`
 	TotalTokens  int64   `json:"total_tokens"`
@@ -32,6 +33,7 @@ type LeaderboardUsageEntry struct {
 type LeaderboardRebateEntry struct {
 	Rank         int     `json:"rank"`
 	UserID       int64   `json:"-"`
+	PlatformID   *int64  `json:"platform_id,omitempty"`
 	DisplayName  string  `json:"display_name"`
 	InvitedUsers int64   `json:"invited_users"`
 	RebateCount  int64   `json:"rebate_count"`
@@ -120,7 +122,7 @@ func ParseLeaderboardPeriod(raw string) (LeaderboardPeriod, error) {
 	}
 }
 
-func (s *LeaderboardService) Get(ctx context.Context, userID int64, period LeaderboardPeriod) (*LeaderboardResponse, error) {
+func (s *LeaderboardService) Get(ctx context.Context, userID int64, period LeaderboardPeriod, includePlatformIDs bool) (*LeaderboardResponse, error) {
 	if s == nil || s.repository == nil {
 		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "leaderboard service unavailable")
 	}
@@ -156,16 +158,62 @@ func (s *LeaderboardService) Get(ctx context.Context, userID int64, period Leade
 		StartAt:       startAt,
 		EndAt:         endAt,
 		Participating: current.Participating,
-		Usage:         snapshot.Usage,
-		Consumption:   snapshot.Consumption,
-		Rebate:        snapshot.Rebate,
+		Usage:         leaderboardUsageBoardForViewer(snapshot.Usage, includePlatformIDs),
+		Consumption:   leaderboardUsageBoardForViewer(snapshot.Consumption, includePlatformIDs),
+		Rebate:        leaderboardRebateBoardForViewer(snapshot.Rebate, includePlatformIDs),
 	}
 	if current.Participating {
-		response.Usage.Current = current.Usage
-		response.Consumption.Current = current.Consumption
-		response.Rebate.Current = current.Rebate
+		response.Usage.Current = leaderboardUsageEntryForViewer(current.Usage, includePlatformIDs)
+		response.Consumption.Current = leaderboardUsageEntryForViewer(current.Consumption, includePlatformIDs)
+		response.Rebate.Current = leaderboardRebateEntryForViewer(current.Rebate, includePlatformIDs)
 	}
 	return response, nil
+}
+
+func leaderboardUsageBoardForViewer(board LeaderboardUsageBoard, includePlatformIDs bool) LeaderboardUsageBoard {
+	result := board
+	result.Current = nil
+	result.Entries = append([]LeaderboardUsageEntry(nil), board.Entries...)
+	for i := range result.Entries {
+		result.Entries[i].PlatformID = leaderboardPlatformID(result.Entries[i].UserID, includePlatformIDs)
+	}
+	return result
+}
+
+func leaderboardRebateBoardForViewer(board LeaderboardRebateBoard, includePlatformIDs bool) LeaderboardRebateBoard {
+	result := board
+	result.Current = nil
+	result.Entries = append([]LeaderboardRebateEntry(nil), board.Entries...)
+	for i := range result.Entries {
+		result.Entries[i].PlatformID = leaderboardPlatformID(result.Entries[i].UserID, includePlatformIDs)
+	}
+	return result
+}
+
+func leaderboardUsageEntryForViewer(entry *LeaderboardUsageEntry, includePlatformIDs bool) *LeaderboardUsageEntry {
+	if entry == nil {
+		return nil
+	}
+	result := *entry
+	result.PlatformID = leaderboardPlatformID(result.UserID, includePlatformIDs)
+	return &result
+}
+
+func leaderboardRebateEntryForViewer(entry *LeaderboardRebateEntry, includePlatformIDs bool) *LeaderboardRebateEntry {
+	if entry == nil {
+		return nil
+	}
+	result := *entry
+	result.PlatformID = leaderboardPlatformID(result.UserID, includePlatformIDs)
+	return &result
+}
+
+func leaderboardPlatformID(userID int64, include bool) *int64 {
+	if !include {
+		return nil
+	}
+	id := userID
+	return &id
 }
 
 func (s *LeaderboardService) SetParticipation(ctx context.Context, userID int64, enabled bool) error {

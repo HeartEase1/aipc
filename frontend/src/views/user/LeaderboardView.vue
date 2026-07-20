@@ -566,10 +566,15 @@ function currentRankCell(rank: number) {
   ])
 }
 
-function displayNameCell(displayName: string, self: boolean) {
-  return h('div', { class: 'flex min-w-0 items-center gap-2' }, [
-    h('span', { class: 'min-w-0 truncate font-medium text-gray-900 dark:text-white', title: displayName }, displayName),
-    self ? h('span', { class: 'rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-inset ring-primary-200 dark:bg-primary-500/15 dark:text-primary-300 dark:ring-primary-500/20' }, t('leaderboard.myData')) : null
+function displayNameCell(displayName: string, self: boolean, platformID?: number, alignEnd = false) {
+  return h('div', { class: `flex min-w-0 flex-col gap-1 ${alignEnd ? 'items-end text-right' : 'items-start'}` }, [
+    h('div', { class: 'flex min-w-0 max-w-full items-center gap-2' }, [
+      h('span', { class: 'min-w-0 truncate font-medium text-gray-900 dark:text-white', title: displayName }, displayName),
+      self ? h('span', { class: 'shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-inset ring-primary-200 dark:bg-primary-500/15 dark:text-primary-300 dark:ring-primary-500/20' }, t('leaderboard.myData')) : null
+    ]),
+    platformID !== undefined
+      ? h('span', { class: 'inline-flex rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-gray-500 ring-1 ring-inset ring-gray-200 dark:bg-dark-900/70 dark:text-dark-400 dark:ring-dark-600' }, `${t('leaderboard.platformId')} #${platformID}`)
+      : null
   ])
 }
 
@@ -604,7 +609,7 @@ const UsageRow = defineComponent({
         : 'border-b border-gray-100 transition-colors hover:bg-gray-50/80 dark:border-dark-800 dark:hover:bg-dark-700/40'
     }, [
       h('td', { class: `px-4 py-3 ${props.self ? 'border-l-4 border-primary-500' : ''}` }, props.self ? currentRankCell(props.entry.rank) : rankBadge(props.entry.rank)),
-      h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self)),
+      h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self, props.entry.platform_id)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.request_count)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.total_tokens)),
       h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.actual_cost)),
@@ -626,7 +631,7 @@ const RebateRow = defineComponent({
         : 'border-b border-gray-100 transition-colors hover:bg-gray-50/80 dark:border-dark-800 dark:hover:bg-dark-700/40'
     }, [
       h('td', { class: `px-4 py-3 ${props.self ? 'border-l-4 border-primary-500' : ''}` }, props.self ? currentRankCell(props.entry.rank) : rankBadge(props.entry.rank)),
-      h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self)),
+      h('td', { class: 'px-4 py-3' }, displayNameCell(props.entry.display_name, props.self, props.entry.platform_id)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.invited_users)),
       h('td', { class: 'px-4 py-3 text-right tabular-nums text-gray-700 dark:text-dark-300' }, formatNumber(props.entry.rebate_count)),
       h('td', { class: 'px-4 py-3 text-right font-medium tabular-nums text-gray-800 dark:text-dark-200' }, formatLeaderboardCurrency(props.entry.rebate_amount)),
@@ -659,7 +664,7 @@ const MobileUsageRow = defineComponent({
       h('div', { class: 'flex items-center justify-between gap-3' }, [
         props.self ? currentRankCell(props.entry.rank) : rankBadge(props.entry.rank),
         h('div', { class: 'flex min-w-0 flex-col items-end gap-1.5' }, [
-          displayNameCell(props.entry.display_name, props.self),
+          displayNameCell(props.entry.display_name, props.self, props.entry.platform_id, true),
           mobileShareBadge(props.share)
         ])
       ]),
@@ -687,7 +692,7 @@ const MobileRebateRow = defineComponent({
       h('div', { class: 'flex items-center justify-between gap-3' }, [
         props.self ? currentRankCell(props.entry.rank) : rankBadge(props.entry.rank),
         h('div', { class: 'flex min-w-0 flex-col items-end gap-1.5' }, [
-          displayNameCell(props.entry.display_name, props.self),
+          displayNameCell(props.entry.display_name, props.self, props.entry.platform_id, true),
           mobileShareBadge(props.share)
         ])
       ]),

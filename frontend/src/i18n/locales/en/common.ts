@@ -463,6 +463,7 @@ export default {
     rank: 'Rank',
     currentRank: 'Current: #{rank}',
     user: 'User',
+    platformId: 'Platform ID',
     requests: 'Requests',
     tokens: 'Tokens',
     cost: 'Spent',

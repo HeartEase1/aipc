@@ -65,6 +65,7 @@ func newLeaderboardHandlerContext(method, target, body string, authenticated boo
 	}
 	if authenticated {
 		ginContext.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 7})
+		ginContext.Set(string(middleware.ContextKeyUserRole), service.RoleUser)
 	}
 	return ginContext, recorder
 }
@@ -91,6 +92,20 @@ func TestLeaderboardHandlerReturnsPinnedCurrentEntryWithoutLeakingUserID(t *test
 	require.Contains(t, recorder.Body.String(), `"period":"72h"`)
 	require.Contains(t, recorder.Body.String(), `"current"`)
 	require.Contains(t, recorder.Body.String(), `"display_name":"a***z@example.com"`)
+	require.NotContains(t, recorder.Body.String(), `"user_id"`)
+	require.NotContains(t, recorder.Body.String(), `"platform_id"`)
+}
+
+func TestLeaderboardHandlerReturnsPlatformIDToAdmin(t *testing.T) {
+	handler, _ := newLeaderboardHandlerForTest()
+	context, recorder := newLeaderboardHandlerContext(http.MethodGet, "/api/v1/leaderboard", "", true)
+	context.Set(string(middleware.ContextKeyUserRole), service.RoleAdmin)
+
+	handler.Get(context)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"platform_id":3`)
+	require.Contains(t, recorder.Body.String(), `"platform_id":7`)
 	require.NotContains(t, recorder.Body.String(), `"user_id"`)
 }
 

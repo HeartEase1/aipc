@@ -4,6 +4,7 @@ export type LeaderboardPeriod = '24h' | '72h' | '7d' | '30d'
 
 export interface LeaderboardUsageEntry {
   rank: number
+  platform_id?: number
   display_name: string
   request_count: number
   total_tokens: number
@@ -12,6 +13,7 @@ export interface LeaderboardUsageEntry {
 
 export interface LeaderboardRebateEntry {
   rank: number
+  platform_id?: number
   display_name: string
   invited_users: number
   rebate_count: number

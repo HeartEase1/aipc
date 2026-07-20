@@ -462,6 +462,7 @@ export default {
     rank: '排名',
     currentRank: '当前排名：#{rank}',
     user: '用户',
+    platformId: '平台 ID',
     requests: '请求数',
     tokens: 'Token',
     cost: '消耗额度',
