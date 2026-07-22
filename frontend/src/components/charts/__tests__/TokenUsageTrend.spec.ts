@@ -87,7 +87,7 @@ describe('TokenUsageTrend', () => {
     expect(hitRateDataset.data[0]).toBe(0)
   })
 
-  it('includes cache_creation_tokens in denominator for Anthropic models', () => {
+  it('does not count cache creation as a cache hit or regular input', () => {
     const wrapper = mount(TokenUsageTrend, {
       props: {
         trendData: [
@@ -114,7 +114,7 @@ describe('TokenUsageTrend', () => {
     const hitRateDataset = chartData.datasets.find(
       (ds: any) => ds.label === 'Cache Hit Rate'
     )
-    // Hit rate = 500 / (200 + 500 + 300) * 100 = 50%
-    expect(hitRateDataset.data[0]).toBe(50)
+    // Hit rate = 500 / (200 + 500) * 100
+    expect(hitRateDataset.data[0]).toBeCloseTo(71.4286)
   })
 })

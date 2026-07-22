@@ -109,6 +109,7 @@ import { useI18n } from 'vue-i18n'
 import type { AdminUsageStatsResponse } from '@/api/admin/usage'
 import type { UsageStatsResponse } from '@/types'
 import Icon from '@/components/icons/Icon.vue'
+import { calculateCacheHitRate } from '@/utils/cacheHitRate'
 
 const props = withDefaults(defineProps<{
   stats: (AdminUsageStatsResponse | UsageStatsResponse) | null
@@ -130,14 +131,10 @@ const totalAccountCost = computed(() => {
 const showAccountCost = computed(() => props.showAccountCost)
 const strikeStandardCost = computed(() => props.strikeStandardCost)
 const showCacheHitRate = computed(() => props.showCacheHitRate)
-const cacheHitRate = computed(() => {
-  const inputTokens = Math.max(props.stats?.total_input_tokens ?? 0, 0)
-  const cacheCreationTokens = Math.max(props.stats?.total_cache_creation_tokens ?? 0, 0)
-  const cacheReadTokens = Math.max(props.stats?.total_cache_read_tokens ?? 0, 0)
-  const totalPromptTokens = inputTokens + cacheCreationTokens + cacheReadTokens
-
-  return totalPromptTokens > 0 ? (cacheReadTokens / totalPromptTokens) * 100 : 0
-})
+const cacheHitRate = computed(() => calculateCacheHitRate(
+  props.stats?.total_input_tokens,
+  props.stats?.total_cache_read_tokens
+))
 
 const formatDuration = (ms: number) =>
   ms < 1000 ? `${ms.toFixed(0)}ms` : `${(ms / 1000).toFixed(2)}s`

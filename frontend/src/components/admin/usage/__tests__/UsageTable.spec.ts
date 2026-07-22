@@ -19,6 +19,7 @@ const messages: Record<string, string> = {
   'admin.usage.outputCost': 'Output Cost',
   'admin.usage.cacheCreationCost': 'Cache Creation Cost',
   'admin.usage.cacheReadCost': 'Cache Read Cost',
+  'usage.cacheHitRate': 'Cache hit rate',
   'usage.inputTokenPrice': 'Input price',
   'usage.outputTokenPrice': 'Output price',
   'usage.perMillionTokens': '/ 1M tokens',
@@ -238,6 +239,39 @@ describe('admin UsageTable tooltip', () => {
     const text = wrapper.text()
     expect(text).toContain('claude-sonnet-4')
     expect(text).toContain('claude-sonnet-4-20250514')
+  })
+
+  it('shows the per-request cache hit rate beside cache-read tokens', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [
+          {
+            ...baseImageRow,
+            request_id: 'req-admin-cache-hit-rate',
+            billing_mode: 'token',
+            input_tokens: 200,
+            output_tokens: 50,
+            cache_creation_tokens: 100,
+            cache_read_tokens: 700,
+          },
+        ],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    const rate = wrapper.get('[data-testid="cache-hit-rate"]')
+    expect(rate.text()).toBe('77.8%')
+    expect(rate.attributes('title')).toBe('Cache hit rate')
+    expect(rate.attributes('aria-label')).toBe('Cache hit rate 77.8%')
   })
 
   it.each([

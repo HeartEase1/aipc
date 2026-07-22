@@ -81,6 +81,6 @@ describe('UsageStatsCards', () => {
     })
 
     expect(wrapper.text()).toContain('Cache hit rate')
-    expect(wrapper.text()).toContain('16.4%')
+    expect(wrapper.text()).toContain('18.0%')
   })
 })
