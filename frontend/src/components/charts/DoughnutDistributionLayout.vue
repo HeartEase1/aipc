@@ -8,7 +8,7 @@
         :aria-label="chartLabel"
       />
     </div>
-    <div class="max-h-52 w-full min-w-0 flex-1 overflow-y-auto">
+    <div class="max-h-52 w-full min-w-0 flex-1 overflow-auto">
       <slot />
     </div>
   </div>

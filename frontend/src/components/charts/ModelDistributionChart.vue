@@ -105,7 +105,7 @@
       :options="doughnutOptions"
       :chart-label="t('admin.dashboard.modelDistribution')"
     >
-      <div class="max-h-48 flex-1 overflow-y-auto">
+      <div class="w-full min-w-0">
         <table class="w-full text-xs">
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
@@ -187,7 +187,7 @@
       :options="rankingDoughnutOptions"
       :chart-label="t('admin.dashboard.spendingRankingTitle')"
     >
-      <div class="max-h-48 flex-1 overflow-y-auto">
+      <div class="w-full min-w-0">
         <table class="w-full text-xs">
           <thead>
             <tr class="text-gray-500 dark:text-gray-400">
