@@ -832,6 +832,19 @@ export default {
         metricsInterval: 'Metrics Collection Interval (seconds)',
         metricsIntervalHint: 'How often to collect system/request metrics (60-3600 seconds)'
       },
+      webAccessRegion: {
+        title: 'WebUI Region Access',
+        description: 'Control browser access by visitor IP region without changing API availability.',
+        blockMainlandChina: 'Block mainland China IPs from the WebUI',
+        blockMainlandChinaHint: 'When enabled, mainland China IPv4 and IPv6 visitors see a region-unavailable page. API calls remain available.',
+        active: 'Enabled',
+        inactive: 'Disabled',
+        lockoutWarning: 'Administrators connecting from mainland China are blocked too. Do not refresh or close this page after saving unless an overseas administration path is ready. The management API remains available for emergency recovery.',
+        dataSourceHint: 'Region matching uses embedded APNIC mainland China IPv4/IPv6 allocations and the system client-IP configuration.',
+        saved: 'WebUI region access settings saved',
+        loadFailed: 'Failed to load WebUI region access settings',
+        saveFailed: 'Failed to save WebUI region access settings'
+      },
       adminApiKey: {
         title: 'Admin API Key',
         description: 'Global API key for external system integration with full admin access',

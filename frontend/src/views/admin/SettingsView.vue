@@ -46,6 +46,107 @@
 
         <!-- Tab: Security — Admin API Key -->
         <div v-show="activeTab === 'security'" class="space-y-6">
+          <!-- WebUI Region Access -->
+          <div class="card" data-testid="web-access-region-card">
+            <div
+              class="flex items-start gap-3 border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <span
+                class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-200"
+              >
+                <Icon name="globe" size="md" />
+              </span>
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {{ t("admin.settings.webAccessRegion.title") }}
+                </h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.webAccessRegion.description") }}
+                </p>
+              </div>
+            </div>
+
+            <div class="space-y-5 p-6">
+              <div
+                v-if="webAccessRegionLoading"
+                class="flex items-center gap-2 text-gray-500"
+              >
+                <div
+                  class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
+                ></div>
+                {{ t("common.loading") }}
+              </div>
+
+              <template v-else>
+                <div class="flex items-center justify-between gap-6">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <label class="font-medium text-gray-900 dark:text-white">
+                        {{ t("admin.settings.webAccessRegion.blockMainlandChina") }}
+                      </label>
+                      <span
+                        :class="[
+                          'rounded-full px-2 py-0.5 text-xs font-medium',
+                          webAccessRegionForm.block_mainland_china
+                            ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                            : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300',
+                        ]"
+                      >
+                        {{
+                          webAccessRegionForm.block_mainland_china
+                            ? t("admin.settings.webAccessRegion.active")
+                            : t("admin.settings.webAccessRegion.inactive")
+                        }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.webAccessRegion.blockMainlandChinaHint") }}
+                    </p>
+                  </div>
+                  <Toggle
+                    v-model="webAccessRegionForm.block_mainland_china"
+                    data-testid="web-access-region-toggle"
+                  />
+                </div>
+
+                <div
+                  v-if="webAccessRegionForm.block_mainland_china"
+                  class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/70 dark:bg-red-950/30"
+                >
+                  <Icon
+                    name="exclamationTriangle"
+                    size="md"
+                    class="mt-0.5 flex-shrink-0 text-red-600 dark:text-red-400"
+                  />
+                  <p class="text-sm leading-6 text-red-800 dark:text-red-200">
+                    {{ t("admin.settings.webAccessRegion.lockoutWarning") }}
+                  </p>
+                </div>
+
+                <div
+                  class="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-dark-700"
+                >
+                  <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.webAccessRegion.dataSourceHint") }}
+                  </p>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm flex-shrink-0"
+                    data-testid="web-access-region-save"
+                    :disabled="webAccessRegionSaving"
+                    @click="saveWebAccessRegionSettings"
+                  >
+                    {{
+                      webAccessRegionSaving
+                        ? t("common.saving")
+                        : t("common.save")
+                    }}
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+
           <!-- Admin API Key Settings -->
           <div class="card">
             <div
@@ -7921,6 +8022,13 @@ const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionGroups = ref<AdminGroup[]>([]);
 
+// WebUI region access state
+const webAccessRegionLoading = ref(true);
+const webAccessRegionSaving = ref(false);
+const webAccessRegionForm = reactive({
+  block_mainland_china: false,
+});
+
 // Upstream billing probe state
 const upstreamBillingProbeLoading = ref(true);
 const upstreamBillingProbeSaving = ref(false);
@@ -10470,6 +10578,33 @@ async function loadAdminApiKey() {
   }
 }
 
+async function loadWebAccessRegionSettings() {
+  webAccessRegionLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getWebAccessRegionSettings();
+    Object.assign(webAccessRegionForm, settings);
+  } catch (_error: unknown) {
+    appStore.showError(t("admin.settings.webAccessRegion.loadFailed"));
+  } finally {
+    webAccessRegionLoading.value = false;
+  }
+}
+
+async function saveWebAccessRegionSettings() {
+  webAccessRegionSaving.value = true;
+  try {
+    const settings = await adminAPI.settings.updateWebAccessRegionSettings({
+      block_mainland_china: webAccessRegionForm.block_mainland_china,
+    });
+    Object.assign(webAccessRegionForm, settings);
+    appStore.showSuccess(t("admin.settings.webAccessRegion.saved"));
+  } catch (_error: unknown) {
+    appStore.showError(t("admin.settings.webAccessRegion.saveFailed"));
+  } finally {
+    webAccessRegionSaving.value = false;
+  }
+}
+
 async function createAdminApiKey() {
   adminApiKeyOperating.value = true;
   try {
@@ -11279,6 +11414,7 @@ onMounted(() => {
   loadSettings();
   loadSubscriptionGroups();
   loadAdminApiKey();
+  loadWebAccessRegionSettings();
   loadUpstreamBillingProbeSettings();
   loadOllamaCloudUsageSettings();
   loadOverloadCooldownSettings();

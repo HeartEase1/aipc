@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -34,14 +35,25 @@ type PublicSettingsProvider interface {
 	GetPublicSettingsForInjection(ctx context.Context) (any, error)
 }
 
+type webAccessPolicyProvider interface {
+	IsMainlandChinaWebAccessBlocked(ctx context.Context) (bool, error)
+	GetSiteName(ctx context.Context) string
+}
+
+type frontendAccessPolicy struct {
+	blockMainlandChina bool
+	siteName           string
+}
+
 // FrontendServer serves the embedded frontend with settings injection
 type FrontendServer struct {
-	distFS      fs.FS
-	fileServer  http.Handler
-	baseHTML    []byte
-	cache       *HTMLCache
-	settings    PublicSettingsProvider
-	overrideDir string // local file override directory
+	distFS       fs.FS
+	fileServer   http.Handler
+	baseHTML     []byte
+	cache        *HTMLCache
+	settings     PublicSettingsProvider
+	overrideDir  string // local file override directory
+	accessPolicy atomic.Pointer[frontendAccessPolicy]
 }
 
 // NewFrontendServer creates a new frontend server with settings injection
@@ -66,14 +78,17 @@ func NewFrontendServer(settingsProvider PublicSettingsProvider) (*FrontendServer
 	cache := NewHTMLCache()
 	cache.SetBaseHTML(baseHTML)
 
-	return &FrontendServer{
+	server := &FrontendServer{
 		distFS:      distFS,
 		fileServer:  http.FileServer(http.FS(distFS)),
 		baseHTML:    baseHTML,
 		cache:       cache,
 		settings:    settingsProvider,
 		overrideDir: filepath.Join("data", "public"),
-	}, nil
+	}
+	server.accessPolicy.Store(&frontendAccessPolicy{siteName: "Sub2API"})
+	server.RefreshAccessPolicy()
+	return server, nil
 }
 
 // InvalidateCache invalidates the HTML cache (call when settings change)
@@ -81,6 +96,33 @@ func (s *FrontendServer) InvalidateCache() {
 	if s != nil && s.cache != nil {
 		s.cache.Invalidate()
 	}
+}
+
+// RefreshAccessPolicy reloads the WebUI-only region policy. On read errors the
+// previous policy is retained so a transient database issue cannot change the
+// site's access behavior.
+func (s *FrontendServer) RefreshAccessPolicy() {
+	if s == nil || s.settings == nil {
+		return
+	}
+	provider, ok := s.settings.(webAccessPolicyProvider)
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	blocked, err := provider.IsMainlandChinaWebAccessBlocked(ctx)
+	if err != nil {
+		return
+	}
+	siteName := strings.TrimSpace(provider.GetSiteName(ctx))
+	if siteName == "" {
+		siteName = "Sub2API"
+	}
+	s.accessPolicy.Store(&frontendAccessPolicy{
+		blockMainlandChina: blocked,
+		siteName:           siteName,
+	})
 }
 
 // Middleware returns the Gin middleware handler
@@ -91,6 +133,10 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		// Skip API routes
 		if shouldBypassEmbeddedFrontend(path) {
 			c.Next()
+			return
+		}
+		if s.shouldBlockMainlandChina(c) {
+			s.serveRegionUnavailable(c)
 			return
 		}
 
@@ -115,6 +161,54 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		s.fileServer.ServeHTTP(c.Writer, c.Request)
 		c.Abort()
 	}
+}
+
+func (s *FrontendServer) shouldBlockMainlandChina(c *gin.Context) bool {
+	policy := s.accessPolicy.Load()
+	return policy != nil &&
+		policy.blockMainlandChina &&
+		isMainlandChinaIP(middleware.SecurityClientIP(c))
+}
+
+func (s *FrontendServer) serveRegionUnavailable(c *gin.Context) {
+	policy := s.accessPolicy.Load()
+	siteName := "Sub2API"
+	if policy != nil && strings.TrimSpace(policy.siteName) != "" {
+		siteName = strings.TrimSpace(policy.siteName)
+	}
+	safeSiteName := htmlpkg.EscapeString(siteName)
+	html := `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>地区不可用 - ` + safeSiteName + `</title>
+  <style>
+    :root{color-scheme:light dark;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#f7f8fa;color:#17191c}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f7f8fa}main{width:min(680px,calc(100% - 40px));min-height:100vh;margin:0 auto;display:flex;flex-direction:column;justify-content:center;padding:48px 0}
+    .brand-line{display:flex;align-items:center;gap:12px;margin-bottom:40px}.brand{min-width:0;max-width:calc(100% - 60px);overflow-wrap:anywhere;font-size:30px;font-weight:800;letter-spacing:0;color:#30343a}.code{display:grid;width:48px;height:32px;flex:0 0 48px;place-items:center;border:1px solid #f0b6b6;border-radius:999px;background:#fff1f1;color:#b42318;font:700 13px/1 system-ui}
+    h1{margin:0;font-size:clamp(30px,7vw,48px);line-height:1.15;letter-spacing:0;color:#17191c}p{max-width:560px;margin:20px 0 0;font-size:17px;line-height:1.8;color:#5b616a}.english{margin-top:34px;padding-top:26px;border-top:1px solid #dfe2e6;font-size:14px;line-height:1.7;color:#767d86}
+    @media(prefers-color-scheme:dark){:root,body{background:#111315;color:#f5f5f5}.brand,h1{color:#f5f5f5}.code{border-color:#753b3b;background:#2a1919;color:#ffb4ad}p{color:#b7bdc6}.english{border-color:#34383d;color:#949ba5}}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand-line">
+      <div class="brand">` + safeSiteName + `</div>
+      <div class="code" aria-hidden="true">451</div>
+    </div>
+    <h1>该地区暂不支持访问</h1>
+    <p>此网站目前不向您所在的地区提供服务。</p>
+    <p class="english" lang="en">This website is not currently available in your region.</p>
+  </main>
+</body>
+</html>`
+	c.Header("Cache-Control", "private, no-store, max-age=0")
+	c.Header("CDN-Cache-Control", "no-store")
+	c.Header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'")
+	c.Data(http.StatusUnavailableForLegalReasons, "text/html; charset=utf-8", []byte(html))
+	c.Abort()
 }
 
 func (s *FrontendServer) fileExists(path string) bool {

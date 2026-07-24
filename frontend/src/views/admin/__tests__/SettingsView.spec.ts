@@ -10,6 +10,8 @@ const {
   getWebSearchEmulationConfig,
   updateWebSearchEmulationConfig,
   getAdminApiKey,
+  getWebAccessRegionSettings,
+  updateWebAccessRegionSettings,
   getOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
@@ -36,6 +38,8 @@ const {
   getWebSearchEmulationConfig: vi.fn(),
   updateWebSearchEmulationConfig: vi.fn(),
   getAdminApiKey: vi.fn(),
+  getWebAccessRegionSettings: vi.fn(),
+  updateWebAccessRegionSettings: vi.fn(),
   getOverloadCooldownSettings: vi.fn(),
   getRateLimit429CooldownSettings: vi.fn(),
   updateRateLimit429CooldownSettings: vi.fn(),
@@ -74,6 +78,8 @@ vi.mock("@/api", () => ({
       getWebSearchEmulationConfig,
       updateWebSearchEmulationConfig,
       getAdminApiKey,
+      getWebAccessRegionSettings,
+      updateWebAccessRegionSettings,
       getOverloadCooldownSettings,
       getRateLimit429CooldownSettings,
       updateRateLimit429CooldownSettings,
@@ -574,6 +580,8 @@ describe("admin SettingsView payment visible method controls", () => {
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
+    getWebAccessRegionSettings.mockReset();
+    updateWebAccessRegionSettings.mockReset();
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
@@ -613,6 +621,10 @@ describe("admin SettingsView payment visible method controls", () => {
       exists: false,
       masked_key: "",
     });
+    getWebAccessRegionSettings.mockResolvedValue({
+      block_mainland_china: false,
+    });
+    updateWebAccessRegionSettings.mockImplementation(async (payload) => payload);
     getOverloadCooldownSettings.mockResolvedValue({
       enabled: true,
       cooldown_minutes: 10,
@@ -668,6 +680,28 @@ describe("admin SettingsView payment visible method controls", () => {
 
     expect(wrapper.text()).not.toContain("可见方式");
     expect(wrapper.text()).not.toContain("支付来源");
+  });
+
+  it("loads and saves the WebUI mainland China restriction independently", async () => {
+    getWebAccessRegionSettings.mockResolvedValueOnce({
+      block_mainland_china: true,
+    });
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    const card = wrapper.get('[data-testid="web-access-region-card"]');
+    const toggle = card.get('[data-testid="web-access-region-toggle"]');
+    expect((toggle.element as HTMLInputElement).checked).toBe(true);
+
+    await toggle.setValue(false);
+    await card.get('[data-testid="web-access-region-save"]').trigger("click");
+    await flushPromises();
+
+    expect(updateWebAccessRegionSettings).toHaveBeenCalledWith({
+      block_mainland_china: false,
+    });
   });
 
   it("loads, edits, validates, and saves forwarded client-IP headers", async () => {
@@ -1167,6 +1201,8 @@ describe("admin SettingsView wechat connect controls", () => {
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
+    getWebAccessRegionSettings.mockReset();
+    updateWebAccessRegionSettings.mockReset();
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
@@ -1205,6 +1241,8 @@ describe("admin SettingsView wechat connect controls", () => {
       exists: false,
       masked_key: "",
     });
+    getWebAccessRegionSettings.mockResolvedValue({ block_mainland_china: false });
+    updateWebAccessRegionSettings.mockImplementation(async (payload) => payload);
     getOverloadCooldownSettings.mockResolvedValue({
       enabled: true,
       cooldown_minutes: 10,
@@ -1413,6 +1451,8 @@ describe("admin SettingsView platform quota matrix", () => {
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
+    getWebAccessRegionSettings.mockReset();
+    updateWebAccessRegionSettings.mockReset();
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
@@ -1439,6 +1479,8 @@ describe("admin SettingsView platform quota matrix", () => {
     getWebSearchEmulationConfig.mockResolvedValue({ enabled: false, providers: [] });
     updateWebSearchEmulationConfig.mockResolvedValue({ enabled: false, providers: [] });
     getAdminApiKey.mockResolvedValue({ exists: false, masked_key: "" });
+    getWebAccessRegionSettings.mockResolvedValue({ block_mainland_china: false });
+    updateWebAccessRegionSettings.mockImplementation(async (payload) => payload);
     getOverloadCooldownSettings.mockResolvedValue({});
     getRateLimit429CooldownSettings.mockResolvedValue({});
     updateRateLimit429CooldownSettings.mockResolvedValue({});

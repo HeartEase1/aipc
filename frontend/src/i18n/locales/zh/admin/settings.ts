@@ -827,6 +827,19 @@ export default {
         metricsInterval: '采集频率（秒）',
         metricsIntervalHint: '系统/请求指标采集频率（60-3600 秒）'
       },
+      webAccessRegion: {
+        title: 'WebUI 地区访问限制',
+        description: '按访问者 IP 所属地区控制网页访问，不改变 API 服务的可用性。',
+        blockMainlandChina: '屏蔽中国大陆 IP 访问 WebUI',
+        blockMainlandChinaHint: '开启后，中国大陆 IPv4 和 IPv6 访问网页时将看到“该地区暂不支持访问”提示；API 调用不受影响。',
+        active: '已启用',
+        inactive: '未启用',
+        lockoutWarning: '中国大陆地区的管理员同样会被拦截。保存后请勿刷新或关闭当前页面，除非你已经准备好境外管理通道；管理 API 不受此限制，可用于紧急关闭。',
+        dataSourceHint: '地区判断使用内置 APNIC 中国大陆 IPv4/IPv6 分配数据，并复用系统的真实客户端 IP 配置。',
+        saved: 'WebUI 地区访问限制已保存',
+        loadFailed: '加载 WebUI 地区访问限制失败',
+        saveFailed: '保存 WebUI 地区访问限制失败'
+      },
       adminApiKey: {
         title: '管理员 API Key',
         description: '用于外部系统集成的全局 API Key，拥有完整的管理员权限',

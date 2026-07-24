@@ -1155,6 +1155,29 @@ export async function deleteAdminApiKey(): Promise<{ message: string }> {
   return data;
 }
 
+// ==================== WebUI Region Access Settings ====================
+
+export interface WebAccessRegionSettings {
+  block_mainland_china: boolean;
+}
+
+export async function getWebAccessRegionSettings(): Promise<WebAccessRegionSettings> {
+  const { data } = await apiClient.get<WebAccessRegionSettings>(
+    "/admin/settings/web-access-region",
+  );
+  return data;
+}
+
+export async function updateWebAccessRegionSettings(
+  settings: WebAccessRegionSettings,
+): Promise<WebAccessRegionSettings> {
+  const { data } = await apiClient.put<WebAccessRegionSettings>(
+    "/admin/settings/web-access-region",
+    settings,
+  );
+  return data;
+}
+
 // ==================== Overload Cooldown Settings ====================
 
 /**
@@ -1429,6 +1452,8 @@ export const settingsAPI = {
   getAdminApiKey,
   regenerateAdminApiKey,
   deleteAdminApiKey,
+  getWebAccessRegionSettings,
+  updateWebAccessRegionSettings,
   getOverloadCooldownSettings,
   updateOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
