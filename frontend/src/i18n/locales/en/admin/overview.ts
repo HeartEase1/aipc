@@ -431,6 +431,7 @@ export default {
       title: 'User Management',
       description: 'Manage users and their permissions',
       createUser: 'Create User',
+      benefitGrant: 'Grant benefit / compensation',
       bulkLimits: {
         action: 'Set limits ({count})',
         title: 'Set user limits',
@@ -657,6 +658,10 @@ export default {
       typeBalance: 'Balance (Redeem)',
       typeAffiliateBalance: 'Balance (Affiliate Transfer)',
       typeAdminBalance: 'Balance (Admin)',
+      typeWelfare: 'Welfare Grant',
+      typeCompensation: 'Compensation Grant',
+      balanceAddedWelfare: 'Administrator welfare grant',
+      balanceAddedCompensation: 'Administrator compensation grant',
       typeConcurrency: 'Concurrency (Redeem)',
       typeAdminConcurrency: 'Concurrency (Admin)',
       typeSubscription: 'Subscription',

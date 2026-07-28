@@ -42,6 +42,8 @@ func RegisterUserRoutes(
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 			user.GET("/api-keys/:id/usage/daily", panelRateLimiter.Heavy(), h.Usage.GetMyAPIKeyDailyUsage)
 			user.GET("/platform-quotas", h.User.GetMyPlatformQuotas)
+			user.GET("/benefit-grants", h.BenefitGrant.List)
+			user.PUT("/benefit-grants/:id/read", h.BenefitGrant.MarkRead)
 
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")

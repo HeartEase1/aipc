@@ -29,7 +29,7 @@
                     <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75"></span>
                     <span class="relative inline-flex h-2 w-2 rounded-full bg-white"></span>
                   </span>
-                  {{ t('announcements.unread') }}
+                  {{ badgeLabel || t('announcements.unread') }}
                 </span>
               </div>
 
@@ -76,7 +76,7 @@
                   <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  {{ preview ? t('common.close') : t('announcements.markRead') }}
+                  {{ acknowledgeLabel || (preview ? t('common.close') : t('announcements.markRead')) }}
                 </span>
               </button>
             </div>
@@ -102,9 +102,13 @@ type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'cont
 const props = withDefaults(defineProps<{
   announcement?: PreviewAnnouncement | null
   preview?: boolean
+  badgeLabel?: string
+  acknowledgeLabel?: string
 }>(), {
   announcement: null,
   preview: false,
+  badgeLabel: '',
+  acknowledgeLabel: '',
 })
 
 const emit = defineEmits<{
@@ -114,7 +118,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const announcementStore = useAnnouncementStore()
 const displayedAnnouncement = computed(() => (
-  props.preview ? props.announcement : announcementStore.currentPopup
+  props.announcement || announcementStore.currentPopup
 ))
 
 marked.setOptions({
@@ -130,7 +134,7 @@ const renderedContent = computed(() => {
 })
 
 function handleDismiss() {
-  if (props.preview) {
+  if (props.announcement) {
     emit('close')
     return
   }
@@ -143,7 +147,7 @@ watch(
   (popup) => {
     if (popup) {
       document.body.style.overflow = 'hidden'
-    } else if (props.preview) {
+    } else if (props.preview || props.announcement) {
       document.body.style.overflow = ''
     }
   },
@@ -151,7 +155,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (props.preview) {
+  if (props.preview || props.announcement) {
     document.body.style.overflow = ''
   }
 })

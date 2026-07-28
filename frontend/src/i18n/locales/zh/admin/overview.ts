@@ -431,6 +431,7 @@ export default {
       title: '用户管理',
       description: '管理用户账户和权限',
       createUser: '创建用户',
+      benefitGrant: '发福利/补偿',
       bulkLimits: {
         action: '批量设置限制（{count}）',
         title: '批量设置用户限制',
@@ -658,6 +659,10 @@ export default {
       typeBalance: '余额（兑换码）',
       typeAffiliateBalance: '余额（返利转入）',
       typeAdminBalance: '余额（管理员调整）',
+      typeWelfare: '福利发放',
+      typeCompensation: '补偿发放',
+      balanceAddedWelfare: '管理员福利到账',
+      balanceAddedCompensation: '管理员补偿到账',
       typeConcurrency: '并发（兑换码）',
       typeAdminConcurrency: '并发（管理员调整）',
       typeSubscription: '订阅',

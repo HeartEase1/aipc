@@ -252,6 +252,16 @@
               {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
             </button>
 
+            <button
+              v-if="selectedCount > 0"
+              class="btn btn-secondary flex-1 md:flex-initial"
+              data-test="bulk-benefit-grant"
+              @click="openBenefitGrant"
+            >
+              <Icon name="gift" size="md" class="mr-2" />
+              {{ t('admin.users.benefitGrant', { count: selectedCount }) }}
+            </button>
+
             <!-- Create User Button (full width on mobile, auto width on desktop) -->
             <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
               <Icon name="plus" size="md" class="mr-2" />
@@ -774,6 +784,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useTableSelection } from '@/composables/useTableSelection'
@@ -781,6 +792,7 @@ import { formatDateTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 import { adminAPI } from '@/api/admin'
 import type { AdminUser, AdminGroup, UserAttributeDefinition } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
@@ -1303,6 +1315,10 @@ const {
 
 const handleSelectedKeysUpdate = (keys: Array<string | number>) => {
   setSelectedIds(keys.filter((key): key is number => typeof key === 'number'))
+}
+
+const openBenefitGrant = () => {
+  void router.push({ path: '/admin/benefit-grants', query: { users: selectedIds.value.join(',') } })
 }
 
 const getUserSelectionLabel = (user: AdminUser) =>

@@ -45,6 +45,9 @@ func RegisterAdminRoutes(
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
 
+		// 福利与补偿发放
+		registerBenefitGrantRoutes(admin, h)
+
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
 
@@ -119,6 +122,18 @@ func RegisterAdminRoutes(
 
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
+	}
+}
+
+func registerBenefitGrantRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	grants := admin.Group("/benefit-grants")
+	{
+		grants.POST("/preview", h.Admin.BenefitGrant.Preview)
+		grants.POST("/:id/execute", h.Admin.BenefitGrant.Execute)
+		grants.GET("", h.Admin.BenefitGrant.List)
+		grants.GET("/:id", h.Admin.BenefitGrant.Get)
+		grants.POST("/:id/retry-failed", h.Admin.BenefitGrant.RetryFailed)
+		grants.GET("/:id/export", h.Admin.BenefitGrant.Export)
 	}
 }
 

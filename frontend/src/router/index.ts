@@ -255,6 +255,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/benefits',
+    name: 'Benefits',
+    component: () => import('@/views/user/BenefitsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Benefit Grants',
+      titleKey: 'benefits.title',
+      descriptionKey: 'benefits.description'
+    }
+  },
+  {
     path: '/affiliate',
     name: 'Affiliate',
     component: () => import('@/views/user/AffiliateView.vue'),
@@ -449,6 +461,18 @@ const routes: RouteRecordRaw[] = [
       title: 'User Management',
       titleKey: 'admin.users.title',
       descriptionKey: 'admin.users.description'
+    }
+  },
+  {
+    path: '/admin/benefit-grants',
+    name: 'AdminBenefitGrants',
+    component: () => import('@/views/admin/BenefitGrantsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Benefit Grants',
+      titleKey: 'admin.benefitGrants.title',
+      descriptionKey: 'admin.benefitGrants.description'
     }
   },
   {

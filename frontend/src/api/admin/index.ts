@@ -34,6 +34,7 @@ import affiliatesAPI from './affiliates'
 import riskControlAPI from './riskControl'
 import adminComplianceAPI from './compliance'
 import auditAPI from './audit'
+import benefitGrantsAPI from './benefitGrants'
 
 /**
  * Unified admin API object for convenient access
@@ -69,7 +70,8 @@ export const adminAPI = {
   affiliates: affiliatesAPI,
   riskControl: riskControlAPI,
   compliance: adminComplianceAPI,
-  audit: auditAPI
+  audit: auditAPI,
+  benefitGrants: benefitGrantsAPI
 }
 
 export {
@@ -103,8 +105,17 @@ export {
   affiliatesAPI,
   riskControlAPI,
   adminComplianceAPI,
-  auditAPI
+  auditAPI,
+  benefitGrantsAPI
 }
+
+export type {
+  BenefitGrantBatch,
+  BenefitGrantItem,
+  BenefitGrantPreviewRequest,
+  BenefitGrantBatchDetail,
+  BenefitGrantBatchList
+} from './benefitGrants'
 
 export default adminAPI
 

@@ -674,6 +674,17 @@ func (s *adminServiceImpl) GetUserUsageStats(ctx context.Context, userID int64, 
 // GetUserBalanceHistory returns paginated balance/concurrency change records for a user.
 func (s *adminServiceImpl) GetUserBalanceHistory(ctx context.Context, userID int64, page, pageSize int, codeType string) ([]RedeemCode, int64, float64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize}
+	if codeType == BenefitGrantTypeWelfare || codeType == BenefitGrantTypeCompensation {
+		codes, total, err := s.listBenefitGrantBalanceHistory(ctx, userID, params, codeType)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		totalRecharged, err := s.redeemCodeRepo.SumPositiveBalanceByUser(ctx, userID)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		return codes, total, totalRecharged, nil
+	}
 	if codeType == RedeemTypeAffiliateBalance {
 		codes, total, err := s.listAffiliateBalanceHistory(ctx, userID, params)
 		if err != nil {
@@ -717,13 +728,88 @@ func (s *adminServiceImpl) getAllUserBalanceHistory(ctx context.Context, userID 
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	codes := mergeBalanceHistoryCodes(redeemCodes, affiliateCodes, params)
+	benefitCodes, benefitTotal, err := s.listBenefitGrantBalanceHistory(ctx, userID, pagination.PaginationParams{Page: 1, PageSize: needed}, "")
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	codes := mergeBalanceHistoryCodes(redeemCodes, affiliateCodes, params, benefitCodes)
 
 	totalRecharged, err := s.redeemCodeRepo.SumPositiveBalanceByUser(ctx, userID)
 	if err != nil {
 		return nil, 0, 0, err
 	}
-	return codes, redeemTotal + affiliateTotal, totalRecharged, nil
+	return codes, redeemTotal + affiliateTotal + benefitTotal, totalRecharged, nil
+}
+
+func (s *adminServiceImpl) listBenefitGrantBalanceHistory(ctx context.Context, userID int64, params pagination.PaginationParams, grantType string) ([]RedeemCode, int64, error) {
+	if s == nil || s.entClient == nil || userID <= 0 {
+		return nil, 0, nil
+	}
+	typeClause := ""
+	args := []any{userID}
+	if grantType != "" {
+		typeClause = " AND b.grant_type = $4"
+		args = append(args, params.Offset(), params.Limit(), grantType)
+	} else {
+		args = append(args, params.Offset(), params.Limit())
+	}
+	rows, err := s.entClient.QueryContext(ctx, `
+SELECT i.id, b.grant_type, i.amount::double precision, b.reason,
+       COALESCE(i.processed_at, i.created_at)
+FROM benefit_grant_items i
+JOIN benefit_grant_batches b ON b.id = i.batch_id
+WHERE i.user_id = $1 AND i.status = 'succeeded'`+typeClause+`
+ORDER BY COALESCE(i.processed_at, i.created_at) DESC, i.id DESC
+OFFSET $2 LIMIT $3`, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	codes := make([]RedeemCode, 0, params.Limit())
+	for rows.Next() {
+		var id int64
+		var grantTypeValue, reason string
+		var amount float64
+		var createdAt time.Time
+		if err := rows.Scan(&id, &grantTypeValue, &amount, &reason, &createdAt); err != nil {
+			return nil, 0, err
+		}
+		usedBy := userID
+		usedAt := createdAt
+		codes = append(codes, RedeemCode{
+			ID: -2_000_000_000_000 - id, Code: fmt.Sprintf("BENEFIT-%d", id),
+			Type: grantTypeValue, Value: amount, Status: StatusUsed,
+			UsedBy: &usedBy, UsedAt: &usedAt, CreatedAt: createdAt, Notes: reason,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	countArgs := []any{userID}
+	countTypeClause := ""
+	if grantType != "" {
+		countTypeClause = " AND b.grant_type = $2"
+		countArgs = append(countArgs, grantType)
+	}
+	var total int64
+	countRows, err := s.entClient.QueryContext(ctx, `
+SELECT COUNT(*)
+FROM benefit_grant_items i
+JOIN benefit_grant_batches b ON b.id = i.batch_id
+WHERE i.user_id = $1 AND i.status = 'succeeded'`+countTypeClause, countArgs...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = countRows.Close() }()
+	if countRows.Next() {
+		if err := countRows.Scan(&total); err != nil {
+			return nil, 0, err
+		}
+	}
+	if err := countRows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return codes, total, nil
 }
 
 func (s *adminServiceImpl) listRedeemBalanceHistoryForMerge(ctx context.Context, userID int64, needed int) ([]RedeemCode, int64, error) {
@@ -860,8 +946,11 @@ WHERE user_id = $1
 	return total.Int64, nil
 }
 
-func mergeBalanceHistoryCodes(redeemCodes, affiliateCodes []RedeemCode, params pagination.PaginationParams) []RedeemCode {
+func mergeBalanceHistoryCodes(redeemCodes, affiliateCodes []RedeemCode, params pagination.PaginationParams, extra ...[]RedeemCode) []RedeemCode {
 	combined := append(append([]RedeemCode{}, redeemCodes...), affiliateCodes...)
+	for _, codes := range extra {
+		combined = append(combined, codes...)
+	}
 	sort.SliceStable(combined, func(i, j int) bool {
 		return redeemCodeHistoryTime(combined[i]).After(redeemCodeHistoryTime(combined[j]))
 	})

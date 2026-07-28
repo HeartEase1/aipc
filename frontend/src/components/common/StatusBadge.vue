@@ -24,13 +24,22 @@ const variantClass = computed(() => {
   switch (props.status) {
     case 'active':
     case 'success':
+    case 'succeeded':
+    case 'completed':
       return 'bg-green-500'
+    case 'pending':
+    case 'processing':
+      return 'bg-blue-500'
     case 'disabled':
     case 'inactive':
     case 'warning':
+    case 'expired':
+    case 'skipped_ineligible':
       return 'bg-yellow-500'
     case 'error':
     case 'danger':
+    case 'failed':
+    case 'partially_failed':
       return 'bg-red-500'
     default:
       return 'bg-gray-400'

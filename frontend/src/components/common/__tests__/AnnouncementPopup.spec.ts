@@ -110,6 +110,29 @@ describe('AnnouncementPopup', () => {
     wrapper.unmount()
   })
 
+  it('renders an external benefit notification without dismissing the announcement store', async () => {
+    const store = useAnnouncementStore()
+    const dismissPopup = vi.spyOn(store, 'dismissPopup')
+    const wrapper = mount(AnnouncementPopup, {
+      props: {
+        announcement,
+        badgeLabel: 'Balance received',
+        acknowledgeLabel: 'Got it',
+      },
+    })
+
+    expect(document.body.textContent).toContain('Balance received')
+    expect(document.body.textContent).toContain('Got it')
+    expect(document.body.querySelector('.markdown-body script')).toBeNull()
+
+    document.body.querySelector<HTMLButtonElement>('[data-testid="announcement-popup-dismiss"]')?.click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(dismissPopup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
   it('keeps the existing user popup dismissal behavior', async () => {
     const store = useAnnouncementStore()
     store.currentPopup = announcement

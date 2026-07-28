@@ -6,7 +6,8 @@ import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
 import { resolveRouteDocumentTitle } from '@/router/title'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
-import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
+import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore, useBenefitGrantStore } from '@/stores'
+import { useI18n } from 'vue-i18n'
 import { getSetupStatus } from '@/api/setup'
 import { updateFavicon } from '@/utils/branding'
 
@@ -18,6 +19,8 @@ const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
 const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
+const benefitGrantStore = useBenefitGrantStore()
+const { t } = useI18n()
 
 function updateDocumentTitle() {
   const customMenuItems = [
@@ -55,8 +58,22 @@ watch(
 // Watch for authentication state and manage subscription data + announcements
 function onVisibilityChange() {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
-    announcementStore.fetchAnnouncements()
+    void fetchUserNotices()
   }
+}
+
+let noticeFetchPromise: Promise<void> | null = null
+
+function fetchUserNotices(force = false): Promise<void> {
+  if (noticeFetchPromise) return noticeFetchPromise
+  const request = (async () => {
+    await benefitGrantStore.fetchUnread(force)
+    await announcementStore.fetchAnnouncements(force)
+  })().finally(() => {
+    if (noticeFetchPromise === request) noticeFetchPromise = null
+  })
+  noticeFetchPromise = request
+  return request
 }
 
 function onAdminComplianceRequired(event: Event) {
@@ -83,10 +100,12 @@ watch(
       // Announcements: new login vs page refresh restore
       if (oldValue === false) {
         // New login: delay 3s then force fetch
-        setTimeout(() => announcementStore.fetchAnnouncements(true), 3000)
+        setTimeout(() => {
+          void fetchUserNotices(true)
+        }, 3000)
       } else {
         // Page refresh restore (oldValue was undefined)
-        announcementStore.fetchAnnouncements()
+        void fetchUserNotices()
       }
 
       // Register visibility change listener
@@ -95,6 +114,7 @@ watch(
       // User logged out: clear data and stop polling
       subscriptionStore.clear()
       announcementStore.reset()
+      benefitGrantStore.reset()
       adminComplianceStore.reset()
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
@@ -105,7 +125,7 @@ watch(
 // Route change trigger (throttled by store)
 router.afterEach(() => {
   if (authStore.isAuthenticated) {
-    announcementStore.fetchAnnouncements()
+    void fetchUserNotices()
   }
 })
 
@@ -140,6 +160,13 @@ onMounted(async () => {
   <NavigationProgress />
   <RouterView />
   <Toast />
-  <AnnouncementPopup />
+  <AnnouncementPopup
+    v-if="benefitGrantStore.currentPopup"
+    :announcement="benefitGrantStore.currentPopup"
+    :badge-label="t('benefits.popupBadge')"
+    :acknowledge-label="t('benefits.acknowledge')"
+    @close="benefitGrantStore.dismissPopup"
+  />
+  <AnnouncementPopup v-else />
   <AdminComplianceDialog />
 </template>
