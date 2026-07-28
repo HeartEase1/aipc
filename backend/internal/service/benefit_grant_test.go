@@ -159,7 +159,7 @@ func TestFixedGrantCapUsesExactDecimalMinimum(t *testing.T) {
 func TestPreviewPercentageSnapshotsOnlyWalletSpendingInsideLockedWindow(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
 	windowStart := now.Add(-24 * time.Hour)
@@ -221,7 +221,7 @@ func TestPreviewPercentageSnapshotsOnlyWalletSpendingInsideLockedWindow(t *testi
 func TestExecuteRejectsBatchAboveBudgetBeforeAnyBalanceWrite(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
 	mock.ExpectBegin()
@@ -241,7 +241,7 @@ func TestExecuteRejectsBatchAboveBudgetBeforeAnyBalanceWrite(t *testing.T) {
 func TestListAndReadUserGrantsAreScopedToAuthenticatedUser(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	createdAt := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
 	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM benefit_grant_items i WHERE i.user_id = \$1 AND i.status = 'succeeded' AND i.read_at IS NULL`).
