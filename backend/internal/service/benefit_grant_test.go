@@ -78,7 +78,7 @@ func TestBenefitGrantOverBudgetUsesDecimalComparison(t *testing.T) {
 func TestProcessOneBenefitGrantItemCreditsBalanceAndCompletesItemInOneTransaction(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT i.id, i.batch_id, i.user_id, i.amount::text`).
@@ -105,7 +105,7 @@ func TestProcessOneBenefitGrantItemCreditsBalanceAndCompletesItemInOneTransactio
 func TestProcessOneBenefitGrantItemSkipsUserWhoBecameIneligible(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	mock.ExpectBegin()
 	mock.ExpectQuery(`SELECT i.id, i.batch_id, i.user_id, i.amount::text`).
@@ -130,7 +130,7 @@ func TestProcessOneBenefitGrantItemSkipsUserWhoBecameIneligible(t *testing.T) {
 func TestExecuteUsesDatabaseClockAtPreviewExpiryBoundary(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	t.Cleanup(func() { _ = db.Close() })
 
 	expiresAt := time.Date(2026, 7, 28, 12, 10, 0, 0, time.UTC)
 	mock.ExpectBegin()
