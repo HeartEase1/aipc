@@ -33,8 +33,12 @@ type BenefitGrantPreviewRequest struct {
 	GrantMode           string  `json:"grant_mode" binding:"required,oneof=fixed percentage_24h"`
 	AudienceType        string  `json:"audience_type" binding:"required,oneof=all selected"`
 	UserIDs             []int64 `json:"user_ids"`
+	PlatformIDs         []int64 `json:"platform_ids"`
 	FixedAmount         string  `json:"fixed_amount"`
 	Percentage          string  `json:"percentage"`
+	PercentagePeriod    string  `json:"percentage_period"`
+	CustomWindowStart   string  `json:"custom_window_start"`
+	CustomWindowEnd     string  `json:"custom_window_end"`
 	MinAmount           string  `json:"min_amount"`
 	PerUserCap          string  `json:"per_user_cap"`
 	TotalBudgetCap      string  `json:"total_budget_cap"`
@@ -56,7 +60,9 @@ func (h *BenefitGrantHandler) Preview(c *gin.Context) {
 	}
 	batch, err := h.service.Preview(c.Request.Context(), service.BenefitGrantPreviewInput{
 		GrantType: req.GrantType, GrantMode: req.GrantMode, AudienceType: req.AudienceType,
-		UserIDs: req.UserIDs, FixedAmount: req.FixedAmount, Percentage: req.Percentage,
+		UserIDs: req.UserIDs, PlatformIDs: req.PlatformIDs,
+		FixedAmount: req.FixedAmount, Percentage: req.Percentage, PercentagePeriod: req.PercentagePeriod,
+		CustomWindowStart: req.CustomWindowStart, CustomWindowEnd: req.CustomWindowEnd,
 		MinAmount: req.MinAmount, PerUserCap: req.PerUserCap, TotalBudgetCap: req.TotalBudgetCap,
 		Reason: req.Reason, NotificationTitle: req.NotificationTitle,
 		NotificationContent: req.NotificationContent, ActorID: subject.UserID,

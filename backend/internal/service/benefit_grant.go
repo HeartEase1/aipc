@@ -21,6 +21,11 @@ const (
 	BenefitGrantModeFixed         = "fixed"
 	BenefitGrantModePercentage24h = "percentage_24h"
 
+	BenefitGrantPercentagePeriod24h    = "24h"
+	BenefitGrantPercentagePeriod72h    = "72h"
+	BenefitGrantPercentagePeriod30d    = "30d"
+	BenefitGrantPercentagePeriodCustom = "custom"
+
 	BenefitGrantAudienceAll      = "all"
 	BenefitGrantAudienceSelected = "selected"
 
@@ -34,6 +39,7 @@ const (
 
 	benefitGrantPreviewTTL = 10 * time.Minute
 	maxSelectedGrantUsers  = 500
+	maxCustomGrantWindow   = 365 * 24 * time.Hour
 )
 
 type BenefitGrantPreviewInput struct {
@@ -41,8 +47,12 @@ type BenefitGrantPreviewInput struct {
 	GrantMode           string
 	AudienceType        string
 	UserIDs             []int64
+	PlatformIDs         []int64
 	FixedAmount         string
 	Percentage          string
+	PercentagePeriod    string
+	CustomWindowStart   string
+	CustomWindowEnd     string
 	MinAmount           string
 	PerUserCap          string
 	TotalBudgetCap      string
@@ -189,12 +199,9 @@ func (s *BenefitGrantService) Preview(ctx context.Context, input BenefitGrantPre
 		return nil, fmt.Errorf("load database time: %w", err)
 	}
 	expiresAt := now.Add(benefitGrantPreviewTTL)
-	var windowStart, windowEnd *time.Time
-	if validated.GrantMode == BenefitGrantModePercentage24h {
-		start := now.Add(-24 * time.Hour)
-		end := now
-		windowStart = &start
-		windowEnd = &end
+	windowStart, windowEnd, err := resolveBenefitGrantWindow(validated, now)
+	if err != nil {
+		return nil, err
 	}
 
 	var batchID int64
@@ -276,12 +283,17 @@ type validatedBenefitGrantInput struct {
 	minAmount      *decimal.Decimal
 	perUserCap     *decimal.Decimal
 	totalBudgetCap *decimal.Decimal
+	customStart    *time.Time
+	customEnd      *time.Time
 }
 
 func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefitGrantInput, error) {
 	input.GrantType = strings.TrimSpace(input.GrantType)
 	input.GrantMode = strings.TrimSpace(input.GrantMode)
 	input.AudienceType = strings.TrimSpace(input.AudienceType)
+	input.PercentagePeriod = strings.ToLower(strings.TrimSpace(input.PercentagePeriod))
+	input.CustomWindowStart = strings.TrimSpace(input.CustomWindowStart)
+	input.CustomWindowEnd = strings.TrimSpace(input.CustomWindowEnd)
 	input.Reason = strings.TrimSpace(input.Reason)
 	input.NotificationTitle = strings.TrimSpace(input.NotificationTitle)
 	input.NotificationContent = strings.TrimSpace(input.NotificationContent)
@@ -308,7 +320,12 @@ func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefi
 		return nil, infraerrors.BadRequest("INVALID_NOTIFICATION_CONTENT", "notification_content is required and must not exceed 10000 characters")
 	}
 
-	input.UserIDs = uniquePositiveInt64s(input.UserIDs)
+	for _, platformID := range input.PlatformIDs {
+		if platformID <= 0 {
+			return nil, infraerrors.BadRequest("INVALID_PLATFORM_IDS", "platform_ids must contain positive integers")
+		}
+	}
+	input.UserIDs = uniquePositiveInt64s(append(input.UserIDs, input.PlatformIDs...))
 	if input.AudienceType == BenefitGrantAudienceSelected {
 		if len(input.UserIDs) == 0 {
 			return nil, infraerrors.BadRequest("EMPTY_RECIPIENTS", "at least one user must be selected")
@@ -326,6 +343,32 @@ func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefi
 			return nil, err
 		}
 	} else {
+		if input.PercentagePeriod == "" {
+			input.PercentagePeriod = BenefitGrantPercentagePeriod24h
+		}
+		validated.PercentagePeriod = input.PercentagePeriod
+		switch input.PercentagePeriod {
+		case BenefitGrantPercentagePeriod24h, BenefitGrantPercentagePeriod72h, BenefitGrantPercentagePeriod30d:
+		case BenefitGrantPercentagePeriodCustom:
+			start, parseErr := time.Parse(time.RFC3339Nano, input.CustomWindowStart)
+			if parseErr != nil {
+				return nil, infraerrors.BadRequest("INVALID_CUSTOM_WINDOW", "custom_window_start must be an RFC3339 timestamp")
+			}
+			end, parseErr := time.Parse(time.RFC3339Nano, input.CustomWindowEnd)
+			if parseErr != nil {
+				return nil, infraerrors.BadRequest("INVALID_CUSTOM_WINDOW", "custom_window_end must be an RFC3339 timestamp")
+			}
+			if !start.Before(end) {
+				return nil, infraerrors.BadRequest("INVALID_CUSTOM_WINDOW", "custom window start must be before end")
+			}
+			if end.Sub(start) > maxCustomGrantWindow {
+				return nil, infraerrors.BadRequest("CUSTOM_WINDOW_TOO_LARGE", "custom window cannot exceed 365 days")
+			}
+			validated.customStart = &start
+			validated.customEnd = &end
+		default:
+			return nil, infraerrors.BadRequest("INVALID_PERCENTAGE_PERIOD", "percentage_period must be 24h, 72h, 30d, or custom")
+		}
 		validated.percentage, err = parseBenefitDecimal(input.Percentage, "percentage", true)
 		if err != nil {
 			return nil, err
@@ -347,6 +390,35 @@ func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefi
 		return nil, infraerrors.BadRequest("INVALID_AMOUNT_GUARDS", "min_amount cannot exceed per_user_cap")
 	}
 	return validated, nil
+}
+
+func resolveBenefitGrantWindow(input *validatedBenefitGrantInput, now time.Time) (*time.Time, *time.Time, error) {
+	if input.GrantMode != BenefitGrantModePercentage24h {
+		return nil, nil, nil
+	}
+
+	end := now
+	var start time.Time
+	switch input.PercentagePeriod {
+	case BenefitGrantPercentagePeriod24h:
+		start = now.Add(-24 * time.Hour)
+	case BenefitGrantPercentagePeriod72h:
+		start = now.Add(-72 * time.Hour)
+	case BenefitGrantPercentagePeriod30d:
+		start = now.Add(-30 * 24 * time.Hour)
+	case BenefitGrantPercentagePeriodCustom:
+		if input.customStart == nil || input.customEnd == nil {
+			return nil, nil, infraerrors.BadRequest("INVALID_CUSTOM_WINDOW", "custom window start and end are required")
+		}
+		start = *input.customStart
+		end = *input.customEnd
+		if end.After(now) {
+			return nil, nil, infraerrors.BadRequest("CUSTOM_WINDOW_IN_FUTURE", "custom window end cannot be in the future")
+		}
+	default:
+		return nil, nil, infraerrors.BadRequest("INVALID_PERCENTAGE_PERIOD", "unsupported percentage period")
+	}
+	return &start, &end, nil
 }
 
 func parseBenefitDecimal(raw, field string, required bool) (*decimal.Decimal, error) {

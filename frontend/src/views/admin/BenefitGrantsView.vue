@@ -66,6 +66,27 @@
             </div>
 
             <div v-if="form.audience_type === 'selected'" class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-900/40">
+              <div>
+                <label class="input-label">{{ t('admin.benefitGrants.fields.platformIds') }}</label>
+                <textarea
+                  v-model="platformIDInput"
+                  data-testid="platform-id-input"
+                  rows="2"
+                  class="input mt-1 resize-y font-mono text-sm"
+                  :class="platformIDParse.invalid.length ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : ''"
+                  :placeholder="t('admin.benefitGrants.platformIDPlaceholder')"
+                />
+                <p class="mt-1 text-xs" :class="platformIDParse.invalid.length ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'">
+                  {{ platformIDParse.invalid.length
+                    ? t('admin.benefitGrants.errors.invalidPlatformIDs', { values: platformIDParse.invalid.slice(0, 3).join(', ') })
+                    : t('admin.benefitGrants.platformIDHint', { count: platformIDParse.ids.length }) }}
+                </p>
+              </div>
+              <div class="my-4 flex items-center gap-3 text-xs text-gray-400">
+                <span class="h-px flex-1 bg-gray-200 dark:bg-dark-600" />
+                <span>{{ t('admin.benefitGrants.orSearchUsers') }}</span>
+                <span class="h-px flex-1 bg-gray-200 dark:bg-dark-600" />
+              </div>
               <div class="relative">
                 <Icon name="search" size="sm" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input v-model="userSearch" class="input pl-9" :placeholder="t('admin.benefitGrants.searchUsers')" @input="searchUsers" />
@@ -85,6 +106,9 @@
                   <Icon name="x" size="xs" />
                 </button>
               </div>
+              <p v-if="selectedRecipientIDs.length > 500" class="mt-3 text-xs font-medium text-red-600 dark:text-red-400">
+                {{ t('admin.benefitGrants.errors.selectedLimit') }}
+              </p>
             </div>
 
             <div class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -95,11 +119,38 @@
                   <input v-model.trim="form.fixed_amount" required inputmode="decimal" class="input pl-7" placeholder="0.00000000" />
                 </div>
               </div>
-              <div v-else>
+              <div v-else class="space-y-4 sm:col-span-2">
                 <label class="input-label">{{ t('admin.benefitGrants.fields.percentage') }}</label>
                 <div class="relative mt-1">
                   <input v-model.trim="form.percentage" required inputmode="decimal" class="input pr-8" placeholder="10" />
                   <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+                </div>
+                <fieldset>
+                  <legend class="input-label">{{ t('admin.benefitGrants.fields.percentagePeriod') }}</legend>
+                  <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <button
+                      v-for="period in percentagePeriods"
+                      :key="period"
+                      type="button"
+                      :data-testid="`percentage-period-${period}`"
+                      class="rounded-lg border px-3 py-2 text-sm font-medium transition-colors"
+                      :class="form.percentage_period === period ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700'"
+                      @click="form.percentage_period = period"
+                    >
+                      {{ t(`admin.benefitGrants.periods.${period}`) }}
+                    </button>
+                  </div>
+                </fieldset>
+                <div v-if="form.percentage_period === 'custom'" class="grid gap-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800 sm:grid-cols-2">
+                  <div>
+                    <label class="input-label">{{ t('admin.benefitGrants.fields.customWindowStart') }}</label>
+                    <input v-model="customWindowStart" data-testid="custom-window-start" type="datetime-local" class="input mt-1" :max="customWindowEnd || maxLocalDateTime" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('admin.benefitGrants.fields.customWindowEnd') }}</label>
+                    <input v-model="customWindowEnd" data-testid="custom-window-end" type="datetime-local" class="input mt-1" :min="customWindowStart" :max="maxLocalDateTime" />
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">{{ t('admin.benefitGrants.customWindowHint') }}</p>
                 </div>
               </div>
             </div>
@@ -153,7 +204,8 @@
             <dl class="mt-4 space-y-3 text-sm">
               <SummaryRow :label="t('admin.benefitGrants.fields.type')" :value="t(`admin.benefitGrants.types.${form.grant_type}`)" />
               <SummaryRow :label="t('admin.benefitGrants.fields.mode')" :value="t(`admin.benefitGrants.modes.${form.grant_mode}`)" />
-              <SummaryRow :label="t('admin.benefitGrants.fields.audience')" :value="form.audience_type === 'all' ? t('admin.benefitGrants.audiences.all') : t('admin.benefitGrants.selectedCount', { count: selectedUsers.size })" />
+              <SummaryRow v-if="form.grant_mode !== 'fixed'" :label="t('admin.benefitGrants.fields.percentagePeriod')" :value="t(`admin.benefitGrants.periods.${form.percentage_period}`)" />
+              <SummaryRow :label="t('admin.benefitGrants.fields.audience')" :value="form.audience_type === 'all' ? t('admin.benefitGrants.audiences.all') : t('admin.benefitGrants.selectedCount', { count: selectedRecipientIDs.length })" />
             </dl>
           </section>
           <section class="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 shadow-sm dark:border-amber-900/50 dark:bg-amber-900/10 dark:text-amber-200">
@@ -239,6 +291,9 @@
             <MetricBox :label="t('admin.benefitGrants.metrics.failed')" :value="String(detail.batch.failed_count)" />
             <MetricBox :label="t('admin.benefitGrants.metrics.distributed')" :value="`$${formatAmount(detail.batch.distributed_amount)}`" emphasis />
           </div>
+          <div v-if="detail.batch.window_start" class="rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:bg-dark-900/60 dark:text-gray-300">
+            {{ t('admin.benefitGrants.metrics.window') }}: {{ formatDateTime(detail.batch.window_start) }} - {{ formatDateTime(detail.batch.window_end) }}
+          </div>
           <div class="max-h-[50vh] overflow-auto rounded-lg border border-gray-200 dark:border-dark-600">
             <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
               <thead class="sticky top-0 bg-gray-50 dark:bg-dark-800"><tr><th class="px-4 py-3 text-left">ID</th><th class="px-4 py-3 text-left">{{ t('admin.benefitGrants.fields.user') }}</th><th class="px-4 py-3 text-right">{{ t('admin.benefitGrants.metrics.baseCost') }}</th><th class="px-4 py-3 text-right">{{ t('admin.benefitGrants.metrics.amount') }}</th><th class="px-4 py-3 text-left">{{ t('common.status') }}</th></tr></thead>
@@ -274,7 +329,7 @@ import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import { adminAPI } from '@/api/admin'
-import type { BenefitGrantBatch, BenefitGrantBatchDetail, BenefitGrantMode, BenefitGrantPreviewRequest, BenefitGrantType } from '@/api/admin/benefitGrants'
+import type { BenefitGrantBatch, BenefitGrantBatchDetail, BenefitGrantMode, BenefitGrantPercentagePeriod, BenefitGrantPreviewRequest, BenefitGrantType } from '@/api/admin/benefitGrants'
 import type { AdminUser } from '@/types'
 import { useAppStore } from '@/stores'
 import { isStepUpCancelled, useStepUp } from '@/composables/useStepUp'
@@ -287,17 +342,47 @@ const stepUp = useStepUp()
 const activeTab = ref<'create' | 'history'>('create')
 const grantTypes: BenefitGrantType[] = ['welfare', 'compensation']
 const grantModes: BenefitGrantMode[] = ['fixed', 'percentage_24h']
+const percentagePeriods: BenefitGrantPercentagePeriod[] = ['24h', '72h', '30d', 'custom']
 const audiences = ['all', 'selected'] as const
 const templateVariables = ['{{amount}}', '{{reason}}', '{{balance}}', '{{site_name}}']
 const form = reactive<BenefitGrantPreviewRequest>({
   grant_type: 'welfare', grant_mode: 'fixed', audience_type: 'all', user_ids: [],
-  fixed_amount: '', percentage: '10', min_amount: '', per_user_cap: '', total_budget_cap: '',
+  fixed_amount: '', percentage: '10', percentage_period: '24h', min_amount: '', per_user_cap: '', total_budget_cap: '',
   reason: '', notification_title: t('admin.benefitGrants.defaults.title'),
   notification_content: t('admin.benefitGrants.defaults.content')
 })
 const guards = reactive({ min: false, cap: false, budget: false })
 const selectedUsers = reactive(new Map<number, AdminUser>())
 const selectedUserList = computed(() => [...selectedUsers.values()])
+const platformIDInput = ref('')
+const platformIDParse = computed(() => {
+  const tokens = platformIDInput.value.trim() ? platformIDInput.value.trim().split(/[\s,，;；]+/) : []
+  const invalid: string[] = []
+  const ids: number[] = []
+  const seen = new Set<number>()
+  for (const token of tokens) {
+    if (!/^[1-9]\d*$/.test(token)) {
+      invalid.push(token)
+      continue
+    }
+    const id = Number(token)
+    if (!Number.isSafeInteger(id)) {
+      invalid.push(token)
+      continue
+    }
+    if (!seen.has(id)) {
+      seen.add(id)
+      ids.push(id)
+    }
+  }
+  return { ids, invalid }
+})
+const selectedRecipientIDs = computed(() => [...new Set([...selectedUsers.keys(), ...platformIDParse.value.ids])])
+const nowForCustomWindow = new Date()
+nowForCustomWindow.setSeconds(0, 0)
+const customWindowEnd = ref(toLocalDateTimeValue(nowForCustomWindow))
+const customWindowStart = ref(toLocalDateTimeValue(new Date(nowForCustomWindow.getTime() - 24 * 60 * 60 * 1000)))
+const maxLocalDateTime = computed(() => toLocalDateTimeValue(new Date()))
 const userSearch = ref('')
 const userResults = ref<AdminUser[]>([])
 let searchTimer: ReturnType<typeof setTimeout> | undefined
@@ -320,7 +405,13 @@ let pollTimer: ReturnType<typeof setInterval> | undefined
 
 const historyHeadings = computed(() => [t('admin.benefitGrants.columns.batch'), t('admin.benefitGrants.fields.type'), t('admin.benefitGrants.fields.mode'), t('admin.benefitGrants.columns.progress'), t('admin.benefitGrants.columns.amount'), t('common.status'), t('admin.benefitGrants.columns.created'), ''])
 const statusOptions = computed(() => [{ value: '', label: t('admin.benefitGrants.allStatuses') }, ...['draft', 'pending', 'processing', 'completed', 'partially_failed', 'failed', 'expired'].map((status) => ({ value: status, label: t(`admin.benefitGrants.statuses.${status}`) }))])
-const canPreview = computed(() => form.reason && form.notification_title && form.notification_content && (form.audience_type === 'all' || selectedUsers.size > 0) && (form.grant_mode === 'fixed' ? form.fixed_amount : form.percentage))
+const customWindowValid = computed(() => form.percentage_period !== 'custom' || (
+  !!customWindowStart.value && !!customWindowEnd.value &&
+  new Date(customWindowStart.value).getTime() < new Date(customWindowEnd.value).getTime()
+))
+const canPreview = computed(() => form.reason && form.notification_title && form.notification_content &&
+  (form.audience_type === 'all' || (selectedRecipientIDs.value.length > 0 && selectedRecipientIDs.value.length <= 500 && !platformIDParse.value.invalid.length)) &&
+  (form.grant_mode === 'fixed' ? form.fixed_amount : form.percentage && customWindowValid.value))
 const notificationPreview = computed(() => {
   const amount = form.grant_mode === 'fixed' && form.fixed_amount ? form.fixed_amount : '10.00000000'
   const values: Record<string, string> = {
@@ -356,12 +447,16 @@ const SummaryRow = defineComponent({ props: { label: String, value: String }, se
 const MetricBox = defineComponent({ props: { label: String, value: String, emphasis: Boolean }, setup: (props) => () => h('div', { class: ['rounded-lg border p-4', props.emphasis ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/10' : 'border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-900/40'] }, [h('p', { class: 'text-xs text-gray-500 dark:text-gray-400' }, props.label), h('p', { class: ['mt-1 text-lg font-semibold', props.emphasis ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-900 dark:text-white'] }, props.value)]) })
 
 function setGrantMode(mode: BenefitGrantMode) { form.grant_mode = mode; if (mode === 'percentage_24h') form.grant_type = 'compensation' }
+function toLocalDateTimeValue(date: Date) {
+  const offset = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
 function toggleUser(user: AdminUser) {
   if (selectedUsers.has(user.id)) {
     selectedUsers.delete(user.id)
     return
   }
-  if (selectedUsers.size >= 500) {
+  if (selectedRecipientIDs.value.length >= 500 && !platformIDParse.value.ids.includes(user.id)) {
     appStore.showError(t('admin.benefitGrants.errors.selectedLimit'))
     return
   }
@@ -380,7 +475,20 @@ function searchUsers() {
 }
 function appendVariable(variable: string) { form.notification_content += variable; contentInput.value?.focus() }
 function formatAmount(value?: string) { if (!value) return '0'; const number = Number(value); return Number.isFinite(number) ? number.toFixed(8).replace(/\.?0+$/, '') : value }
-function buildPayload(): BenefitGrantPreviewRequest { return { ...form, user_ids: form.audience_type === 'selected' ? [...selectedUsers.keys()] : undefined, min_amount: guards.min && form.grant_mode !== 'fixed' ? form.min_amount : undefined, per_user_cap: guards.cap ? form.per_user_cap : undefined, total_budget_cap: guards.budget ? form.total_budget_cap : undefined } }
+function buildPayload(): BenefitGrantPreviewRequest {
+  const percentageMode = form.grant_mode !== 'fixed'
+  return {
+    ...form,
+    user_ids: form.audience_type === 'selected' ? [...selectedUsers.keys()] : undefined,
+    platform_ids: form.audience_type === 'selected' ? platformIDParse.value.ids : undefined,
+    percentage_period: percentageMode ? form.percentage_period : undefined,
+    custom_window_start: percentageMode && form.percentage_period === 'custom' ? new Date(customWindowStart.value).toISOString() : undefined,
+    custom_window_end: percentageMode && form.percentage_period === 'custom' ? new Date(customWindowEnd.value).toISOString() : undefined,
+    min_amount: guards.min && percentageMode ? form.min_amount : undefined,
+    per_user_cap: guards.cap ? form.per_user_cap : undefined,
+    total_budget_cap: guards.budget ? form.total_budget_cap : undefined
+  }
+}
 
 async function loadSelectedUsers(ids: number[]) {
   form.audience_type = 'selected'

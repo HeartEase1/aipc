@@ -29,14 +29,17 @@ func validBenefitGrantInput() BenefitGrantPreviewInput {
 }
 
 func TestValidateBenefitGrantInputNormalizesDecimalRulesAndRecipients(t *testing.T) {
-	validated, err := validateBenefitGrantInput(validBenefitGrantInput())
+	input := validBenefitGrantInput()
+	input.PlatformIDs = []int64{4, 2, 4}
+	validated, err := validateBenefitGrantInput(input)
 	require.NoError(t, err)
-	require.Equal(t, []int64{2, 3}, validated.UserIDs)
+	require.Equal(t, []int64{2, 3, 4}, validated.UserIDs)
+	require.Equal(t, BenefitGrantPercentagePeriod24h, validated.PercentagePeriod)
 	require.Equal(t, "12.34567891", validated.percentage.StringFixed(8))
 	require.Equal(t, "0.10000000", validated.minAmount.StringFixed(8))
 	require.Equal(t, "10.00000000", validated.perUserCap.StringFixed(8))
 
-	input := validBenefitGrantInput()
+	input = validBenefitGrantInput()
 	input.Percentage = "0.009"
 	_, err = validateBenefitGrantInput(input)
 	require.Error(t, err)
@@ -48,6 +51,89 @@ func TestValidateBenefitGrantInputNormalizesDecimalRulesAndRecipients(t *testing
 
 	input = validBenefitGrantInput()
 	input.MinAmount = "11"
+	_, err = validateBenefitGrantInput(input)
+	require.Error(t, err)
+}
+
+func TestValidateBenefitGrantInputRejectsInvalidPlatformIDs(t *testing.T) {
+	input := validBenefitGrantInput()
+	input.PlatformIDs = []int64{2, 0}
+
+	_, err := validateBenefitGrantInput(input)
+	require.Error(t, err)
+}
+
+func TestValidateBenefitGrantInputAppliesLimitAfterMergingPlatformIDs(t *testing.T) {
+	input := validBenefitGrantInput()
+	input.UserIDs = make([]int64, maxSelectedGrantUsers)
+	for i := range input.UserIDs {
+		input.UserIDs[i] = int64(i + 1)
+	}
+	input.PlatformIDs = []int64{maxSelectedGrantUsers + 1}
+
+	_, err := validateBenefitGrantInput(input)
+	require.Error(t, err)
+}
+
+func TestResolveBenefitGrantPresetWindows(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		period   string
+		duration time.Duration
+	}{
+		{period: BenefitGrantPercentagePeriod24h, duration: 24 * time.Hour},
+		{period: BenefitGrantPercentagePeriod72h, duration: 72 * time.Hour},
+		{period: BenefitGrantPercentagePeriod30d, duration: 30 * 24 * time.Hour},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.period, func(t *testing.T) {
+			input := validBenefitGrantInput()
+			input.PercentagePeriod = tt.period
+			validated, err := validateBenefitGrantInput(input)
+			require.NoError(t, err)
+
+			start, end, err := resolveBenefitGrantWindow(validated, now)
+			require.NoError(t, err)
+			require.Equal(t, now.Add(-tt.duration), *start)
+			require.Equal(t, now, *end)
+		})
+	}
+}
+
+func TestResolveBenefitGrantCustomWindow(t *testing.T) {
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	start := now.Add(-14 * 24 * time.Hour)
+	end := now.Add(-time.Hour)
+	input := validBenefitGrantInput()
+	input.PercentagePeriod = BenefitGrantPercentagePeriodCustom
+	input.CustomWindowStart = start.Format(time.RFC3339)
+	input.CustomWindowEnd = end.Format(time.RFC3339)
+
+	validated, err := validateBenefitGrantInput(input)
+	require.NoError(t, err)
+	actualStart, actualEnd, err := resolveBenefitGrantWindow(validated, now)
+	require.NoError(t, err)
+	require.Equal(t, start, *actualStart)
+	require.Equal(t, end, *actualEnd)
+
+	input.CustomWindowEnd = now.Add(time.Minute).Format(time.RFC3339)
+	validated, err = validateBenefitGrantInput(input)
+	require.NoError(t, err)
+	_, _, err = resolveBenefitGrantWindow(validated, now)
+	require.Error(t, err)
+}
+
+func TestValidateBenefitGrantCustomWindowBoundaries(t *testing.T) {
+	input := validBenefitGrantInput()
+	input.PercentagePeriod = BenefitGrantPercentagePeriodCustom
+	input.CustomWindowStart = "2026-08-01T12:00:00Z"
+	input.CustomWindowEnd = "2026-08-01T12:00:00Z"
+	_, err := validateBenefitGrantInput(input)
+	require.Error(t, err)
+
+	input.CustomWindowStart = "2025-01-01T00:00:00Z"
+	input.CustomWindowEnd = "2026-08-01T00:00:00Z"
 	_, err = validateBenefitGrantInput(input)
 	require.Error(t, err)
 }

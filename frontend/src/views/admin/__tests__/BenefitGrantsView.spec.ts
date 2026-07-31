@@ -126,7 +126,57 @@ describe('BenefitGrantsView', () => {
       grant_type: 'compensation',
       grant_mode: 'percentage_24h',
       percentage: '25.5',
+      percentage_period: '24h',
       reason: 'incident compensation'
+    }))
+  })
+
+  it('submits the selected percentage period', async () => {
+    const wrapper = mountView()
+    await buttonByText(wrapper, 'admin.benefitGrants.modes.percentage_24h').trigger('click')
+    await wrapper.get('[data-testid="percentage-period-72h"]').trigger('click')
+    await wrapper.findAll('textarea')[0].setValue('72-hour compensation')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(preview).toHaveBeenCalledWith(expect.objectContaining({
+      grant_mode: 'percentage_24h',
+      percentage_period: '72h'
+    }))
+  })
+
+  it('converts a custom local window to locked ISO timestamps', async () => {
+    const wrapper = mountView()
+    const start = '2026-07-01T08:30'
+    const end = '2026-07-03T18:45'
+    await buttonByText(wrapper, 'admin.benefitGrants.modes.percentage_24h').trigger('click')
+    await wrapper.get('[data-testid="percentage-period-custom"]').trigger('click')
+    await wrapper.get('[data-testid="custom-window-start"]').setValue(start)
+    await wrapper.get('[data-testid="custom-window-end"]').setValue(end)
+    await wrapper.findAll('textarea')[0].setValue('custom-window compensation')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(preview).toHaveBeenCalledWith(expect.objectContaining({
+      percentage_period: 'custom',
+      custom_window_start: new Date(start).toISOString(),
+      custom_window_end: new Date(end).toISOString()
+    }))
+  })
+
+  it('accepts deduplicated platform IDs for selected recipients', async () => {
+    const wrapper = mountView()
+    await wrapper.get('input[type="radio"][value="selected"]').setValue()
+    await wrapper.get('[data-testid="platform-id-input"]').setValue('1024, 2048\n1024')
+    await wrapper.get('input[placeholder="0.00000000"]').setValue('2.5')
+    await wrapper.findAll('textarea')[1].setValue('platform ID grant')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(preview).toHaveBeenCalledWith(expect.objectContaining({
+      audience_type: 'selected',
+      platform_ids: [1024, 2048],
+      reason: 'platform ID grant'
     }))
   })
 })

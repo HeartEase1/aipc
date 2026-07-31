@@ -6,18 +6,24 @@ export default {
     sections: { rules: '发放规则', protection: '金额保护', notification: '到账通知' },
     fields: {
       type: '发放类型', mode: '发放方式', audience: '发放对象', fixedAmount: '每人固定额度',
-      percentage: '近 24 小时消费补偿比例', minAmount: '最低发放额', perUserCap: '单用户封顶',
+      percentage: '消费补偿比例', percentagePeriod: '消费统计时间', platformIds: '按平台 ID 指定',
+      customWindowStart: '开始时间', customWindowEnd: '结束时间', minAmount: '最低发放额', perUserCap: '单用户封顶',
       totalBudgetCap: '整批预算上限', reason: '发放原因', notificationTitle: '弹窗标题',
       notificationContent: '弹窗内容（支持 Markdown）', user: '用户'
     },
     types: { welfare: '福利', compensation: '补偿' },
-    modes: { fixed: '固定额度', percentage_24h: '24 小时消费比例' },
+    modes: { fixed: '固定额度', percentage_24h: '按消费比例' },
+    periods: { '24h': '近 24 小时', '72h': '近 72 小时', '30d': '近 30 天', custom: '自定义' },
     audiences: { all: '全部符合条件的用户', selected: '指定用户' },
     audienceHints: {
       all: '发放给所有状态正常、未删除的普通用户。',
-      selected: '搜索并选择最多 500 名符合条件的普通用户。'
+      selected: '可输入平台 ID，或搜索并选择用户；合计最多 500 名。'
     },
+    platformIDPlaceholder: '例如：1024, 2048, 4096',
+    platformIDHint: '支持逗号、空格或换行分隔，已识别 {count} 个平台 ID。',
+    orSearchUsers: '或搜索选择用户',
     searchUsers: '按邮箱或用户名搜索用户',
+    customWindowHint: '按本机时区输入起止时间，最长可统计 365 天；预览后将锁定为准确时间范围。',
     selectedCount: '已选择 {count} 人',
     summary: { title: '当前规则' },
     safety: {
@@ -40,7 +46,7 @@ export default {
     overBudget: '预计总额超过整批预算上限，无法执行。',
     columns: { batch: '批次', progress: '成功/预计', amount: '金额', created: '创建时间' },
     metrics: {
-      recipients: '预计发放人数', skipped: '跳过人数', baseCost: '24 小时消费基数',
+      recipients: '预计发放人数', skipped: '跳过人数', baseCost: '所选时段消费基数',
       totalAmount: '预计总额', average: '平均金额', maximum: '最大单笔', amount: '发放金额',
       succeeded: '成功人数', failed: '失败人数', distributed: '已发放金额', window: '锁定消费窗口'
     },
@@ -59,7 +65,8 @@ export default {
     errors: {
       preview: '生成发放预览失败', execute: '提交发放失败', load: '加载发放记录失败',
       retry: '重试失败明细失败', export: '导出发放明细失败', search: '搜索用户失败',
-      selectedLimit: '手动选择一次最多支持 500 名用户'
+      selectedLimit: '手动指定一次最多支持 500 名用户',
+      invalidPlatformIDs: '以下平台 ID 格式不正确：{values}'
     }
   }
 }

@@ -89,18 +89,24 @@ export default {
       sections: { rules: '付与ルール', protection: '金額保護', notification: '入金通知' },
       fields: {
         type: '付与タイプ', mode: '付与方法', audience: '対象ユーザー', fixedAmount: '1人あたりの固定額',
-        percentage: '直近24時間の消費額に対する補償率', minAmount: '最低付与額', perUserCap: 'ユーザーごとの上限',
+        percentage: '消費額に対する補償率', percentagePeriod: '消費集計期間', platformIds: 'プラットフォームIDで指定',
+        customWindowStart: '開始日時', customWindowEnd: '終了日時', minAmount: '最低付与額', perUserCap: 'ユーザーごとの上限',
         totalBudgetCap: 'バッチ予算上限', reason: '付与理由', notificationTitle: 'ポップアップタイトル',
         notificationContent: 'ポップアップ内容（Markdown対応）', user: 'ユーザー'
       },
       types: { welfare: '特典', compensation: '補償' },
-      modes: { fixed: '固定額', percentage_24h: '24時間消費率' },
+      modes: { fixed: '固定額', percentage_24h: '消費額の割合' },
+      periods: { '24h': '直近24時間', '72h': '直近72時間', '30d': '直近30日', custom: 'カスタム' },
       audiences: { all: '対象となる全ユーザー', selected: '選択したユーザー' },
       audienceHints: {
         all: '有効で削除されていない一般ユーザー全員に付与します。',
-        selected: '対象となる一般ユーザーを最大500人まで選択します。'
+        selected: 'プラットフォームIDの入力または検索で、合計500人まで指定できます。'
       },
+      platformIDPlaceholder: '例：1024, 2048, 4096',
+      platformIDHint: 'カンマ、空白、改行で区切ります。{count}件のプラットフォームIDを認識しました。',
+      orSearchUsers: 'またはユーザーを検索',
       searchUsers: 'メールアドレスまたはユーザー名で検索',
+      customWindowHint: '端末のタイムゾーンで入力してください。最長365日で、プレビュー時に期間が固定されます。',
       selectedCount: '{count}人を選択済み',
       summary: { title: '現在のルール' },
       safety: {
@@ -115,7 +121,7 @@ export default {
       overBudget: '予定総額がバッチ予算上限を超えているため実行できません。',
       columns: { batch: 'バッチ', progress: '成功 / 予定', amount: '金額', created: '作成日時' },
       metrics: {
-        recipients: '予定対象人数', skipped: 'スキップ', baseCost: '24時間消費基準額', totalAmount: '予定総額',
+        recipients: '予定対象人数', skipped: 'スキップ', baseCost: '選択期間の消費基準額', totalAmount: '予定総額',
         average: '平均額', maximum: '最大付与額', amount: '付与額', succeeded: '成功', failed: '失敗',
         distributed: '付与済み金額', window: '固定された消費期間'
       },
@@ -133,7 +139,8 @@ export default {
         preview: '付与プレビューを作成できませんでした', execute: '付与を送信できませんでした',
         load: '付与履歴を読み込めませんでした', retry: '失敗項目を再試行できませんでした',
         export: '付与明細をエクスポートできませんでした', search: 'ユーザーを検索できませんでした',
-        selectedLimit: '手動で選択できるユーザーは最大500人です'
+        selectedLimit: '手動で指定できるユーザーは最大500人です',
+        invalidPlatformIDs: '次のプラットフォームIDは無効です：{values}'
       }
     }
   }

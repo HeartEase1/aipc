@@ -6,18 +6,24 @@ export default {
     sections: { rules: 'Grant rules', protection: 'Amount safeguards', notification: 'Arrival notification' },
     fields: {
       type: 'Grant type', mode: 'Grant method', audience: 'Recipients', fixedAmount: 'Fixed amount per user',
-      percentage: 'Percentage of spending in the last 24 hours', minAmount: 'Minimum grant', perUserCap: 'Per-user cap',
+      percentage: 'Spending compensation percentage', percentagePeriod: 'Spending period', platformIds: 'Specify by platform ID',
+      customWindowStart: 'Start time', customWindowEnd: 'End time', minAmount: 'Minimum grant', perUserCap: 'Per-user cap',
       totalBudgetCap: 'Batch budget cap', reason: 'Reason', notificationTitle: 'Popup title',
       notificationContent: 'Popup content (Markdown supported)', user: 'User'
     },
     types: { welfare: 'Welfare', compensation: 'Compensation' },
-    modes: { fixed: 'Fixed amount', percentage_24h: '24-hour spending percentage' },
+    modes: { fixed: 'Fixed amount', percentage_24h: 'Percentage of spending' },
+    periods: { '24h': 'Last 24 hours', '72h': 'Last 72 hours', '30d': 'Last 30 days', custom: 'Custom' },
     audiences: { all: 'All eligible users', selected: 'Selected users' },
     audienceHints: {
       all: 'Grant to every active, non-deleted ordinary user.',
-      selected: 'Search and select up to 500 eligible ordinary users.'
+      selected: 'Enter platform IDs or search for users, up to 500 recipients total.'
     },
+    platformIDPlaceholder: 'For example: 1024, 2048, 4096',
+    platformIDHint: 'Separate IDs with commas, spaces, or new lines. {count} platform IDs recognized.',
+    orSearchUsers: 'or search for users',
     searchUsers: 'Search by email or username',
+    customWindowHint: 'Times use your local timezone. The range may be up to 365 days and is locked when previewed.',
     selectedCount: '{count} selected',
     summary: { title: 'Current rules' },
     safety: {
@@ -40,7 +46,7 @@ export default {
     overBudget: 'The estimated total exceeds the batch budget cap and cannot be executed.',
     columns: { batch: 'Batch', progress: 'Succeeded / expected', amount: 'Amount', created: 'Created' },
     metrics: {
-      recipients: 'Expected recipients', skipped: 'Skipped', baseCost: '24-hour spending base',
+      recipients: 'Expected recipients', skipped: 'Skipped', baseCost: 'Spending base for selected period',
       totalAmount: 'Estimated total', average: 'Average amount', maximum: 'Largest grant', amount: 'Grant amount',
       succeeded: 'Succeeded', failed: 'Failed', distributed: 'Distributed', window: 'Locked spending window'
     },
@@ -59,7 +65,8 @@ export default {
     errors: {
       preview: 'Failed to generate grant preview', execute: 'Failed to submit grant', load: 'Failed to load grant history',
       retry: 'Failed to retry grant items', export: 'Failed to export grant details', search: 'Failed to search users',
-      selectedLimit: 'No more than 500 users can be selected manually'
+      selectedLimit: 'No more than 500 users can be specified manually',
+      invalidPlatformIDs: 'These platform IDs are invalid: {values}'
     }
   }
 }

@@ -2,6 +2,7 @@ import { apiClient } from '../client'
 
 export type BenefitGrantType = 'welfare' | 'compensation'
 export type BenefitGrantMode = 'fixed' | 'percentage_24h'
+export type BenefitGrantPercentagePeriod = '24h' | '72h' | '30d' | 'custom'
 export type BenefitGrantAudience = 'all' | 'selected'
 export type BenefitGrantStatus =
   | 'draft'
@@ -69,8 +70,12 @@ export interface BenefitGrantPreviewRequest {
   grant_mode: BenefitGrantMode
   audience_type: BenefitGrantAudience
   user_ids?: number[]
+  platform_ids?: number[]
   fixed_amount?: string
   percentage?: string
+  percentage_period?: BenefitGrantPercentagePeriod
+  custom_window_start?: string
+  custom_window_end?: string
   min_amount?: string
   per_user_cap?: string
   total_budget_cap?: string
