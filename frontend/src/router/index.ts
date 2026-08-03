@@ -253,6 +253,27 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/guide',
+    name: 'UsageGuide',
+    component: () => import('@/views/user/CustomPageView.vue'),
+    props: {
+      builtinMarkdownPage: {
+        id: 'usage-guide',
+        slug: 'usage-guide',
+        label: 'Usage Guide',
+        markdownUrl: '/tutorial/usage-guide.md',
+        assetBaseUrl: '/tutorial'
+      }
+    },
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Usage Guide',
+      titleKey: 'usageGuide.title',
+      descriptionKey: 'usageGuide.description'
+    }
+  },
+  {
     path: '/redeem',
     name: 'Redeem',
     component: () => import('@/views/user/RedeemView.vue'),

@@ -114,6 +114,12 @@ export default defineConfig(({ mode }) => {
          */
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
+            // Three.js is only used by the async home globe. Keep it out of the
+            // shared vendor preload so non-home routes do not download it.
+            if (id.includes('/three/')) {
+              return 'vendor-three'
+            }
+
             // Vue 核心库
             if (
               id.includes('/vue/') ||

@@ -46,6 +46,7 @@ function mountHome(settings: Record<string, unknown> = {}) {
         RouterLink: RouterLinkStub,
         LocaleSwitcher: { template: '<div data-testid="locale-switcher" />' },
         Icon: { template: '<span data-testid="icon" />' },
+        GlobeScene: { template: '<div data-testid="globe-scene" />' },
       },
     },
   })
@@ -97,7 +98,38 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome(settings)
 
     expect(wrapper.find('[data-testid="compact-home"]').exists()).toBe(false)
-    expect(wrapper.find('.terminal-container').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="default-home"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="globe-scene"]').exists()).toBe(true)
+  })
+
+  it('shows the configured recharge multiplier when payments are enabled', () => {
+    const wrapper = mountHome({
+      payment_enabled: true,
+      payment_balance_recharge_multiplier: 10,
+    })
+
+    expect(wrapper.text()).toContain('10$')
+    expect(wrapper.text()).toContain('home.features.rechargeRate')
+  })
+
+  it('formats fractional recharge multipliers without trailing zeroes', () => {
+    const wrapper = mountHome({
+      payment_enabled: true,
+      payment_balance_recharge_multiplier: 1.2345,
+    })
+
+    expect(wrapper.text()).toContain('1.2345$')
+    expect(wrapper.text()).not.toContain('1.23450000$')
+  })
+
+  it('hides the recharge multiplier when payments are disabled', () => {
+    const wrapper = mountHome({
+      payment_enabled: false,
+      payment_balance_recharge_multiplier: 10,
+    })
+
+    expect(wrapper.text()).not.toContain('home.features.rechargeRate')
+    expect(wrapper.text()).not.toContain('10$')
   })
 
   it('links unauthenticated visitors to login', () => {

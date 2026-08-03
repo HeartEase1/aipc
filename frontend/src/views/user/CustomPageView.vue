@@ -135,6 +135,18 @@ interface TocItem {
   level: number
 }
 
+interface BuiltinMarkdownPage {
+  id: string
+  slug: string
+  label: string
+  markdownUrl: string
+  assetBaseUrl: string
+}
+
+const props = defineProps<{
+  builtinMarkdownPage?: BuiltinMarkdownPage
+}>()
+
 const { t, locale } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
@@ -150,10 +162,21 @@ const tocVisible = ref(typeof window !== 'undefined' ? window.innerWidth > 768 :
 const activeHeadingId = ref('')
 let themeObserver: MutationObserver | null = null
 
-const menuItemId = computed(() => route.params.id as string)
+const menuItemId = computed(() => (route.params.id as string | undefined) || props.builtinMarkdownPage?.id || '')
 
 const menuItem = computed(() => {
   const id = menuItemId.value
+  if (props.builtinMarkdownPage?.id === id) {
+    return {
+      id,
+      label: props.builtinMarkdownPage.label,
+      icon_svg: '',
+      url: `md:${props.builtinMarkdownPage.slug}`,
+      page_slug: props.builtinMarkdownPage.slug,
+      visibility: 'user' as const,
+      sort_order: 0,
+    }
+  }
   const publicItems = appStore.cachedPublicSettings?.custom_menu_items ?? []
   const found = publicItems.find((item) => item.id === id) ?? null
   if (found) return found
@@ -221,13 +244,25 @@ function buildPageImageUrl(slug: string, src: string): string {
   return buildApiUrl(`/pages/${encodeURIComponent(slug)}/images/${encodedPath}${suffix}`)
 }
 
+function buildStaticPageImageUrl(baseUrl: string, src: string): string {
+  const trimmed = src.trim()
+  const [pathPart, suffix = ''] = trimmed.split(/([?#].*)/, 2)
+  const encodedPath = pathPart
+    .split('/')
+    .filter((part) => part && part !== '.')
+    .map((part) => encodeURIComponent(part))
+    .join('/')
+  return `${baseUrl.replace(/\/+$/, '')}/${encodedPath}${suffix}`
+}
+
 async function fetchAndRenderMarkdown(slug: string) {
   loading.value = true
   tocItems.value = []
   activeHeadingId.value = ''
   try {
-    const resp = await fetch(buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
-      headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
+    const builtinPage = props.builtinMarkdownPage?.slug === slug ? props.builtinMarkdownPage : null
+    const resp = await fetch(builtinPage?.markdownUrl ?? buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
+      headers: !builtinPage && authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
     })
     if (!resp.ok) {
       renderedHtml.value = `<p class="text-red-500">${t('common.pageNotFound')}</p>`
@@ -237,7 +272,13 @@ async function fetchAndRenderMarkdown(slug: string) {
 
     raw = raw.replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
-      (match, alt, src) => isRelativeMarkdownAsset(src) ? `![${alt}](${buildPageImageUrl(slug, src)})` : match
+      (match, alt, src) => {
+        if (!isRelativeMarkdownAsset(src)) return match
+        const imageUrl = builtinPage
+          ? buildStaticPageImageUrl(builtinPage.assetBaseUrl, src)
+          : buildPageImageUrl(slug, src)
+        return `![${alt}](${imageUrl})`
+      }
     )
 
     const html = marked.parse(raw) as string

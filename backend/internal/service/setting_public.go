@@ -207,6 +207,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWeChatConnectFrontendRedirectURL,
 		SettingKeyBackendModeEnabled,
 		SettingPaymentEnabled,
+		SettingBalanceRechargeMult,
 		SettingKeyOIDCConnectEnabled,
 		SettingKeyOIDCConnectProviderName,
 		SettingKeyGitHubOAuthEnabled,
@@ -324,6 +325,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMobileEnabled:         weChatMobileEnabled,
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
 		PaymentEnabled:                   settings[SettingPaymentEnabled] == "true",
+		PaymentBalanceRechargeMultiplier: normalizeBalanceRechargeMultiplier(pcParseFloat(settings[SettingBalanceRechargeMult], defaultBalanceRechargeMultiplier)),
 		OIDCOAuthEnabled:                 oidcEnabled,
 		OIDCOAuthProviderName:            oidcProviderName,
 		GitHubOAuthEnabled:               gitHubEnabled,
@@ -517,6 +519,7 @@ type PublicSettingsInjectionPayload struct {
 	GoogleOAuthEnabled               bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                   bool                     `json:"payment_enabled"`
+	PaymentBalanceRechargeMultiplier float64                  `json:"payment_balance_recharge_multiplier"`
 	Version                          string                   `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用
 	ServerTimezone              string  `json:"server_timezone"`
@@ -590,6 +593,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GoogleOAuthEnabled:               settings.GoogleOAuthEnabled,
 		BackendModeEnabled:               settings.BackendModeEnabled,
 		PaymentEnabled:                   settings.PaymentEnabled,
+		PaymentBalanceRechargeMultiplier: settings.PaymentBalanceRechargeMultiplier,
 		Version:                          s.version,
 		ServerTimezone:                   timezone.Name(),
 		ServerUTCOffset:                  timezone.UTCOffset(),

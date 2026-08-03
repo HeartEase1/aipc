@@ -156,6 +156,7 @@ export default {
     batchImage: 'Batch Images',
     usage: 'Usage',
     leaderboard: 'Leaderboard',
+    usageGuide: 'Usage Guide',
     benefits: 'Grant History',
     redeem: 'Redeem',
     affiliate: 'Affiliate Rebates',
@@ -435,6 +436,11 @@ export default {
     verifyFailed: 'Verification failed, please try again',
     notEnabled: 'This operation requires two-factor authentication. Please enable TOTP in your profile first.',
     adminApiKeyForbidden: 'Admin API keys cannot perform this operation. Use a two-factor verified admin session.'
+  },
+
+  usageGuide: {
+    title: 'Usage Guide',
+    description: 'A complete guide to creating an API key and configuring supported clients.'
   },
 
   leaderboard: {

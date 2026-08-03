@@ -7,8 +7,13 @@ export default {
   nav: {
     ...en.nav,
     leaderboard: 'ランキング',
+    usageGuide: '利用ガイド',
     benefits: '入金履歴',
     benefitGrants: '特典付与'
+  },
+  usageGuide: {
+    title: '利用ガイド',
+    description: 'APIキーの作成から対応クライアントの設定までを説明します。'
   },
   leaderboard: {
     ...en.leaderboard,

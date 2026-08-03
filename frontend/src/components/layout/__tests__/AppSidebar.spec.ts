@@ -53,3 +53,20 @@ describe('AppSidebar header styles', () => {
     expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
   })
 })
+
+describe('AppSidebar usage guide navigation', () => {
+  it('places the guide between the leaderboard and channel entries', () => {
+    const leaderboardIndex = componentSource.indexOf("{ path: '/leaderboard'")
+    const guideIndex = componentSource.indexOf("{ path: '/guide'")
+    const channelIndex = componentSource.indexOf("{ path: '/available-channels'")
+
+    expect(leaderboardIndex).toBeGreaterThan(-1)
+    expect(guideIndex).toBeGreaterThan(leaderboardIndex)
+    expect(channelIndex).toBeGreaterThan(guideIndex)
+  })
+
+  it('uses a dedicated open-book SVG icon', () => {
+    expect(componentSource).toContain('const GuideIcon = {')
+    expect(componentSource).toContain('M12 6.042A8.967 8.967 0 006 3.75')
+  })
+})

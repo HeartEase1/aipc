@@ -14,6 +14,17 @@ export default {
     login: '登录',
     getStarted: '立即开始',
     goToDashboard: '进入控制台',
+    heroBadge: 'AI 中转 · 稳定 · 高速',
+    advantagesTitle: '为什么选择我们？',
+    advantagesSubtitle: '一站式 AI API 接入，稳定、高效、透明',
+    nodes: {
+      us: '全球节点 · 美国',
+      hk: '亚洲节点 · 香港',
+      sg: '全球节点 · 新加坡'
+    },
+    globeUnavailable: '当前设备暂不支持 3D 地球展示',
+    interactiveGlobe: '可拖动旋转并缩放的节点地球',
+    resetGlobeView: '重置地球视角',
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
@@ -55,7 +66,9 @@ export default {
       multiAccount: '稳定可靠',
       multiAccountDesc: '智能调度多个上游账号，自动切换和负载均衡，告别频繁报错。',
       balanceQuota: '用多少付多少',
-      balanceQuotaDesc: '按实际使用量计费，支持设置配额上限，团队用量一目了然。'
+      balanceQuotaDesc: '按实际使用量计费，支持设置配额上限，团队用量一目了然。',
+      rechargeRate: '超值充值倍率',
+      rechargeRateDesc: '充值 1 元人民币即享 {amount} 美元平台额度，平台定价以 $ 为单位，汇率超划算。'
     },
     // 优势对比
     comparison: {

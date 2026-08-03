@@ -156,6 +156,7 @@ export default {
     batchImage: '批量生图',
     usage: '使用记录',
     leaderboard: '排行榜',
+    usageGuide: '使用教程',
     benefits: '到账记录',
     redeem: '兑换',
     affiliate: '邀请返利',
@@ -434,6 +435,11 @@ export default {
     verifyFailed: '验证失败，请重试',
     notEnabled: '此操作需要开启二次验证，请先在个人资料中启用 TOTP。',
     adminApiKeyForbidden: '管理 API Key 无法执行此操作，请使用已通过二次验证的管理员会话。'
+  },
+
+  usageGuide: {
+    title: '使用教程',
+    description: '从创建 API 密钥到配置常用客户端的完整使用指南。'
   },
 
   leaderboard: {

@@ -97,6 +97,33 @@ func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T
 	require.False(t, missingSettings.CompactHomeEnabled)
 }
 
+func TestSettingService_GetPublicSettings_ExposesNormalizedRechargeMultiplier(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want float64
+	}{
+		{name: "configured", raw: "10.25", want: 10.25},
+		{name: "missing", want: defaultBalanceRechargeMultiplier},
+		{name: "invalid", raw: "not-a-number", want: defaultBalanceRechargeMultiplier},
+		{name: "non-positive", raw: "0", want: defaultBalanceRechargeMultiplier},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &settingPublicRepoStub{values: map[string]string{}}
+			if tt.raw != "" {
+				repo.values[SettingBalanceRechargeMult] = tt.raw
+			}
+
+			settings, err := NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, settings.PaymentBalanceRechargeMultiplier)
+		})
+	}
+}
+
 func TestSettingService_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
