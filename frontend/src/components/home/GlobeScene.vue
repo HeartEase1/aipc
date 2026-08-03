@@ -30,6 +30,8 @@
         v-for="logo in logoStates"
         :key="logo.id"
         class="logo-pill"
+        :data-orbit="logo.orbitId"
+        :data-provider="logo.providerId"
         :style="{
           transform: `translate(calc(${logo.x}px - 50%), calc(${logo.y}px - 50%)) scale(${logo.scale})`,
           opacity: logo.opacity,
@@ -72,9 +74,7 @@ import Icon from '@/components/icons/Icon.vue'
 const { t } = useI18n()
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const R        = 1.0    // globe radius
-const ORBIT_R  = 1.82   // logo orbit radius
-const TILT     = 0.30   // orbit tilt (radians)
+const R = 1.0 // globe radius
 const MIN_CAMERA_DISTANCE = 2.7
 const MAX_CAMERA_DISTANCE = 5.4
 const INTRO_CAMERA_Z = 5.2
@@ -90,21 +90,75 @@ const NODE_DEFS = [
 
 // ─── AI logo definitions (SVG paths from ModelIcon.vue) ───────────────────────
 const LOGO_DEFS = [
-  { id:'openai', name:'ChatGPT', color:'#10a37f', angle:0,
+  { id:'openai', name:'ChatGPT', color:'#10a37f',
     paths:['M21.55 10.004a5.416 5.416 0 00-.478-4.501c-1.217-2.09-3.662-3.166-6.05-2.66A5.59 5.59 0 0010.831 1C8.39.995 6.224 2.546 5.473 4.838A5.553 5.553 0 001.76 7.496a5.487 5.487 0 00.691 6.5 5.416 5.416 0 00.477 4.502c1.217 2.09 3.662 3.165 6.05 2.66A5.586 5.586 0 0013.168 23c2.443.006 4.61-1.546 5.361-3.84a5.553 5.553 0 003.715-2.66 5.488 5.488 0 00-.693-6.497v.001zm-8.381 11.558a4.199 4.199 0 01-2.675-.954c.034-.018.093-.05.132-.074l4.44-2.53a.71.71 0 00.364-.623v-6.176l1.877 1.069c.02.01.033.029.036.05v5.115c-.003 2.274-1.87 4.118-4.174 4.123zM4.192 17.78a4.059 4.059 0 01-.498-2.763c.032.02.09.055.131.078l4.44 2.53c.225.13.504.13.73 0l5.42-3.088v2.138a.068.068 0 01-.027.057L9.9 19.288c-1.999 1.136-4.552.46-5.707-1.51h-.001zM3.023 8.216A4.15 4.15 0 015.198 6.41l-.002.151v5.06a.711.711 0 00.364.624l5.42 3.087-1.876 1.07a.067.067 0 01-.063.005l-4.489-2.559c-1.995-1.14-2.679-3.658-1.53-5.63h.001zm15.417 3.54l-5.42-3.088L14.896 7.6a.067.067 0 01.063-.006l4.489 2.557c1.998 1.14 2.683 3.662 1.529 5.633a4.163 4.163 0 01-2.174 1.807V12.38a.71.71 0 00-.363-.623zm1.867-2.773a6.04 6.04 0 00-.132-.078l-4.44-2.53a.731.731 0 00-.729 0l-5.42 3.088V7.325a.068.068 0 01.027-.057L14.1 4.713c2-1.137 4.555-.46 5.707 1.513.487.833.664 1.809.499 2.757h.001zm-11.741 3.81l-1.877-1.068a.065.065 0 01-.036-.051V6.559c.001-2.277 1.873-4.122 4.181-4.12.976 0 1.92.338 2.671.954-.034.018-.092.05-.131.073l-4.44 2.53a.71.71 0 00-.365.623l-.003 6.173v.002zm1.02-2.168L12 9.25l2.414 1.375v2.75L12 14.75l-2.415-1.375v-2.75z'] },
-  { id:'gemini', name:'Gemini',  color:'#4285f4', angle:Math.PI*0.5,
+  { id:'gemini', name:'Gemini',  color:'#4285f4',
     paths:['M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z'] },
-  { id:'xai',    name:'Grok',    color:'#e2e8f0', angle:Math.PI,
+  { id:'xai',    name:'Grok',    color:'#e2e8f0',
     paths:['M9.27 15.29l7.978-5.897c.391-.29.95-.177 1.137.272.98 2.369.542 5.215-1.41 7.169-1.951 1.954-4.667 2.382-7.149 1.406l-2.711 1.257c3.889 2.661 8.611 2.003 11.562-.953 2.341-2.344 3.066-5.539 2.388-8.42l.006.007c-.983-4.232.242-5.924 2.75-9.383.06-.082.12-.164.179-.248l-3.301 3.305v-.01L9.267 15.292M7.623 16.723c-2.792-2.67-2.31-6.801.071-9.184 1.761-1.763 4.647-2.483 7.166-1.425l2.705-1.25a7.808 7.808 0 00-1.829-1A8.975 8.975 0 005.984 5.83c-2.533 2.536-3.33 6.436-1.962 9.764 1.022 2.487-.653 4.246-2.34 6.022-.599.63-1.199 1.259-1.682 1.925l7.62-6.815'] },
-  { id:'claude', name:'Claude',  color:'#d97706', angle:Math.PI*1.5,
+  { id:'claude', name:'Claude',  color:'#d97706',
     paths:['M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z'] },
 ] as const
 
+type LogoOrbitDefinition = {
+  id: 'primary' | 'cross'
+  radius: number
+  tilt: number
+  roll: number
+  speed: number
+  phase: number
+  ringOpacity: number
+  order: readonly number[]
+}
+
+const LOGO_ORBITS = [
+  {
+    id: 'primary',
+    radius: 1.45,
+    tilt: 0.42,
+    roll: 0.64,
+    speed: 0.26,
+    phase: 0,
+    ringOpacity: 0.35,
+    order: [0, 1, 2, 3],
+  },
+  {
+    id: 'cross',
+    radius: 1.52,
+    tilt: 0.42,
+    roll: -0.64,
+    speed: -0.19,
+    phase: Math.PI * 0.35,
+    ringOpacity: 0.28,
+    order: [3, 2, 1, 0],
+  },
+] as const satisfies readonly LogoOrbitDefinition[]
+
+const LOGO_ORBIT_PITCH = 0.34
+
 // ─── reactive overlay state ────────────────────────────────────────────────────
-type LogoState = { id:string; name:string; color:string; angle:number; paths:string[]; x:number; y:number; scale:number; opacity:number; zIndex:number }
+type LogoState = { id:string; providerId:string; orbitId:string; orbitIndex:number; name:string; color:string; angle:number; paths:string[]; x:number; y:number; scale:number; opacity:number; zIndex:number }
 type NodeState = { id:string; lat:number; lon:number; color:string; regionKey:string; x:number; y:number; opacity:number }
 
-const logoStates = reactive<LogoState[]>(LOGO_DEFS.map(l => ({ ...l, paths:[...l.paths] as string[], x:0, y:0, scale:1, opacity:1, zIndex:1 })))
+const logoStates = reactive<LogoState[]>(LOGO_ORBITS.flatMap((orbit, orbitIndex) =>
+  orbit.order.map((logoIndex, position) => {
+    const logo = LOGO_DEFS[logoIndex]
+    return {
+      ...logo,
+      id: `${orbit.id}-${logo.id}`,
+      providerId: logo.id,
+      orbitId: orbit.id,
+      orbitIndex,
+      angle: position * Math.PI * 0.5,
+      paths: [...logo.paths] as string[],
+      x: 0,
+      y: 0,
+      scale: 1,
+      opacity: 0,
+      zIndex: 1,
+    }
+  }),
+))
 const nodeStates = reactive<NodeState[]>(NODE_DEFS.map(n => ({ ...n, x:0, y:0, opacity:0 })))
 
 // ─── refs & internals ─────────────────────────────────────────────────────────
@@ -328,19 +382,34 @@ function buildGlobe(): THREE.Group {
 }
 
 // ─── orbit ring (rendered in scene, not globeGroup — doesn't rotate) ──────────
-function addOrbitRing(){
-  const pts: THREE.Vector3[] = []
-  for(let i=0;i<=80;i++){
-    const a=i/80*Math.PI*2
-    pts.push(new THREE.Vector3(
-      ORBIT_R*Math.cos(a),
-      ORBIT_R*Math.sin(a)*Math.sin(TILT),
-      ORBIT_R*Math.sin(a)*Math.cos(TILT)))
+function pointOnLogoOrbit(orbit: LogoOrbitDefinition, angle: number): THREE.Vector3 {
+  const baseX=orbit.radius*Math.cos(angle)
+  const baseY=orbit.radius*Math.sin(angle)*Math.sin(orbit.tilt)
+  const baseZ=orbit.radius*Math.sin(angle)*Math.cos(orbit.tilt)
+  const cosRoll=Math.cos(orbit.roll)
+  const sinRoll=Math.sin(orbit.roll)
+  const rolledX=baseX*cosRoll-baseY*sinRoll
+  const rolledY=baseX*sinRoll+baseY*cosRoll
+  const cosPitch=Math.cos(LOGO_ORBIT_PITCH)
+  const sinPitch=Math.sin(LOGO_ORBIT_PITCH)
+  return new THREE.Vector3(
+    rolledX,
+    rolledY*cosPitch-baseZ*sinPitch,
+    rolledY*sinPitch+baseZ*cosPitch,
+  )
+}
+
+function addOrbitRings(){
+  for(const orbit of LOGO_ORBITS){
+    const pts: THREE.Vector3[] = []
+    for(let i=0;i<=96;i++){
+      pts.push(pointOnLogoOrbit(orbit,i/96*Math.PI*2))
+    }
+    scene!.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({color:0x1e3a5f, transparent:true, opacity:orbit.ringOpacity})
+    ))
   }
-  scene!.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(pts),
-    new THREE.LineBasicMaterial({color:0x1e3a5f, transparent:true, opacity:0.35})
-  ))
 }
 
 // ─── sphere occlusion: returns true if worldPos is hidden behind the globe ────
@@ -429,26 +498,28 @@ function tickTraffic(dt:number){
 function tickLogos(elapsed:number){
   if(!camera||!wrapperRef.value)return
   const W=wrapperRef.value.clientWidth, H=wrapperRef.value.clientHeight||480
-  for(let i=0;i<LOGO_DEFS.length;i++){
-    const a=LOGO_DEFS[i].angle + elapsed*0.26   // slower, more graceful orbit
-    const x3=ORBIT_R*Math.cos(a), y3=ORBIT_R*Math.sin(a)*Math.sin(TILT), z3=ORBIT_R*Math.sin(a)*Math.cos(TILT)
-    const wp=new THREE.Vector3(x3,y3,z3)
+  for(let i=0;i<logoStates.length;i++){
+    const logo=logoStates[i]
+    const orbit=LOGO_ORBITS[logo.orbitIndex]
+    const a=logo.angle+orbit.phase+elapsed*orbit.speed
+    const wp=pointOnLogoOrbit(orbit,a)
     const v=wp.clone().project(camera)
-    logoStates[i].x=(v.x*0.5+0.5)*W
-    logoStates[i].y=(-v.y*0.5+0.5)*H
+    logo.x=(v.x*0.5+0.5)*W
+    logo.y=(-v.y*0.5+0.5)*H
 
     // Accurate sphere occlusion
     const occluded = isBehindGlobe(wp, camera.position)
-    const targetOpacity = occluded ? 0 : (0.38 + ((z3/ORBIT_R+1)/2)*0.62)
-    const targetScale   = occluded ? 0.5 : (0.5  + ((z3/ORBIT_R+1)/2)*0.65)
-    const targetZ       = occluded ? -1  : Math.round(((z3/ORBIT_R+1)/2)*20)
+    const depth=THREE.MathUtils.clamp(wp.z/orbit.radius,-1,1)
+    const depthRatio=(depth+1)/2
+    const targetOpacity = occluded ? 0 : (0.50+depthRatio*0.50)
+    const targetScale   = occluded ? 0.62 : (0.68+depthRatio*0.42)
+    const targetZ       = occluded ? -1  : Math.round(((depth+1)/2)*20)
 
     // Lerp for silky-smooth transitions (no abrupt snapping)
-    const prev = logoStates[i]
     const lf = 0.12   // lerp factor per frame (~60fps → ~5 frames to transition)
-    logoStates[i].opacity = prev.opacity + (targetOpacity - prev.opacity) * lf
-    logoStates[i].scale   = prev.scale   + (targetScale   - prev.scale)   * lf
-    logoStates[i].zIndex  = targetZ
+    logo.opacity += (targetOpacity-logo.opacity)*lf
+    logo.scale   += (targetScale-logo.scale)*lf
+    logo.zIndex  = targetZ
   }
 }
 
@@ -704,7 +775,7 @@ function init(){
     globeGroup=buildGlobe()
     buildTrafficSystem(globeGroup)
     scene.add(globeGroup)
-    addOrbitRing()
+    addOrbitRings()
     setupControls()
     setupObservers()
     updateAnimationState()

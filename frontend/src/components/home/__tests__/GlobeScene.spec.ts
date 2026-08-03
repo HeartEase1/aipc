@@ -27,4 +27,18 @@ describe('GlobeScene interaction controls', () => {
     expect(componentSource).toContain("t('home.resetGlobeView')")
     expect(componentSource).toContain('function resetView()')
   })
+
+  it('renders every provider on two crossed, counter-rotating orbits', () => {
+    expect(componentSource).toContain("id: 'primary'")
+    expect(componentSource).toContain("id: 'cross'")
+    expect(componentSource).toContain('order: [0, 1, 2, 3]')
+    expect(componentSource).toContain('order: [3, 2, 1, 0]')
+    expect(componentSource).toContain('roll: 0.64')
+    expect(componentSource).toContain('roll: -0.64')
+    expect(componentSource).toContain('const LOGO_ORBIT_PITCH = 0.34')
+    expect(componentSource).toContain('speed: -0.19')
+    expect(componentSource).toContain('phase: Math.PI * 0.35')
+    expect(componentSource).toContain('LOGO_ORBITS.flatMap')
+    expect(componentSource).toContain(':data-orbit="logo.orbitId"')
+  })
 })

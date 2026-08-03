@@ -28,7 +28,11 @@
         </div>
 
         <!-- Markdown mode with TOC -->
-        <div v-else-if="isMarkdownMode" class="flex h-full overflow-hidden">
+        <div
+          v-else-if="isMarkdownMode"
+          class="markdown-page-layout relative flex h-full overflow-hidden"
+          :class="{ 'toc-on-right': isBuiltinMarkdownPage }"
+        >
           <!-- TOC Sidebar -->
           <aside
             v-show="tocVisible"
@@ -37,7 +41,19 @@
             <div class="toc-header">
               <span class="toc-title">{{ t('customPage.tableOfContents') }}</span>
               <button class="toc-close-btn" @click="tocVisible = false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="transition-transform"
+                  :class="{ 'rotate-180': isBuiltinMarkdownPage }"
+                ><path d="M15 18l-6-6 6-6"/></svg>
               </button>
             </div>
             <nav class="toc-nav">
@@ -195,6 +211,9 @@ const markdownSlug = computed(() => {
 })
 
 const isMarkdownMode = computed(() => !!markdownSlug.value)
+const isBuiltinMarkdownPage = computed(
+  () => props.builtinMarkdownPage?.slug === markdownSlug.value,
+)
 
 const embeddedUrl = computed(() => {
   if (!menuItem.value || isMarkdownMode.value) return ''
@@ -428,6 +447,17 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+.toc-on-right .toc-sidebar {
+  order: 2;
+  border-right: 0;
+  border-left: 1px solid;
+  @apply border-gray-200 dark:border-dark-600;
+}
+
+.toc-on-right .markdown-page-content {
+  order: 1;
+}
+
 @media (max-width: 640px) {
   .toc-sidebar {
     position: absolute;
@@ -438,6 +468,12 @@ onUnmounted(() => {
     max-width: 240px;
     height: 100%;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .toc-on-right .toc-sidebar {
+    left: auto;
+    right: 0;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -476,6 +512,11 @@ onUnmounted(() => {
   @apply bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-500;
   @apply text-gray-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-600;
   @apply shadow-sm transition-colors cursor-pointer;
+}
+
+.toc-on-right .toc-toggle-btn {
+  left: auto;
+  right: 0.5rem;
 }
 
 .custom-embed-shell {
