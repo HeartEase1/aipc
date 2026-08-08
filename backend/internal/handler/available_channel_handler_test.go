@@ -36,7 +36,7 @@ func TestFilterUserVisibleGroups_IntersectionOnly(t *testing.T) {
 	}
 	allowed := map[int64]struct{}{1: {}, 3: {}}
 
-	visible := filterUserVisibleGroups(groups, allowed)
+	visible := filterUserVisibleGroups(groups, allowed, nil)
 	require.Len(t, visible, 2)
 	ids := []int64{visible[0].ID, visible[1].ID}
 	require.ElementsMatch(t, []int64{1, 3}, ids)
