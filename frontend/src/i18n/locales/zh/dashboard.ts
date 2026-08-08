@@ -77,6 +77,12 @@ export default {
       clickToCopy: '点击可复制此端点',
       speedTest: '测速',
     },
+    discountCampaign: {
+      currentDiscount: '当前折扣',
+      discountValue: '{value}折',
+      balanceOnly: '仅余额请求生效',
+      subscriptionExcluded: '套餐请求不打折'
+    },
     allGroups: '全部分组',
     allStatus: '全部状态',
     columnSettings: '列设置',
@@ -532,6 +538,7 @@ export default {
 
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
+    discountActive: '{name}：Token 计费限时优惠 {percent}%，截止 {end}',
     title: '模型广场',
     description: '按分组浏览可用模型与价格',
     loading: '加载中...',

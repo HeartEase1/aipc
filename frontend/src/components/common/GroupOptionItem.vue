@@ -27,13 +27,20 @@
       <div class="flex shrink-0 flex-col items-end gap-1">
         <!-- Rate pill (platform color) -->
         <span v-if="rateMultiplier !== undefined" :class="['inline-flex items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold', ratePillClass]">
-          <template v-if="hasCustomRate">
+          <template v-if="hasDiscount">
+            <span class="mr-1 line-through opacity-50">{{ sourceRate }}x</span>
+            <span class="font-bold">{{ effectiveRateMultiplier }}x</span>
+          </template>
+          <template v-else-if="hasCustomRate">
             <span class="mr-1 line-through opacity-50">{{ rateMultiplier }}x</span>
             <span class="font-bold">{{ userRateMultiplier }}x</span>
           </template>
           <template v-else>
             {{ rateMultiplier }}x {{ t('admin.groups.rateLabel') }}
           </template>
+        </span>
+        <span v-if="hasDiscount && showDiscountPercent" class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300" :title="discountTitle">
+          -{{ discountPercent }}%
         </span>
         <span
           v-if="hasPeakRate"
@@ -74,6 +81,10 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null
+  effectiveRateMultiplier?: number | null
+  discountFactor?: number | null
+  discountCampaignName?: string
+  discountEndsAt?: string | null
   peakRateEnabled?: boolean
   peakStart?: string
   peakEnd?: string
@@ -81,13 +92,19 @@ interface Props {
   description?: string | null
   selected?: boolean
   showCheckmark?: boolean
+  showDiscountPercent?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   subscriptionType: 'standard',
   selected: false,
   showCheckmark: true,
+  showDiscountPercent: true,
   userRateMultiplier: null,
+  effectiveRateMultiplier: null,
+  discountFactor: null,
+  discountCampaignName: '',
+  discountEndsAt: null,
   peakRateEnabled: false
 })
 
@@ -99,6 +116,21 @@ const hasCustomRate = computed(() => {
     props.rateMultiplier !== undefined &&
     props.userRateMultiplier !== props.rateMultiplier
   )
+})
+const sourceRate = computed(() => props.userRateMultiplier ?? props.rateMultiplier)
+const hasDiscount = computed(() =>
+  props.discountFactor != null &&
+  props.discountFactor > 0 &&
+  props.discountFactor < 1 &&
+  props.effectiveRateMultiplier != null &&
+  sourceRate.value != null &&
+  props.effectiveRateMultiplier < sourceRate.value
+)
+const discountPercent = computed(() => Math.round((1 - (props.discountFactor ?? 1)) * 100))
+const discountTitle = computed(() => {
+  const parts = [props.discountCampaignName].filter(Boolean)
+  if (props.discountEndsAt) parts.push(new Date(props.discountEndsAt).toLocaleString())
+  return parts.join(' · ')
 })
 
 const appStore = useAppStore()

@@ -20,6 +20,8 @@ export interface BenefitGrantBatch {
   audience_type: BenefitGrantAudience
   fixed_amount?: string
   percentage?: string
+  include_subscription: boolean
+  subscription_percentage?: string
   min_amount?: string
   per_user_cap?: string
   total_budget_cap?: string
@@ -34,7 +36,11 @@ export interface BenefitGrantBatch {
   success_count: number
   failed_count: number
   total_base_cost: string
+  total_balance_base_cost: string
+  total_subscription_base_cost: string
   total_amount: string
+  total_balance_amount: string
+  total_subscription_amount: string
   distributed_amount: string
   average_amount: string
   max_amount: string
@@ -55,7 +61,11 @@ export interface BenefitGrantItem {
   email: string
   username: string
   base_cost: string
+  balance_base_cost: string
+  subscription_base_cost: string
   amount: string
+  balance_amount: string
+  subscription_amount: string
   balance_before?: string
   balance_after?: string
   status: string
@@ -73,6 +83,8 @@ export interface BenefitGrantPreviewRequest {
   platform_ids?: number[]
   fixed_amount?: string
   percentage?: string
+  include_subscription?: boolean
+  subscription_percentage?: string
   percentage_period?: BenefitGrantPercentagePeriod
   custom_window_start?: string
   custom_window_end?: string

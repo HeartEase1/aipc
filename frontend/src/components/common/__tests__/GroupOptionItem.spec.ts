@@ -41,4 +41,26 @@ describe('GroupOptionItem description layout', () => {
     expect(descriptionElement?.classes()).toContain('line-clamp-3')
     expect(wrapper.find('[title]').attributes('title')).toBe(description)
   })
+
+  it('can hide only the discount percentage while retaining discounted rates', () => {
+    const wrapper = mount(GroupOptionItem, {
+      props: {
+        name: 'OpenAI Global',
+        platform: 'openai',
+        rateMultiplier: 2,
+        effectiveRateMultiplier: 1.8,
+        discountFactor: 0.9,
+        showDiscountPercent: false,
+      },
+      global: {
+        stubs: {
+          GroupBadge: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('2x')
+    expect(wrapper.text()).toContain('1.8x')
+    expect(wrapper.text()).not.toContain('-10%')
+  })
 })

@@ -69,6 +69,10 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			log.TotalCost,
 			log.ActualCost,
 			log.RateMultiplier,
+			sqlmock.AnyArg(), // discount_campaign_id
+			sqlmock.AnyArg(), // discount_factor
+			sqlmock.AnyArg(), // original_rate_multiplier
+			log.DiscountAmount,
 			log.AccountRateMultiplier,
 			log.BillingType,
 			int16(service.RequestTypeWSV2),
@@ -161,6 +165,10 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			log.TotalCost,
 			log.ActualCost,
 			log.RateMultiplier,
+			sqlmock.AnyArg(), // discount_campaign_id
+			sqlmock.AnyArg(), // discount_factor
+			sqlmock.AnyArg(), // original_rate_multiplier
+			log.DiscountAmount,
 			log.AccountRateMultiplier,
 			log.BillingType,
 			int16(service.RequestTypeSync),
@@ -256,6 +264,29 @@ func TestPrepareUsageLogInsert_ArgCountMatchesTypes(t *testing.T) {
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
 }
 
+func TestPrepareUsageLogInsert_PersistsDiscountMetadata(t *testing.T) {
+	campaignID := int64(17)
+	discountFactor := 0.9
+	originalRate := 2.0
+	prepared := prepareUsageLogInsert(&service.UsageLog{
+		UserID:                 1,
+		APIKeyID:               2,
+		AccountID:              3,
+		RequestID:              "req-discount-metadata",
+		Model:                  "gpt-5",
+		DiscountCampaignID:     &campaignID,
+		DiscountFactor:         &discountFactor,
+		OriginalRateMultiplier: &originalRate,
+		DiscountAmount:         0.25,
+		CreatedAt:              time.Date(2025, 1, 5, 12, 0, 0, 0, time.UTC),
+	})
+
+	require.Equal(t, sql.NullInt64{Int64: campaignID, Valid: true}, prepared.args[28])
+	require.Equal(t, &discountFactor, prepared.args[29])
+	require.Equal(t, &originalRate, prepared.args[30])
+	require.Equal(t, 0.25, prepared.args[31])
+}
+
 func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
 	imageSize := "4K"
 	inputSize := "1024x1024"
@@ -277,11 +308,11 @@ func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
 		CreatedAt:          time.Date(2025, 1, 6, 12, 0, 0, 0, time.UTC),
 	})
 
-	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[38])
-	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[39])
-	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[40])
-	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[41])
-	breakdownJSON, ok := prepared.args[42].(string)
+	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[42])
+	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[43])
+	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[44])
+	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[45])
+	breakdownJSON, ok := prepared.args[46].(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"1K":1,"4K":1}`, breakdownJSON)
 }
@@ -822,6 +853,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.0, 0.0, 0.0, 0.0, 0.8, 0.8,
 			1.0,
+			sql.NullInt64{},
+			sql.NullFloat64{},
+			sql.NullFloat64{},
+			0.0,
 			sql.NullFloat64{},
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeSync),
@@ -899,6 +934,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			1.0,               // total_cost
 			0.9,               // actual_cost
 			1.0,               // rate_multiplier
+			sql.NullInt64{},   // discount_campaign_id
+			sql.NullFloat64{}, // discount_factor
+			sql.NullFloat64{}, // original_rate_multiplier
+			0.0,               // discount_amount
 			sql.NullFloat64{}, // account_rate_multiplier
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeWSV2),
@@ -959,6 +998,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
 			1.0,
+			sql.NullInt64{},
+			sql.NullFloat64{},
+			sql.NullFloat64{},
+			0.0,
 			sql.NullFloat64{},
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeUnknown),
@@ -1019,6 +1062,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
 			1.0,
+			sql.NullInt64{},
+			sql.NullFloat64{},
+			sql.NullFloat64{},
+			0.0,
 			sql.NullFloat64{},
 			int16(service.BillingTypeBalance),
 			int16(service.RequestTypeSync),

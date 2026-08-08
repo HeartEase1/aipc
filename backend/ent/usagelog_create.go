@@ -379,6 +379,62 @@ func (_c *UsageLogCreate) SetNillableRateMultiplier(v *float64) *UsageLogCreate 
 	return _c
 }
 
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (_c *UsageLogCreate) SetDiscountCampaignID(v int64) *UsageLogCreate {
+	_c.mutation.SetDiscountCampaignID(v)
+	return _c
+}
+
+// SetNillableDiscountCampaignID sets the "discount_campaign_id" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableDiscountCampaignID(v *int64) *UsageLogCreate {
+	if v != nil {
+		_c.SetDiscountCampaignID(*v)
+	}
+	return _c
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (_c *UsageLogCreate) SetDiscountFactor(v float64) *UsageLogCreate {
+	_c.mutation.SetDiscountFactor(v)
+	return _c
+}
+
+// SetNillableDiscountFactor sets the "discount_factor" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableDiscountFactor(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetDiscountFactor(*v)
+	}
+	return _c
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (_c *UsageLogCreate) SetOriginalRateMultiplier(v float64) *UsageLogCreate {
+	_c.mutation.SetOriginalRateMultiplier(v)
+	return _c
+}
+
+// SetNillableOriginalRateMultiplier sets the "original_rate_multiplier" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableOriginalRateMultiplier(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetOriginalRateMultiplier(*v)
+	}
+	return _c
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (_c *UsageLogCreate) SetDiscountAmount(v float64) *UsageLogCreate {
+	_c.mutation.SetDiscountAmount(v)
+	return _c
+}
+
+// SetNillableDiscountAmount sets the "discount_amount" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableDiscountAmount(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetDiscountAmount(*v)
+	}
+	return _c
+}
+
 // SetLongContextBillingApplied sets the "long_context_billing_applied" field.
 func (_c *UsageLogCreate) SetLongContextBillingApplied(v bool) *UsageLogCreate {
 	_c.mutation.SetLongContextBillingApplied(v)
@@ -749,6 +805,10 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultRateMultiplier
 		_c.mutation.SetRateMultiplier(v)
 	}
+	if _, ok := _c.mutation.DiscountAmount(); !ok {
+		v := usagelog.DefaultDiscountAmount
+		_c.mutation.SetDiscountAmount(v)
+	}
 	if _, ok := _c.mutation.LongContextBillingApplied(); !ok {
 		v := usagelog.DefaultLongContextBillingApplied
 		_c.mutation.SetLongContextBillingApplied(v)
@@ -874,6 +934,9 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.RateMultiplier(); !ok {
 		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "UsageLog.rate_multiplier"`)}
+	}
+	if _, ok := _c.mutation.DiscountAmount(); !ok {
+		return &ValidationError{Name: "discount_amount", err: errors.New(`ent: missing required field "UsageLog.discount_amount"`)}
 	}
 	if _, ok := _c.mutation.LongContextBillingApplied(); !ok {
 		return &ValidationError{Name: "long_context_billing_applied", err: errors.New(`ent: missing required field "UsageLog.long_context_billing_applied"`)}
@@ -1058,6 +1121,22 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RateMultiplier(); ok {
 		_spec.SetField(usagelog.FieldRateMultiplier, field.TypeFloat64, value)
 		_node.RateMultiplier = value
+	}
+	if value, ok := _c.mutation.DiscountCampaignID(); ok {
+		_spec.SetField(usagelog.FieldDiscountCampaignID, field.TypeInt64, value)
+		_node.DiscountCampaignID = &value
+	}
+	if value, ok := _c.mutation.DiscountFactor(); ok {
+		_spec.SetField(usagelog.FieldDiscountFactor, field.TypeFloat64, value)
+		_node.DiscountFactor = &value
+	}
+	if value, ok := _c.mutation.OriginalRateMultiplier(); ok {
+		_spec.SetField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64, value)
+		_node.OriginalRateMultiplier = &value
+	}
+	if value, ok := _c.mutation.DiscountAmount(); ok {
+		_spec.SetField(usagelog.FieldDiscountAmount, field.TypeFloat64, value)
+		_node.DiscountAmount = value
 	}
 	if value, ok := _c.mutation.LongContextBillingApplied(); ok {
 		_spec.SetField(usagelog.FieldLongContextBillingApplied, field.TypeBool, value)
@@ -1749,6 +1828,96 @@ func (u *UsageLogUpsert) UpdateRateMultiplier() *UsageLogUpsert {
 // AddRateMultiplier adds v to the "rate_multiplier" field.
 func (u *UsageLogUpsert) AddRateMultiplier(v float64) *UsageLogUpsert {
 	u.Add(usagelog.FieldRateMultiplier, v)
+	return u
+}
+
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (u *UsageLogUpsert) SetDiscountCampaignID(v int64) *UsageLogUpsert {
+	u.Set(usagelog.FieldDiscountCampaignID, v)
+	return u
+}
+
+// UpdateDiscountCampaignID sets the "discount_campaign_id" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateDiscountCampaignID() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldDiscountCampaignID)
+	return u
+}
+
+// AddDiscountCampaignID adds v to the "discount_campaign_id" field.
+func (u *UsageLogUpsert) AddDiscountCampaignID(v int64) *UsageLogUpsert {
+	u.Add(usagelog.FieldDiscountCampaignID, v)
+	return u
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (u *UsageLogUpsert) ClearDiscountCampaignID() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldDiscountCampaignID)
+	return u
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (u *UsageLogUpsert) SetDiscountFactor(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldDiscountFactor, v)
+	return u
+}
+
+// UpdateDiscountFactor sets the "discount_factor" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateDiscountFactor() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldDiscountFactor)
+	return u
+}
+
+// AddDiscountFactor adds v to the "discount_factor" field.
+func (u *UsageLogUpsert) AddDiscountFactor(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldDiscountFactor, v)
+	return u
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (u *UsageLogUpsert) ClearDiscountFactor() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldDiscountFactor)
+	return u
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (u *UsageLogUpsert) SetOriginalRateMultiplier(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldOriginalRateMultiplier, v)
+	return u
+}
+
+// UpdateOriginalRateMultiplier sets the "original_rate_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateOriginalRateMultiplier() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldOriginalRateMultiplier)
+	return u
+}
+
+// AddOriginalRateMultiplier adds v to the "original_rate_multiplier" field.
+func (u *UsageLogUpsert) AddOriginalRateMultiplier(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldOriginalRateMultiplier, v)
+	return u
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (u *UsageLogUpsert) ClearOriginalRateMultiplier() *UsageLogUpsert {
+	u.SetNull(usagelog.FieldOriginalRateMultiplier)
+	return u
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (u *UsageLogUpsert) SetDiscountAmount(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldDiscountAmount, v)
+	return u
+}
+
+// UpdateDiscountAmount sets the "discount_amount" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateDiscountAmount() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldDiscountAmount)
+	return u
+}
+
+// AddDiscountAmount adds v to the "discount_amount" field.
+func (u *UsageLogUpsert) AddDiscountAmount(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldDiscountAmount, v)
 	return u
 }
 
@@ -2684,6 +2853,111 @@ func (u *UsageLogUpsertOne) AddRateMultiplier(v float64) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateRateMultiplier() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (u *UsageLogUpsertOne) SetDiscountCampaignID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDiscountCampaignID(v)
+	})
+}
+
+// AddDiscountCampaignID adds v to the "discount_campaign_id" field.
+func (u *UsageLogUpsertOne) AddDiscountCampaignID(v int64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddDiscountCampaignID(v)
+	})
+}
+
+// UpdateDiscountCampaignID sets the "discount_campaign_id" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateDiscountCampaignID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDiscountCampaignID()
+	})
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (u *UsageLogUpsertOne) ClearDiscountCampaignID() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearDiscountCampaignID()
+	})
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (u *UsageLogUpsertOne) SetDiscountFactor(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDiscountFactor(v)
+	})
+}
+
+// AddDiscountFactor adds v to the "discount_factor" field.
+func (u *UsageLogUpsertOne) AddDiscountFactor(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddDiscountFactor(v)
+	})
+}
+
+// UpdateDiscountFactor sets the "discount_factor" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateDiscountFactor() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDiscountFactor()
+	})
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (u *UsageLogUpsertOne) ClearDiscountFactor() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearDiscountFactor()
+	})
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (u *UsageLogUpsertOne) SetOriginalRateMultiplier(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetOriginalRateMultiplier(v)
+	})
+}
+
+// AddOriginalRateMultiplier adds v to the "original_rate_multiplier" field.
+func (u *UsageLogUpsertOne) AddOriginalRateMultiplier(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddOriginalRateMultiplier(v)
+	})
+}
+
+// UpdateOriginalRateMultiplier sets the "original_rate_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateOriginalRateMultiplier() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateOriginalRateMultiplier()
+	})
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (u *UsageLogUpsertOne) ClearOriginalRateMultiplier() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearOriginalRateMultiplier()
+	})
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (u *UsageLogUpsertOne) SetDiscountAmount(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDiscountAmount(v)
+	})
+}
+
+// AddDiscountAmount adds v to the "discount_amount" field.
+func (u *UsageLogUpsertOne) AddDiscountAmount(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddDiscountAmount(v)
+	})
+}
+
+// UpdateDiscountAmount sets the "discount_amount" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateDiscountAmount() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDiscountAmount()
 	})
 }
 
@@ -3840,6 +4114,111 @@ func (u *UsageLogUpsertBulk) AddRateMultiplier(v float64) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateRateMultiplier() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateRateMultiplier()
+	})
+}
+
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (u *UsageLogUpsertBulk) SetDiscountCampaignID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDiscountCampaignID(v)
+	})
+}
+
+// AddDiscountCampaignID adds v to the "discount_campaign_id" field.
+func (u *UsageLogUpsertBulk) AddDiscountCampaignID(v int64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddDiscountCampaignID(v)
+	})
+}
+
+// UpdateDiscountCampaignID sets the "discount_campaign_id" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateDiscountCampaignID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDiscountCampaignID()
+	})
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (u *UsageLogUpsertBulk) ClearDiscountCampaignID() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearDiscountCampaignID()
+	})
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (u *UsageLogUpsertBulk) SetDiscountFactor(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDiscountFactor(v)
+	})
+}
+
+// AddDiscountFactor adds v to the "discount_factor" field.
+func (u *UsageLogUpsertBulk) AddDiscountFactor(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddDiscountFactor(v)
+	})
+}
+
+// UpdateDiscountFactor sets the "discount_factor" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateDiscountFactor() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDiscountFactor()
+	})
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (u *UsageLogUpsertBulk) ClearDiscountFactor() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearDiscountFactor()
+	})
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (u *UsageLogUpsertBulk) SetOriginalRateMultiplier(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetOriginalRateMultiplier(v)
+	})
+}
+
+// AddOriginalRateMultiplier adds v to the "original_rate_multiplier" field.
+func (u *UsageLogUpsertBulk) AddOriginalRateMultiplier(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddOriginalRateMultiplier(v)
+	})
+}
+
+// UpdateOriginalRateMultiplier sets the "original_rate_multiplier" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateOriginalRateMultiplier() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateOriginalRateMultiplier()
+	})
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (u *UsageLogUpsertBulk) ClearOriginalRateMultiplier() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.ClearOriginalRateMultiplier()
+	})
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (u *UsageLogUpsertBulk) SetDiscountAmount(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetDiscountAmount(v)
+	})
+}
+
+// AddDiscountAmount adds v to the "discount_amount" field.
+func (u *UsageLogUpsertBulk) AddDiscountAmount(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddDiscountAmount(v)
+	})
+}
+
+// UpdateDiscountAmount sets the "discount_amount" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateDiscountAmount() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateDiscountAmount()
 	})
 }
 

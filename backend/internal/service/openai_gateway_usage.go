@@ -177,8 +177,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	// 变价）；未装配 PricingAt 的路径回退记录时刻，保持既有行为。不并入上面的
 	// Resolve，以免污染 user:group 倍率缓存。
 	baseMultiplier := multiplier
-	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, openAIUsagePricingAt(input))
+	pricingAt := openAIUsagePricingAt(input)
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, baseMultiplier, pricingAt)
 	videoMultiplier := resolveVideoRateMultiplier(apiKey, baseMultiplier)
+	var discountResolution *DiscountResolution
 
 	var cost *CostBreakdown
 	var err error
@@ -200,6 +202,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.UpstreamModel,
 		result.Model,
 	)
+	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
+	discountResolution = resolveOpenAIUsageTokenDiscount(apiKey.Group, result, billingModels, pricingAt, multiplier)
+	if discountResolution != nil {
+		multiplier = discountResolution.EffectiveRateMultiplier
+	}
 	serviceTier := ""
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
@@ -301,7 +308,6 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageSizeSource:       optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:    result.ImageSizeBreakdown,
 	}
-	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
 	if isVideoUsage {
 		usageLog.VideoCount = result.VideoCount
 		usageLog.VideoResolution = optionalTrimmedStringPtr(NormalizeVideoBillingResolutionOrDefault(result.VideoResolution))
@@ -327,6 +333,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.RateMultiplier = multiplier
 	}
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
+	applyDiscountResolutionToUsageLog(usageLog, cost, discountResolution)
 	usageLog.BillingType = billingType
 	usageLog.Stream = result.Stream
 	if input.CyberBlocked {
@@ -395,26 +402,27 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		quotaPlatform = PlatformFromAPIKey(apiKey)
 	}
 
-	billingErr := func() error {
-		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
-			Cost:                  cost,
-			User:                  user,
-			APIKey:                apiKey,
-			Account:               account,
-			Subscription:          subscription,
-			RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-			IsSubscriptionBill:    isSubscriptionBilling,
-			AccountRateMultiplier: accountRateMultiplier,
-			APIKeyService:         input.APIKeyService,
-			Platform:              quotaPlatform,
-		}, s.billingDeps(), s.usageBillingRepo)
-		return err
-	}()
+	applied, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
+		Cost:                  cost,
+		User:                  user,
+		APIKey:                apiKey,
+		Account:               account,
+		Subscription:          subscription,
+		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+		IsSubscriptionBill:    isSubscriptionBilling,
+		AccountRateMultiplier: accountRateMultiplier,
+		APIKeyService:         input.APIKeyService,
+		Platform:              quotaPlatform,
+	}, s.billingDeps(), s.usageBillingRepo)
 
 	if billingErr != nil {
 		usageLog.ActualCost = 0
+		usageLog.DiscountAmount = 0
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 		return billingErr
+	}
+	if applied && usageLog.DiscountCampaignID != nil && usageLog.DiscountAmount > 0 {
+		RecordAppliedTokenDiscount(*usageLog.DiscountCampaignID, usageLog.DiscountAmount)
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 
@@ -498,6 +506,19 @@ func isGrokVideoUsageResult(result *OpenAIForwardResult, billingModels []string)
 		}
 	}
 	return false
+}
+
+func resolveOpenAIUsageTokenDiscount(
+	group *Group,
+	result *OpenAIForwardResult,
+	billingModels []string,
+	pricingAt time.Time,
+	multiplier float64,
+) *DiscountResolution {
+	if isGrokVideoUsageResult(result, billingModels) {
+		return nil
+	}
+	return ResolveTokenDiscount(group, pricingAt, multiplier)
 }
 
 func isUsagePricingUnavailableError(err error) bool {

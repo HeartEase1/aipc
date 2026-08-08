@@ -88,13 +88,18 @@ type APIKey struct {
 }
 
 type Group struct {
-	ID             int64   `json:"id"`
-	Name           string  `json:"name"`
-	Description    string  `json:"description"`
-	Platform       string  `json:"platform"`
-	RateMultiplier float64 `json:"rate_multiplier"`
-	IsExclusive    bool    `json:"is_exclusive"`
-	Status         string  `json:"status"`
+	ID                      int64      `json:"id"`
+	Name                    string     `json:"name"`
+	Description             string     `json:"description"`
+	Platform                string     `json:"platform"`
+	RateMultiplier          float64    `json:"rate_multiplier"`
+	EffectiveRateMultiplier float64    `json:"effective_rate_multiplier"`
+	DiscountCampaignID      *int64     `json:"discount_campaign_id,omitempty"`
+	DiscountCampaignName    string     `json:"discount_campaign_name,omitempty"`
+	DiscountFactor          *float64   `json:"discount_factor,omitempty"`
+	DiscountEndsAt          *time.Time `json:"discount_ends_at,omitempty"`
+	IsExclusive             bool       `json:"is_exclusive"`
+	Status                  string     `json:"status"`
 
 	SubscriptionType string   `json:"subscription_type"`
 	DailyLimitUSD    *float64 `json:"daily_limit_usd"`
@@ -497,14 +502,18 @@ type UsageLog struct {
 	CacheCreation5mTokens int `json:"cache_creation_5m_tokens"`
 	CacheCreation1hTokens int `json:"cache_creation_1h_tokens"`
 
-	InputCost                 float64 `json:"input_cost"`
-	OutputCost                float64 `json:"output_cost"`
-	CacheCreationCost         float64 `json:"cache_creation_cost"`
-	CacheReadCost             float64 `json:"cache_read_cost"`
-	TotalCost                 float64 `json:"total_cost"`
-	ActualCost                float64 `json:"actual_cost"`
-	RateMultiplier            float64 `json:"rate_multiplier"`
-	LongContextBillingApplied bool    `json:"long_context_billing_applied"`
+	InputCost                 float64  `json:"input_cost"`
+	OutputCost                float64  `json:"output_cost"`
+	CacheCreationCost         float64  `json:"cache_creation_cost"`
+	CacheReadCost             float64  `json:"cache_read_cost"`
+	TotalCost                 float64  `json:"total_cost"`
+	ActualCost                float64  `json:"actual_cost"`
+	RateMultiplier            float64  `json:"rate_multiplier"`
+	DiscountCampaignID        *int64   `json:"discount_campaign_id,omitempty"`
+	DiscountFactor            *float64 `json:"discount_factor,omitempty"`
+	OriginalRateMultiplier    *float64 `json:"original_rate_multiplier,omitempty"`
+	DiscountAmount            float64  `json:"discount_amount"`
+	LongContextBillingApplied bool     `json:"long_context_billing_applied"`
 
 	BillingType  int8   `json:"billing_type"`
 	RequestType  string `json:"request_type"`

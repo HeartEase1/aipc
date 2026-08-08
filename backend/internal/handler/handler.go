@@ -42,6 +42,7 @@ type AdminHandlers struct {
 	Compliance             *admin.ComplianceHandler
 	AuditLog               *admin.AuditLogHandler
 	BenefitGrant           *admin.BenefitGrantHandler
+	DiscountCampaign       *admin.DiscountCampaignHandler
 }
 
 // Handlers contains all HTTP handlers

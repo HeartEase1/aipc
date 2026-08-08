@@ -43,75 +43,87 @@ const (
 )
 
 type BenefitGrantPreviewInput struct {
-	GrantType           string
-	GrantMode           string
-	AudienceType        string
-	UserIDs             []int64
-	PlatformIDs         []int64
-	FixedAmount         string
-	Percentage          string
-	PercentagePeriod    string
-	CustomWindowStart   string
-	CustomWindowEnd     string
-	MinAmount           string
-	PerUserCap          string
-	TotalBudgetCap      string
-	Reason              string
-	NotificationTitle   string
-	NotificationContent string
-	ActorID             int64
+	GrantType              string
+	GrantMode              string
+	AudienceType           string
+	UserIDs                []int64
+	PlatformIDs            []int64
+	FixedAmount            string
+	Percentage             string
+	IncludeSubscription    bool
+	SubscriptionPercentage string
+	PercentagePeriod       string
+	CustomWindowStart      string
+	CustomWindowEnd        string
+	MinAmount              string
+	PerUserCap             string
+	TotalBudgetCap         string
+	Reason                 string
+	NotificationTitle      string
+	NotificationContent    string
+	ActorID                int64
 }
 
 type BenefitGrantBatch struct {
-	ID                  int64      `json:"id"`
-	GrantType           string     `json:"grant_type"`
-	GrantMode           string     `json:"grant_mode"`
-	AudienceType        string     `json:"audience_type"`
-	FixedAmount         *string    `json:"fixed_amount,omitempty"`
-	Percentage          *string    `json:"percentage,omitempty"`
-	MinAmount           *string    `json:"min_amount,omitempty"`
-	PerUserCap          *string    `json:"per_user_cap,omitempty"`
-	TotalBudgetCap      *string    `json:"total_budget_cap,omitempty"`
-	Reason              string     `json:"reason"`
-	NotificationTitle   string     `json:"notification_title"`
-	NotificationContent string     `json:"notification_content"`
-	WindowStart         *time.Time `json:"window_start,omitempty"`
-	WindowEnd           *time.Time `json:"window_end,omitempty"`
-	Status              string     `json:"status"`
-	EligibleCount       int        `json:"eligible_count"`
-	SkippedCount        int        `json:"skipped_count"`
-	SuccessCount        int        `json:"success_count"`
-	FailedCount         int        `json:"failed_count"`
-	TotalBaseCost       string     `json:"total_base_cost"`
-	TotalAmount         string     `json:"total_amount"`
-	DistributedAmount   string     `json:"distributed_amount"`
-	AverageAmount       string     `json:"average_amount"`
-	MaxAmount           string     `json:"max_amount"`
-	CreatedBy           *int64     `json:"created_by,omitempty"`
-	ExecutedBy          *int64     `json:"executed_by,omitempty"`
-	ExpiresAt           time.Time  `json:"expires_at"`
-	StartedAt           *time.Time `json:"started_at,omitempty"`
-	CompletedAt         *time.Time `json:"completed_at,omitempty"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
-	OverBudget          bool       `json:"over_budget"`
+	ID                        int64      `json:"id"`
+	GrantType                 string     `json:"grant_type"`
+	GrantMode                 string     `json:"grant_mode"`
+	AudienceType              string     `json:"audience_type"`
+	FixedAmount               *string    `json:"fixed_amount,omitempty"`
+	Percentage                *string    `json:"percentage,omitempty"`
+	IncludeSubscription       bool       `json:"include_subscription"`
+	SubscriptionPercentage    *string    `json:"subscription_percentage,omitempty"`
+	MinAmount                 *string    `json:"min_amount,omitempty"`
+	PerUserCap                *string    `json:"per_user_cap,omitempty"`
+	TotalBudgetCap            *string    `json:"total_budget_cap,omitempty"`
+	Reason                    string     `json:"reason"`
+	NotificationTitle         string     `json:"notification_title"`
+	NotificationContent       string     `json:"notification_content"`
+	WindowStart               *time.Time `json:"window_start,omitempty"`
+	WindowEnd                 *time.Time `json:"window_end,omitempty"`
+	Status                    string     `json:"status"`
+	EligibleCount             int        `json:"eligible_count"`
+	SkippedCount              int        `json:"skipped_count"`
+	SuccessCount              int        `json:"success_count"`
+	FailedCount               int        `json:"failed_count"`
+	TotalBaseCost             string     `json:"total_base_cost"`
+	TotalBalanceBaseCost      string     `json:"total_balance_base_cost"`
+	TotalSubscriptionBaseCost string     `json:"total_subscription_base_cost"`
+	TotalAmount               string     `json:"total_amount"`
+	TotalBalanceAmount        string     `json:"total_balance_amount"`
+	TotalSubscriptionAmount   string     `json:"total_subscription_amount"`
+	DistributedAmount         string     `json:"distributed_amount"`
+	AverageAmount             string     `json:"average_amount"`
+	MaxAmount                 string     `json:"max_amount"`
+	CreatedBy                 *int64     `json:"created_by,omitempty"`
+	ExecutedBy                *int64     `json:"executed_by,omitempty"`
+	ExpiresAt                 time.Time  `json:"expires_at"`
+	StartedAt                 *time.Time `json:"started_at,omitempty"`
+	CompletedAt               *time.Time `json:"completed_at,omitempty"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	UpdatedAt                 time.Time  `json:"updated_at"`
+	OverBudget                bool       `json:"over_budget"`
 }
 
 type BenefitGrantItem struct {
-	ID            int64      `json:"id"`
-	BatchID       int64      `json:"batch_id"`
-	UserID        int64      `json:"user_id"`
-	Email         string     `json:"email"`
-	Username      string     `json:"username"`
-	BaseCost      string     `json:"base_cost"`
-	Amount        string     `json:"amount"`
-	BalanceBefore *string    `json:"balance_before,omitempty"`
-	BalanceAfter  *string    `json:"balance_after,omitempty"`
-	Status        string     `json:"status"`
-	ErrorMessage  *string    `json:"error_message,omitempty"`
-	ProcessedAt   *time.Time `json:"processed_at,omitempty"`
-	ReadAt        *time.Time `json:"read_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID                   int64      `json:"id"`
+	BatchID              int64      `json:"batch_id"`
+	UserID               int64      `json:"user_id"`
+	Email                string     `json:"email"`
+	Username             string     `json:"username"`
+	BaseCost             string     `json:"base_cost"`
+	BalanceBaseCost      string     `json:"balance_base_cost"`
+	SubscriptionBaseCost string     `json:"subscription_base_cost"`
+	Amount               string     `json:"amount"`
+	BalanceAmount        string     `json:"balance_amount"`
+	SubscriptionAmount   string     `json:"subscription_amount"`
+	BalanceBefore        *string    `json:"balance_before,omitempty"`
+	BalanceAfter         *string    `json:"balance_after,omitempty"`
+	Status               string     `json:"status"`
+	ErrorMessage         *string    `json:"error_message,omitempty"`
+	ProcessedAt          *time.Time `json:"processed_at,omitempty"`
+	ReadAt               *time.Time `json:"read_at,omitempty"`
+	CreatedAt            time.Time  `json:"created_at"`
 }
 
 type BenefitGrantBatchDetail struct {
@@ -208,15 +220,18 @@ func (s *BenefitGrantService) Preview(ctx context.Context, input BenefitGrantPre
 	err = tx.QueryRowContext(ctx, `
 INSERT INTO benefit_grant_batches (
   grant_type, grant_mode, audience_type, fixed_amount, percentage,
+  include_subscription, subscription_percentage,
   min_amount, per_user_cap, total_budget_cap, reason,
   notification_title, notification_content, window_start, window_end,
   status, created_by, expires_at
 ) VALUES (
-  $1, $2, $3, $4::numeric, $5::numeric, $6::numeric, $7::numeric, $8::numeric,
-  $9, $10, $11, $12, $13, 'draft', $14, $15
+  $1, $2, $3, $4::numeric, $5::numeric, $6, $7::numeric,
+  $8::numeric, $9::numeric, $10::numeric,
+  $11, $12, $13, $14, $15, 'draft', $16, $17
 ) RETURNING id`,
 		validated.GrantType, validated.GrantMode, validated.AudienceType,
 		decimalPointerArg(validated.fixedAmount), decimalPointerArg(validated.percentage),
+		validated.IncludeSubscription, decimalPointerArg(validated.subscriptionPercentage),
 		decimalPointerArg(validated.minAmount), decimalPointerArg(validated.perUserCap),
 		decimalPointerArg(validated.totalBudgetCap), validated.Reason,
 		validated.NotificationTitle, validated.NotificationContent,
@@ -235,16 +250,22 @@ INSERT INTO benefit_grant_batches (
 	}
 
 	var eligibleCount int
-	var totalBaseCost, totalAmount, averageAmount, maxAmount string
+	var totalBaseCost, totalBalanceBaseCost, totalSubscriptionBaseCost string
+	var totalAmount, totalBalanceAmount, totalSubscriptionAmount, averageAmount, maxAmount string
 	err = tx.QueryRowContext(ctx, `
 SELECT COUNT(*)::integer,
        COALESCE(SUM(base_cost), 0)::text,
+       COALESCE(SUM(balance_base_cost), 0)::text,
+       COALESCE(SUM(subscription_base_cost), 0)::text,
        COALESCE(SUM(amount), 0)::text,
+       COALESCE(SUM(balance_amount), 0)::text,
+       COALESCE(SUM(subscription_amount), 0)::text,
        COALESCE(AVG(amount), 0)::text,
        COALESCE(MAX(amount), 0)::text
 FROM benefit_grant_items
-WHERE batch_id = $1`, batchID).Scan(
-		&eligibleCount, &totalBaseCost, &totalAmount, &averageAmount, &maxAmount,
+	WHERE batch_id = $1`, batchID).Scan(
+		&eligibleCount, &totalBaseCost, &totalBalanceBaseCost, &totalSubscriptionBaseCost,
+		&totalAmount, &totalBalanceAmount, &totalSubscriptionAmount, &averageAmount, &maxAmount,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("summarize benefit grant preview: %w", err)
@@ -262,11 +283,17 @@ UPDATE benefit_grant_batches
 SET eligible_count = $2,
     skipped_count = $3,
     total_base_cost = $4::numeric,
-    total_amount = $5::numeric,
-    average_amount = $6::numeric,
-    max_amount = $7::numeric,
+    total_balance_base_cost = $5::numeric,
+    total_subscription_base_cost = $6::numeric,
+    total_amount = $7::numeric,
+    total_balance_amount = $8::numeric,
+    total_subscription_amount = $9::numeric,
+    average_amount = $10::numeric,
+    max_amount = $11::numeric,
     updated_at = NOW()
-WHERE id = $1`, batchID, eligibleCount, skippedCount, totalBaseCost, totalAmount, averageAmount, maxAmount)
+WHERE id = $1`, batchID, eligibleCount, skippedCount, totalBaseCost,
+		totalBalanceBaseCost, totalSubscriptionBaseCost, totalAmount,
+		totalBalanceAmount, totalSubscriptionAmount, averageAmount, maxAmount)
 	if err != nil {
 		return nil, fmt.Errorf("update benefit grant preview summary: %w", err)
 	}
@@ -278,13 +305,14 @@ WHERE id = $1`, batchID, eligibleCount, skippedCount, totalBaseCost, totalAmount
 
 type validatedBenefitGrantInput struct {
 	BenefitGrantPreviewInput
-	fixedAmount    *decimal.Decimal
-	percentage     *decimal.Decimal
-	minAmount      *decimal.Decimal
-	perUserCap     *decimal.Decimal
-	totalBudgetCap *decimal.Decimal
-	customStart    *time.Time
-	customEnd      *time.Time
+	fixedAmount            *decimal.Decimal
+	percentage             *decimal.Decimal
+	subscriptionPercentage *decimal.Decimal
+	minAmount              *decimal.Decimal
+	perUserCap             *decimal.Decimal
+	totalBudgetCap         *decimal.Decimal
+	customStart            *time.Time
+	customEnd              *time.Time
 }
 
 func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefitGrantInput, error) {
@@ -338,6 +366,8 @@ func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefi
 	validated := &validatedBenefitGrantInput{BenefitGrantPreviewInput: input}
 	var err error
 	if input.GrantMode == BenefitGrantModeFixed {
+		validated.IncludeSubscription = false
+		validated.SubscriptionPercentage = ""
 		validated.fixedAmount, err = parseBenefitDecimal(input.FixedAmount, "fixed_amount", true)
 		if err != nil {
 			return nil, err
@@ -375,6 +405,15 @@ func validateBenefitGrantInput(input BenefitGrantPreviewInput) (*validatedBenefi
 		}
 		if validated.percentage.LessThan(decimal.RequireFromString("0.01")) || validated.percentage.GreaterThan(decimal.NewFromInt(100)) {
 			return nil, infraerrors.BadRequest("INVALID_PERCENTAGE", "percentage must be between 0.01 and 100")
+		}
+		if input.IncludeSubscription {
+			validated.subscriptionPercentage, err = parseBenefitDecimal(input.SubscriptionPercentage, "subscription_percentage", true)
+			if err != nil {
+				return nil, err
+			}
+			if validated.subscriptionPercentage.LessThan(decimal.RequireFromString("0.01")) || validated.subscriptionPercentage.GreaterThan(decimal.NewFromInt(100)) {
+				return nil, infraerrors.BadRequest("INVALID_SUBSCRIPTION_PERCENTAGE", "subscription_percentage must be between 0.01 and 100")
+			}
 		}
 	}
 	if validated.minAmount, err = parseBenefitDecimal(input.MinAmount, "min_amount", false); err != nil {
@@ -496,9 +535,13 @@ func insertBenefitGrantPreviewItems(
 	if input.GrantMode == BenefitGrantModeFixed {
 		query := `
 INSERT INTO benefit_grant_items (
-  batch_id, user_id, user_email_snapshot, username_snapshot, base_cost, amount
+  batch_id, user_id, user_email_snapshot, username_snapshot,
+  base_cost, balance_base_cost, subscription_base_cost,
+  amount, balance_amount, subscription_amount
 )
-SELECT $1, u.id, u.email, COALESCE(u.username, ''), 0, ROUND($2::numeric, 8)
+SELECT $1, u.id, u.email, COALESCE(u.username, ''),
+       0, 0, 0,
+       ROUND($2::numeric, 8), ROUND($2::numeric, 8), 0
 FROM users u
 WHERE u.role = 'user' AND u.status = 'active' AND u.deleted_at IS NULL` + selectedClause
 		amount := capBenefitGrantAmount(*input.fixedAmount, input.perUserCap)
@@ -516,11 +559,13 @@ WHERE u.role = 'user' AND u.status = 'active' AND u.deleted_at IS NULL` + select
 		*windowStart,
 		*windowEnd,
 		input.percentage.StringFixed(8),
+		input.IncludeSubscription,
+		decimalPointerArg(input.subscriptionPercentage),
 		decimalPointerArg(input.minAmount),
 		decimalPointerArg(input.perUserCap),
 	}
 	if input.AudienceType == BenefitGrantAudienceSelected {
-		selectedClause = " AND u.id = ANY($7)"
+		selectedClause = " AND u.id = ANY($9)"
 		args = append(args, pq.Array(input.UserIDs))
 	}
 	query := `
@@ -529,33 +574,49 @@ WITH eligible AS (
   FROM users u
   WHERE u.role = 'user' AND u.status = 'active' AND u.deleted_at IS NULL` + selectedClause + `
 ), spending AS (
-  SELECT e.id, e.email, e.username, COALESCE(SUM(ul.actual_cost), 0)::numeric AS base_cost
+  SELECT e.id, e.email, e.username,
+         COALESCE(SUM(ul.actual_cost) FILTER (WHERE ul.billing_type = 0), 0)::numeric AS balance_base_cost,
+         COALESCE(SUM(ul.actual_cost) FILTER (WHERE $5::boolean AND ul.billing_type = 1), 0)::numeric AS subscription_base_cost
   FROM eligible e
   LEFT JOIN usage_logs ul
     ON ul.user_id = e.id
    AND ul.created_at >= $2
    AND ul.created_at < $3
-   AND ul.billing_type = 0
+   AND ul.billing_type IN (0, 1)
    AND ul.actual_cost > 0
   GROUP BY e.id, e.email, e.username
 ), raw_amounts AS (
-  SELECT *, base_cost * $4::numeric / 100 AS raw_amount
+  SELECT *,
+         balance_base_cost * $4::numeric / 100 AS balance_raw_amount,
+         subscription_base_cost * COALESCE($6::numeric, 0) / 100 AS subscription_raw_amount
   FROM spending
-  WHERE base_cost > 0
+), combined_amounts AS (
+  SELECT *, balance_raw_amount + subscription_raw_amount AS raw_amount
+  FROM raw_amounts
+  WHERE balance_raw_amount + subscription_raw_amount > 0
 ), guarded_amounts AS (
   SELECT *,
-    CASE WHEN $5::numeric IS NULL THEN raw_amount ELSE GREATEST(raw_amount, $5::numeric) END AS minimum_applied
-  FROM raw_amounts
+    CASE WHEN $7::numeric IS NULL THEN raw_amount ELSE GREATEST(raw_amount, $7::numeric) END AS minimum_applied
+  FROM combined_amounts
 ), capped_amounts AS (
   SELECT *,
-    CASE WHEN $6::numeric IS NULL THEN minimum_applied ELSE LEAST(minimum_applied, $6::numeric) END AS final_amount
+    CASE WHEN $8::numeric IS NULL THEN minimum_applied ELSE LEAST(minimum_applied, $8::numeric) END AS final_amount
   FROM guarded_amounts
+), allocated_amounts AS (
+  SELECT *, ROUND(final_amount * balance_raw_amount / raw_amount, 8) AS final_balance_amount
+  FROM capped_amounts
 )
 INSERT INTO benefit_grant_items (
-  batch_id, user_id, user_email_snapshot, username_snapshot, base_cost, amount
+  batch_id, user_id, user_email_snapshot, username_snapshot,
+  base_cost, balance_base_cost, subscription_base_cost,
+  amount, balance_amount, subscription_amount
 )
-SELECT $1, id, email, username, ROUND(base_cost, 8), ROUND(final_amount, 8)
-FROM capped_amounts
+SELECT $1, id, email, username,
+       ROUND(balance_base_cost + subscription_base_cost, 8),
+       ROUND(balance_base_cost, 8), ROUND(subscription_base_cost, 8),
+       ROUND(final_amount, 8), final_balance_amount,
+       ROUND(final_amount - final_balance_amount, 8)
+FROM allocated_amounts
 WHERE ROUND(final_amount, 8) > 0`
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("create percentage benefit grant items: %w", err)
@@ -572,10 +633,13 @@ func capBenefitGrantAmount(amount decimal.Decimal, capValue *decimal.Decimal) de
 
 const benefitGrantBatchSelect = `
 SELECT id, grant_type, grant_mode, audience_type,
-       fixed_amount::text, percentage::text, min_amount::text, per_user_cap::text, total_budget_cap::text,
+       fixed_amount::text, percentage::text, include_subscription, subscription_percentage::text,
+       min_amount::text, per_user_cap::text, total_budget_cap::text,
        reason, notification_title, notification_content, window_start, window_end,
        status, eligible_count, skipped_count, success_count, failed_count,
-       total_base_cost::text, total_amount::text, distributed_amount::text,
+       total_base_cost::text, total_balance_base_cost::text, total_subscription_base_cost::text,
+       total_amount::text, total_balance_amount::text, total_subscription_amount::text,
+       distributed_amount::text,
        average_amount::text, max_amount::text, created_by, executed_by, expires_at,
        started_at, completed_at, created_at, updated_at
 FROM benefit_grant_batches`
@@ -586,16 +650,19 @@ type rowScanner interface {
 
 func scanBenefitGrantBatch(scanner rowScanner) (*BenefitGrantBatch, error) {
 	var batch BenefitGrantBatch
-	var fixedAmount, percentage, minAmount, perUserCap, totalBudgetCap sql.NullString
+	var fixedAmount, percentage, subscriptionPercentage, minAmount, perUserCap, totalBudgetCap sql.NullString
 	var windowStart, windowEnd, startedAt, completedAt sql.NullTime
 	var createdBy, executedBy sql.NullInt64
 	err := scanner.Scan(
 		&batch.ID, &batch.GrantType, &batch.GrantMode, &batch.AudienceType,
-		&fixedAmount, &percentage, &minAmount, &perUserCap, &totalBudgetCap,
+		&fixedAmount, &percentage, &batch.IncludeSubscription, &subscriptionPercentage,
+		&minAmount, &perUserCap, &totalBudgetCap,
 		&batch.Reason, &batch.NotificationTitle, &batch.NotificationContent,
 		&windowStart, &windowEnd, &batch.Status,
 		&batch.EligibleCount, &batch.SkippedCount, &batch.SuccessCount, &batch.FailedCount,
-		&batch.TotalBaseCost, &batch.TotalAmount, &batch.DistributedAmount,
+		&batch.TotalBaseCost, &batch.TotalBalanceBaseCost, &batch.TotalSubscriptionBaseCost,
+		&batch.TotalAmount, &batch.TotalBalanceAmount, &batch.TotalSubscriptionAmount,
+		&batch.DistributedAmount,
 		&batch.AverageAmount, &batch.MaxAmount, &createdBy, &executedBy,
 		&batch.ExpiresAt, &startedAt, &completedAt, &batch.CreatedAt, &batch.UpdatedAt,
 	)
@@ -604,6 +671,7 @@ func scanBenefitGrantBatch(scanner rowScanner) (*BenefitGrantBatch, error) {
 	}
 	batch.FixedAmount = nullStringPointer(fixedAmount)
 	batch.Percentage = nullStringPointer(percentage)
+	batch.SubscriptionPercentage = nullStringPointer(subscriptionPercentage)
 	batch.MinAmount = nullStringPointer(minAmount)
 	batch.PerUserCap = nullStringPointer(perUserCap)
 	batch.TotalBudgetCap = nullStringPointer(totalBudgetCap)
@@ -718,7 +786,9 @@ func (s *BenefitGrantService) GetBatchDetail(ctx context.Context, batchID int64,
 func (s *BenefitGrantService) listBatchItems(ctx context.Context, batchID int64, limit, offset int) ([]BenefitGrantItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT id, batch_id, user_id, user_email_snapshot, username_snapshot,
-       base_cost::text, amount::text, balance_before::text, balance_after::text,
+       base_cost::text, balance_base_cost::text, subscription_base_cost::text,
+       amount::text, balance_amount::text, subscription_amount::text,
+       balance_before::text, balance_after::text,
        status, error_message, processed_at, read_at, created_at
 FROM benefit_grant_items
 WHERE batch_id = $1
@@ -756,7 +826,9 @@ func (s *BenefitGrantService) WalkBatchItems(
 	for {
 		rows, err := s.db.QueryContext(ctx, `
 SELECT id, batch_id, user_id, user_email_snapshot, username_snapshot,
-       base_cost::text, amount::text, balance_before::text, balance_after::text,
+       base_cost::text, balance_base_cost::text, subscription_base_cost::text,
+       amount::text, balance_amount::text, subscription_amount::text,
+       balance_before::text, balance_after::text,
        status, error_message, processed_at, read_at, created_at
 FROM benefit_grant_items
 WHERE batch_id = $1 AND id > $2
@@ -797,7 +869,9 @@ func scanBenefitGrantItem(scanner rowScanner) (*BenefitGrantItem, error) {
 	var processedAt, readAt sql.NullTime
 	err := scanner.Scan(
 		&item.ID, &item.BatchID, &item.UserID, &item.Email, &item.Username,
-		&item.BaseCost, &item.Amount, &before, &after, &item.Status,
+		&item.BaseCost, &item.BalanceBaseCost, &item.SubscriptionBaseCost,
+		&item.Amount, &item.BalanceAmount, &item.SubscriptionAmount,
+		&before, &after, &item.Status,
 		&errorMessage, &processedAt, &readAt, &item.CreatedAt,
 	)
 	if err != nil {

@@ -14,6 +14,12 @@ export interface UserAvailableGroup {
   subscription_type: string
   /** 分组默认倍率。用户专属倍率（若有）通过 /groups/rates 获取后在前端 join。 */
   rate_multiplier: number
+  user_rate_multiplier?: number
+  effective_rate_multiplier: number
+  discount_campaign_id?: number
+  discount_campaign_name?: string
+  discount_factor?: number
+  discount_ends_at?: string
   peak_rate_enabled: boolean
   peak_start: string
   peak_end: string

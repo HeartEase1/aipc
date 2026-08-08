@@ -284,10 +284,29 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	rates, ratesErr := h.apiKeyService.GetUserGroupRates(c.Request.Context(), subject.UserID)
+	if ratesErr != nil {
+		rates = nil
+	}
 
 	out := make([]dto.Group, 0, len(groups))
 	for i := range groups {
-		out = append(out, *dto.GroupFromService(&groups[i]))
+		item := dto.GroupFromService(&groups[i])
+		baseRate := groups[i].RateMultiplier
+		if rate, ok := rates[groups[i].ID]; ok {
+			baseRate = rate
+		}
+		item.EffectiveRateMultiplier = baseRate
+		if discount := service.ResolveTokenDiscount(&groups[i], time.Now(), baseRate); discount != nil {
+			campaignID := discount.CampaignID
+			factor := discount.DiscountFactor
+			item.EffectiveRateMultiplier = discount.EffectiveRateMultiplier
+			item.DiscountCampaignID = &campaignID
+			item.DiscountCampaignName = discount.CampaignName
+			item.DiscountFactor = &factor
+			item.DiscountEndsAt = discount.EndsAt
+		}
+		out = append(out, *item)
 	}
 	response.Success(c, out)
 }

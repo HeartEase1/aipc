@@ -100,7 +100,11 @@
                     :platform="g.platform as GroupPlatform"
                     :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
                     :rate-multiplier="g.rate_multiplier"
-                    :user-rate-multiplier="userGroupRates[g.id] ?? null"
+                    :user-rate-multiplier="g.user_rate_multiplier ?? userGroupRates[g.id] ?? null"
+                    :effective-rate-multiplier="g.effective_rate_multiplier"
+                    :discount-factor="g.discount_factor ?? null"
+                    :discount-campaign-name="g.discount_campaign_name"
+                    :discount-ends-at="g.discount_ends_at ?? null"
                     always-show-rate
                   />
                   <span
@@ -134,7 +138,11 @@
                     :platform="g.platform as GroupPlatform"
                     :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
                     :rate-multiplier="g.rate_multiplier"
-                    :user-rate-multiplier="userGroupRates[g.id] ?? null"
+                    :user-rate-multiplier="g.user_rate_multiplier ?? userGroupRates[g.id] ?? null"
+                    :effective-rate-multiplier="g.effective_rate_multiplier"
+                    :discount-factor="g.discount_factor ?? null"
+                    :discount-campaign-name="g.discount_campaign_name"
+                    :discount-ends-at="g.discount_ends_at ?? null"
                     always-show-rate
                   />
                   <span
@@ -239,7 +247,11 @@
                         :platform="g.platform as GroupPlatform"
                         :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
                         :rate-multiplier="g.rate_multiplier"
-                        :user-rate-multiplier="userGroupRates[g.id] ?? null"
+                        :user-rate-multiplier="g.user_rate_multiplier ?? userGroupRates[g.id] ?? null"
+                        :effective-rate-multiplier="g.effective_rate_multiplier"
+                        :discount-factor="g.discount_factor ?? null"
+                        :discount-campaign-name="g.discount_campaign_name"
+                        :discount-ends-at="g.discount_ends_at ?? null"
                         always-show-rate
                       />
                       <span
@@ -274,7 +286,11 @@
                         :platform="g.platform as GroupPlatform"
                         :subscription-type="(g.subscription_type || 'standard') as SubscriptionType"
                         :rate-multiplier="g.rate_multiplier"
-                        :user-rate-multiplier="userGroupRates[g.id] ?? null"
+                        :user-rate-multiplier="g.user_rate_multiplier ?? userGroupRates[g.id] ?? null"
+                        :effective-rate-multiplier="g.effective_rate_multiplier"
+                        :discount-factor="g.discount_factor ?? null"
+                        :discount-campaign-name="g.discount_campaign_name"
+                        :discount-ends-at="g.discount_ends_at ?? null"
                         always-show-rate
                       />
                       <span

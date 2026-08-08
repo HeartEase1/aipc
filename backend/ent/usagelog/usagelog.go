@@ -70,6 +70,14 @@ const (
 	FieldActualCost = "actual_cost"
 	// FieldRateMultiplier holds the string denoting the rate_multiplier field in the database.
 	FieldRateMultiplier = "rate_multiplier"
+	// FieldDiscountCampaignID holds the string denoting the discount_campaign_id field in the database.
+	FieldDiscountCampaignID = "discount_campaign_id"
+	// FieldDiscountFactor holds the string denoting the discount_factor field in the database.
+	FieldDiscountFactor = "discount_factor"
+	// FieldOriginalRateMultiplier holds the string denoting the original_rate_multiplier field in the database.
+	FieldOriginalRateMultiplier = "original_rate_multiplier"
+	// FieldDiscountAmount holds the string denoting the discount_amount field in the database.
+	FieldDiscountAmount = "discount_amount"
 	// FieldLongContextBillingApplied holds the string denoting the long_context_billing_applied field in the database.
 	FieldLongContextBillingApplied = "long_context_billing_applied"
 	// FieldAccountRateMultiplier holds the string denoting the account_rate_multiplier field in the database.
@@ -188,6 +196,10 @@ var Columns = []string{
 	FieldTotalCost,
 	FieldActualCost,
 	FieldRateMultiplier,
+	FieldDiscountCampaignID,
+	FieldDiscountFactor,
+	FieldOriginalRateMultiplier,
+	FieldDiscountAmount,
 	FieldLongContextBillingApplied,
 	FieldAccountRateMultiplier,
 	FieldBillingType,
@@ -262,6 +274,8 @@ var (
 	DefaultActualCost float64
 	// DefaultRateMultiplier holds the default value on creation for the "rate_multiplier" field.
 	DefaultRateMultiplier float64
+	// DefaultDiscountAmount holds the default value on creation for the "discount_amount" field.
+	DefaultDiscountAmount float64
 	// DefaultLongContextBillingApplied holds the default value on creation for the "long_context_billing_applied" field.
 	DefaultLongContextBillingApplied bool
 	// DefaultBillingType holds the default value on creation for the "billing_type" field.
@@ -438,6 +452,26 @@ func ByActualCost(opts ...sql.OrderTermOption) OrderOption {
 // ByRateMultiplier orders the results by the rate_multiplier field.
 func ByRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRateMultiplier, opts...).ToFunc()
+}
+
+// ByDiscountCampaignID orders the results by the discount_campaign_id field.
+func ByDiscountCampaignID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDiscountCampaignID, opts...).ToFunc()
+}
+
+// ByDiscountFactor orders the results by the discount_factor field.
+func ByDiscountFactor(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDiscountFactor, opts...).ToFunc()
+}
+
+// ByOriginalRateMultiplier orders the results by the original_rate_multiplier field.
+func ByOriginalRateMultiplier(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOriginalRateMultiplier, opts...).ToFunc()
+}
+
+// ByDiscountAmount orders the results by the discount_amount field.
+func ByDiscountAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDiscountAmount, opts...).ToFunc()
 }
 
 // ByLongContextBillingApplied orders the results by the long_context_billing_applied field.

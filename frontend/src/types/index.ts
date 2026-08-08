@@ -543,6 +543,11 @@ export interface Group {
   description: string | null
   platform: GroupPlatform
   rate_multiplier: number
+  effective_rate_multiplier?: number
+  discount_campaign_id?: number
+  discount_campaign_name?: string
+  discount_factor?: number
+  discount_ends_at?: string
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
   max_reasoning_effort?: string // OpenAI/Codex reasoning ceiling; empty means unlimited
   reasoning_effort_mappings?: ReasoningEffortMapping[]

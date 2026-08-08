@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -695,6 +696,10 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		pricingAt = timezone.Now()
 	}
 	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
+	discountResolution := ResolveTokenDiscount(apiKey.Group, pricingAt, multiplier)
+	if discountResolution != nil {
+		multiplier = discountResolution.EffectiveRateMultiplier
+	}
 
 	// 确定计费模型
 	concreteBillingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
@@ -736,6 +741,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	accountRateMultiplier := account.BillingRateMultiplier()
 	usageLog := s.buildRecordUsageLog(ctx, input, result, apiKey, user, account, subscription,
 		requestedModel, multiplier, imageMultiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost, opts)
+	applyDiscountResolutionToUsageLog(usageLog, cost, discountResolution)
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
@@ -772,7 +778,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		}
 	}
 	requestID := usageLog.RequestID
-	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
+	applied, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 		Cost:                  cost,
 		User:                  user,
 		APIKey:                apiKey,
@@ -787,12 +793,30 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	if billingErr != nil {
 		usageLog.ActualCost = 0
+		usageLog.DiscountAmount = 0
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 		return billingErr
+	}
+	if applied && usageLog.DiscountCampaignID != nil && usageLog.DiscountAmount > 0 {
+		RecordAppliedTokenDiscount(*usageLog.DiscountCampaignID, usageLog.DiscountAmount)
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 
 	return nil
+}
+
+func applyDiscountResolutionToUsageLog(usageLog *UsageLog, cost *CostBreakdown, resolution *DiscountResolution) {
+	if usageLog == nil || cost == nil || resolution == nil || cost.BillingMode != string(BillingModeToken) ||
+		resolution.DiscountFactor <= 0 || resolution.DiscountFactor >= 1 {
+		return
+	}
+	campaignID := resolution.CampaignID
+	factor := resolution.DiscountFactor
+	originalRate := resolution.OriginalRateMultiplier
+	usageLog.DiscountCampaignID = &campaignID
+	usageLog.DiscountFactor = &factor
+	usageLog.OriginalRateMultiplier = &originalRate
+	usageLog.DiscountAmount = math.Max(0, cost.ActualCost*(1/factor-1))
 }
 
 // calculateRecordUsageCost 根据请求类型和选项计算费用。

@@ -55,6 +55,31 @@ func TestValidateBenefitGrantInputNormalizesDecimalRulesAndRecipients(t *testing
 	require.Error(t, err)
 }
 
+func TestValidateBenefitGrantInputUsesIndependentSubscriptionPercentage(t *testing.T) {
+	input := validBenefitGrantInput()
+	input.IncludeSubscription = true
+	input.SubscriptionPercentage = "7.5"
+
+	validated, err := validateBenefitGrantInput(input)
+	require.NoError(t, err)
+	require.True(t, validated.IncludeSubscription)
+	require.Equal(t, "7.50000000", validated.subscriptionPercentage.StringFixed(8))
+
+	input.SubscriptionPercentage = "100.01"
+	_, err = validateBenefitGrantInput(input)
+	require.Error(t, err)
+
+	input = validBenefitGrantInput()
+	input.GrantMode = BenefitGrantModeFixed
+	input.FixedAmount = "1"
+	input.IncludeSubscription = true
+	input.SubscriptionPercentage = "10"
+	validated, err = validateBenefitGrantInput(input)
+	require.NoError(t, err)
+	require.False(t, validated.IncludeSubscription)
+	require.Nil(t, validated.subscriptionPercentage)
+}
+
 func TestValidateBenefitGrantInputRejectsInvalidPlatformIDs(t *testing.T) {
 	input := validBenefitGrantInput()
 	input.PlatformIDs = []int64{2, 0}
@@ -262,36 +287,37 @@ func TestPreviewPercentageSnapshotsOnlyWalletSpendingInsideLockedWindow(t *testi
 	mock.ExpectQuery(`INSERT INTO benefit_grant_batches`).
 		WithArgs(
 			BenefitGrantTypeCompensation, BenefitGrantModePercentage24h, BenefitGrantAudienceSelected,
-			nil, "10.00000000", "1.00000000", "5.00000000", "100.00000000",
+			nil, "10.00000000", false, nil, "1.00000000", "5.00000000", "100.00000000",
 			input.Reason, input.NotificationTitle, input.NotificationContent,
 			windowStart, now, input.ActorID, expiresAt,
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(77))
-	mock.ExpectExec(`WITH eligible AS .*ul.billing_type = 0.*ul.actual_cost > 0.*ROUND\(final_amount, 8\)`).
-		WithArgs(int64(77), windowStart, now, "10.00000000", "1.00000000", "5.00000000", sqlmock.AnyArg()).
+	mock.ExpectExec(`WITH eligible AS .*ul.billing_type IN \(0, 1\).*ul.actual_cost > 0.*ROUND\(final_amount, 8\)`).
+		WithArgs(int64(77), windowStart, now, "10.00000000", false, nil, "1.00000000", "5.00000000", sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(0, 2))
 	mock.ExpectQuery(`SELECT COUNT\(\*\)::integer`).WithArgs(int64(77)).
-		WillReturnRows(sqlmock.NewRows([]string{"count", "base", "amount", "average", "max"}).
-			AddRow(2, "30.00000000", "3.00000000", "1.50000000", "2.00000000"))
+		WillReturnRows(sqlmock.NewRows([]string{"count", "base", "balance_base", "subscription_base", "amount", "balance_amount", "subscription_amount", "average", "max"}).
+			AddRow(2, "30.00000000", "30.00000000", "0.00000000", "3.00000000", "3.00000000", "0.00000000", "1.50000000", "2.00000000"))
 	mock.ExpectExec(`UPDATE benefit_grant_batches`).
-		WithArgs(int64(77), 2, 0, "30.00000000", "3.00000000", "1.50000000", "2.00000000").
+		WithArgs(int64(77), 2, 0, "30.00000000", "30.00000000", "0.00000000", "3.00000000", "3.00000000", "0.00000000", "1.50000000", "2.00000000").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
 	batchColumns := []string{
 		"id", "grant_type", "grant_mode", "audience_type", "fixed_amount", "percentage",
+		"include_subscription", "subscription_percentage",
 		"min_amount", "per_user_cap", "total_budget_cap", "reason", "notification_title",
 		"notification_content", "window_start", "window_end", "status", "eligible_count",
-		"skipped_count", "success_count", "failed_count", "total_base_cost", "total_amount",
+		"skipped_count", "success_count", "failed_count", "total_base_cost", "total_balance_base_cost", "total_subscription_base_cost", "total_amount", "total_balance_amount", "total_subscription_amount",
 		"distributed_amount", "average_amount", "max_amount", "created_by", "executed_by",
 		"expires_at", "started_at", "completed_at", "created_at", "updated_at",
 	}
 	mock.ExpectQuery(`SELECT id, grant_type, grant_mode, audience_type`).WithArgs(int64(77)).
 		WillReturnRows(sqlmock.NewRows(batchColumns).AddRow(
 			77, BenefitGrantTypeCompensation, BenefitGrantModePercentage24h, BenefitGrantAudienceSelected,
-			nil, "10.00000000", "1.00000000", "5.00000000", "100.00000000",
+			nil, "10.00000000", false, nil, "1.00000000", "5.00000000", "100.00000000",
 			input.Reason, input.NotificationTitle, input.NotificationContent, windowStart, now,
-			BenefitGrantStatusDraft, 2, 0, 0, 0, "30.00000000", "3.00000000", "0.00000000",
+			BenefitGrantStatusDraft, 2, 0, 0, 0, "30.00000000", "30.00000000", "0.00000000", "3.00000000", "3.00000000", "0.00000000", "0.00000000",
 			"1.50000000", "2.00000000", input.ActorID, nil, expiresAt, nil, nil, now, now,
 		))
 

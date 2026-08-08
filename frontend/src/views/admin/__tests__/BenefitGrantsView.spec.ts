@@ -55,7 +55,12 @@ const previewBatch = {
   success_count: 0,
   failed_count: 0,
   total_base_cost: '0',
+  total_balance_base_cost: '0',
+  total_subscription_base_cost: '0',
   total_amount: '2',
+  total_balance_amount: '2',
+  total_subscription_amount: '0',
+  include_subscription: false,
   distributed_amount: '0',
   average_amount: '1',
   max_amount: '1',
@@ -142,6 +147,22 @@ describe('BenefitGrantsView', () => {
     expect(preview).toHaveBeenCalledWith(expect.objectContaining({
       grant_mode: 'percentage_24h',
       percentage_period: '72h'
+    }))
+  })
+
+  it('submits subscription usage with an independent percentage', async () => {
+    const wrapper = mountView()
+    await buttonByText(wrapper, 'admin.benefitGrants.modes.percentage_24h').trigger('click')
+    await wrapper.get('[data-testid="include-subscription"]').setValue(true)
+    await wrapper.get('[data-testid="subscription-percentage"]').setValue('7.5')
+    await wrapper.findAll('textarea')[0].setValue('subscription compensation')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(preview).toHaveBeenCalledWith(expect.objectContaining({
+      include_subscription: true,
+      subscription_percentage: '7.5',
+      percentage: '10'
     }))
   })
 

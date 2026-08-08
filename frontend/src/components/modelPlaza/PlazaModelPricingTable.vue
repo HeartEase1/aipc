@@ -196,11 +196,15 @@
               class="font-bold text-gray-700 dark:text-gray-300"
               >{{ requestRate(m) }}x</span
             >
+            <template v-else-if="billingMode(m) === BILLING_MODE_TOKEN && hasDiscount">
+              <span class="mr-1 text-gray-400 line-through dark:text-dark-500">{{ sourceRate }}x</span>
+              <span class="font-bold text-emerald-600 dark:text-emerald-400">{{ effectiveTokenRate }}x</span>
+            </template>
             <template v-else-if="hasCustomRate">
               <span class="mr-1 text-gray-400 line-through dark:text-dark-500">{{ rateMultiplier }}x</span>
-              <span class="font-bold text-primary-600 dark:text-primary-400">{{ effectiveRate }}x</span>
+              <span class="font-bold text-primary-600 dark:text-primary-400">{{ sourceRate }}x</span>
             </template>
-            <span v-else class="font-bold text-gray-700 dark:text-gray-300">{{ effectiveRate }}x</span>
+            <span v-else class="font-bold text-gray-700 dark:text-gray-300">{{ sourceRate }}x</span>
           </td>
         </tr>
       </tbody>
@@ -229,6 +233,8 @@ const props = defineProps<{
   rateMultiplier: number
   /** 用户专属倍率;与默认不同,实付价按此计算并划线展示原倍率。 */
   userRateMultiplier?: number | null
+  effectiveRateMultiplier?: number | null
+  discountFactor?: number | null
   /** 生图独立倍率:true 时图片计费模型的实付倍率取 imageRateMultiplier,不取分组/专属倍率。 */
   imageRateIndependent?: boolean
   imageRateMultiplier?: number | null
@@ -261,9 +267,13 @@ const sortedModels = computed(() => {
   })
 })
 
-const effectiveRate = computed(() => props.userRateMultiplier ?? props.rateMultiplier)
+const sourceRate = computed(() => props.userRateMultiplier ?? props.rateMultiplier)
+const effectiveTokenRate = computed(() => props.effectiveRateMultiplier ?? sourceRate.value)
 const hasCustomRate = computed(
   () => props.userRateMultiplier != null && props.userRateMultiplier !== props.rateMultiplier
+)
+const hasDiscount = computed(() =>
+  props.discountFactor != null && props.discountFactor > 0 && props.discountFactor < 1 && effectiveTokenRate.value < sourceRate.value
 )
 
 function billingMode(m: PlazaModel): BillingMode {
@@ -282,7 +292,7 @@ const MIN_DECIMALS = 2
 /** 实付价 = 渠道单价 × 生效倍率,按 $/1M token 展示。 */
 function paidPerMillion(value: number | null | undefined): string {
   if (value == null) return '-'
-  return formatScaled(value * effectiveRate.value, PER_MILLION, MIN_DECIMALS)
+  return formatScaled(value * effectiveTokenRate.value, PER_MILLION, MIN_DECIMALS)
 }
 
 /** 图片计费模型且分组开启生图独立倍率:实付倍率取独立倍率,与计费口径一致。 */
@@ -292,7 +302,7 @@ function usesIndependentImageRate(m: PlazaModel): boolean {
 
 /** 按次/按图片行的生效倍率。 */
 function requestRate(m: PlazaModel): number {
-  return usesIndependentImageRate(m) ? (props.imageRateMultiplier ?? 1) : effectiveRate.value
+  return usesIndependentImageRate(m) ? (props.imageRateMultiplier ?? 1) : sourceRate.value
 }
 
 /** 按次 / 按图片单价(乘该行生效倍率,不换算 1M)。 */

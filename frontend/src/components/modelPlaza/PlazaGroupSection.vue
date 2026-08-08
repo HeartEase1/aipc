@@ -12,6 +12,10 @@
           :subscription-type="(group.subscription_type || 'standard') as SubscriptionType"
           :rate-multiplier="group.rate_multiplier"
           :user-rate-multiplier="group.user_rate_multiplier ?? null"
+          :effective-rate-multiplier="group.effective_rate_multiplier"
+          :discount-factor="group.discount_factor ?? null"
+          :discount-campaign-name="group.discount_campaign_name"
+          :discount-ends-at="group.discount_ends_at ?? null"
           :peak-rate-enabled="group.peak_rate_enabled"
           :peak-start="group.peak_start"
           :peak-end="group.peak_end"
@@ -42,6 +46,10 @@
         <Icon name="clock" size="xs" class="h-3 w-3" />
         {{ peakNote }}
       </p>
+      <p v-if="discountNote" class="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+        <Icon name="badge" size="xs" class="h-3.5 w-3.5" />
+        {{ discountNote }}
+      </p>
     </header>
 
     <!-- 模型价格表:整行(含 hover 底色/分区底色)顶到卡片边缘,左右留白由表格首列/末列的 padding 提供 -->
@@ -52,6 +60,8 @@
         :platform="group.platform"
         :rate-multiplier="group.rate_multiplier"
         :user-rate-multiplier="group.user_rate_multiplier ?? null"
+        :effective-rate-multiplier="group.effective_rate_multiplier"
+        :discount-factor="group.discount_factor ?? null"
         :image-rate-independent="group.image_rate_independent"
         :image-rate-multiplier="group.image_rate_multiplier"
       />
@@ -73,6 +83,7 @@ import type { GroupPlatform, SubscriptionType } from '@/types'
 import { platformBorderStrongClass } from '@/utils/platformColors'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { useAppStore } from '@/stores/app'
+import { formatDateTime } from '@/utils/format'
 
 const props = defineProps<{
   group: ModelPlazaGroup
@@ -90,6 +101,15 @@ const peakNote = computed(() => {
   return t('modelPlaza.detail.peakNote', {
     window,
     multiplier: props.group.peak_rate_multiplier
+  })
+})
+
+const discountNote = computed(() => {
+  if (!props.group.discount_factor || !props.group.discount_campaign_name) return ''
+  return t('modelPlaza.discountActive', {
+    name: props.group.discount_campaign_name,
+    percent: Math.round((1 - props.group.discount_factor) * 100),
+    end: props.group.discount_ends_at ? formatDateTime(props.group.discount_ends_at) : '-'
   })
 })
 </script>

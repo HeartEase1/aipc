@@ -582,6 +582,108 @@ func (_u *UsageLogUpdate) AddRateMultiplier(v float64) *UsageLogUpdate {
 	return _u
 }
 
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (_u *UsageLogUpdate) SetDiscountCampaignID(v int64) *UsageLogUpdate {
+	_u.mutation.ResetDiscountCampaignID()
+	_u.mutation.SetDiscountCampaignID(v)
+	return _u
+}
+
+// SetNillableDiscountCampaignID sets the "discount_campaign_id" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableDiscountCampaignID(v *int64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetDiscountCampaignID(*v)
+	}
+	return _u
+}
+
+// AddDiscountCampaignID adds value to the "discount_campaign_id" field.
+func (_u *UsageLogUpdate) AddDiscountCampaignID(v int64) *UsageLogUpdate {
+	_u.mutation.AddDiscountCampaignID(v)
+	return _u
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (_u *UsageLogUpdate) ClearDiscountCampaignID() *UsageLogUpdate {
+	_u.mutation.ClearDiscountCampaignID()
+	return _u
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (_u *UsageLogUpdate) SetDiscountFactor(v float64) *UsageLogUpdate {
+	_u.mutation.ResetDiscountFactor()
+	_u.mutation.SetDiscountFactor(v)
+	return _u
+}
+
+// SetNillableDiscountFactor sets the "discount_factor" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableDiscountFactor(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetDiscountFactor(*v)
+	}
+	return _u
+}
+
+// AddDiscountFactor adds value to the "discount_factor" field.
+func (_u *UsageLogUpdate) AddDiscountFactor(v float64) *UsageLogUpdate {
+	_u.mutation.AddDiscountFactor(v)
+	return _u
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (_u *UsageLogUpdate) ClearDiscountFactor() *UsageLogUpdate {
+	_u.mutation.ClearDiscountFactor()
+	return _u
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (_u *UsageLogUpdate) SetOriginalRateMultiplier(v float64) *UsageLogUpdate {
+	_u.mutation.ResetOriginalRateMultiplier()
+	_u.mutation.SetOriginalRateMultiplier(v)
+	return _u
+}
+
+// SetNillableOriginalRateMultiplier sets the "original_rate_multiplier" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableOriginalRateMultiplier(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetOriginalRateMultiplier(*v)
+	}
+	return _u
+}
+
+// AddOriginalRateMultiplier adds value to the "original_rate_multiplier" field.
+func (_u *UsageLogUpdate) AddOriginalRateMultiplier(v float64) *UsageLogUpdate {
+	_u.mutation.AddOriginalRateMultiplier(v)
+	return _u
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (_u *UsageLogUpdate) ClearOriginalRateMultiplier() *UsageLogUpdate {
+	_u.mutation.ClearOriginalRateMultiplier()
+	return _u
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (_u *UsageLogUpdate) SetDiscountAmount(v float64) *UsageLogUpdate {
+	_u.mutation.ResetDiscountAmount()
+	_u.mutation.SetDiscountAmount(v)
+	return _u
+}
+
+// SetNillableDiscountAmount sets the "discount_amount" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableDiscountAmount(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetDiscountAmount(*v)
+	}
+	return _u
+}
+
+// AddDiscountAmount adds value to the "discount_amount" field.
+func (_u *UsageLogUpdate) AddDiscountAmount(v float64) *UsageLogUpdate {
+	_u.mutation.AddDiscountAmount(v)
+	return _u
+}
+
 // SetLongContextBillingApplied sets the "long_context_billing_applied" field.
 func (_u *UsageLogUpdate) SetLongContextBillingApplied(v bool) *UsageLogUpdate {
 	_u.mutation.SetLongContextBillingApplied(v)
@@ -1269,6 +1371,39 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(usagelog.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.DiscountCampaignID(); ok {
+		_spec.SetField(usagelog.FieldDiscountCampaignID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedDiscountCampaignID(); ok {
+		_spec.AddField(usagelog.FieldDiscountCampaignID, field.TypeInt64, value)
+	}
+	if _u.mutation.DiscountCampaignIDCleared() {
+		_spec.ClearField(usagelog.FieldDiscountCampaignID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.DiscountFactor(); ok {
+		_spec.SetField(usagelog.FieldDiscountFactor, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDiscountFactor(); ok {
+		_spec.AddField(usagelog.FieldDiscountFactor, field.TypeFloat64, value)
+	}
+	if _u.mutation.DiscountFactorCleared() {
+		_spec.ClearField(usagelog.FieldDiscountFactor, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.OriginalRateMultiplier(); ok {
+		_spec.SetField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedOriginalRateMultiplier(); ok {
+		_spec.AddField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64, value)
+	}
+	if _u.mutation.OriginalRateMultiplierCleared() {
+		_spec.ClearField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DiscountAmount(); ok {
+		_spec.SetField(usagelog.FieldDiscountAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDiscountAmount(); ok {
+		_spec.AddField(usagelog.FieldDiscountAmount, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.LongContextBillingApplied(); ok {
 		_spec.SetField(usagelog.FieldLongContextBillingApplied, field.TypeBool, value)
@@ -2096,6 +2231,108 @@ func (_u *UsageLogUpdateOne) AddRateMultiplier(v float64) *UsageLogUpdateOne {
 	return _u
 }
 
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (_u *UsageLogUpdateOne) SetDiscountCampaignID(v int64) *UsageLogUpdateOne {
+	_u.mutation.ResetDiscountCampaignID()
+	_u.mutation.SetDiscountCampaignID(v)
+	return _u
+}
+
+// SetNillableDiscountCampaignID sets the "discount_campaign_id" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableDiscountCampaignID(v *int64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetDiscountCampaignID(*v)
+	}
+	return _u
+}
+
+// AddDiscountCampaignID adds value to the "discount_campaign_id" field.
+func (_u *UsageLogUpdateOne) AddDiscountCampaignID(v int64) *UsageLogUpdateOne {
+	_u.mutation.AddDiscountCampaignID(v)
+	return _u
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (_u *UsageLogUpdateOne) ClearDiscountCampaignID() *UsageLogUpdateOne {
+	_u.mutation.ClearDiscountCampaignID()
+	return _u
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (_u *UsageLogUpdateOne) SetDiscountFactor(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetDiscountFactor()
+	_u.mutation.SetDiscountFactor(v)
+	return _u
+}
+
+// SetNillableDiscountFactor sets the "discount_factor" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableDiscountFactor(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetDiscountFactor(*v)
+	}
+	return _u
+}
+
+// AddDiscountFactor adds value to the "discount_factor" field.
+func (_u *UsageLogUpdateOne) AddDiscountFactor(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddDiscountFactor(v)
+	return _u
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (_u *UsageLogUpdateOne) ClearDiscountFactor() *UsageLogUpdateOne {
+	_u.mutation.ClearDiscountFactor()
+	return _u
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (_u *UsageLogUpdateOne) SetOriginalRateMultiplier(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetOriginalRateMultiplier()
+	_u.mutation.SetOriginalRateMultiplier(v)
+	return _u
+}
+
+// SetNillableOriginalRateMultiplier sets the "original_rate_multiplier" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableOriginalRateMultiplier(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetOriginalRateMultiplier(*v)
+	}
+	return _u
+}
+
+// AddOriginalRateMultiplier adds value to the "original_rate_multiplier" field.
+func (_u *UsageLogUpdateOne) AddOriginalRateMultiplier(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddOriginalRateMultiplier(v)
+	return _u
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (_u *UsageLogUpdateOne) ClearOriginalRateMultiplier() *UsageLogUpdateOne {
+	_u.mutation.ClearOriginalRateMultiplier()
+	return _u
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (_u *UsageLogUpdateOne) SetDiscountAmount(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetDiscountAmount()
+	_u.mutation.SetDiscountAmount(v)
+	return _u
+}
+
+// SetNillableDiscountAmount sets the "discount_amount" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableDiscountAmount(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetDiscountAmount(*v)
+	}
+	return _u
+}
+
+// AddDiscountAmount adds value to the "discount_amount" field.
+func (_u *UsageLogUpdateOne) AddDiscountAmount(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddDiscountAmount(v)
+	return _u
+}
+
 // SetLongContextBillingApplied sets the "long_context_billing_applied" field.
 func (_u *UsageLogUpdateOne) SetLongContextBillingApplied(v bool) *UsageLogUpdateOne {
 	_u.mutation.SetLongContextBillingApplied(v)
@@ -2813,6 +3050,39 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
 		_spec.AddField(usagelog.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.DiscountCampaignID(); ok {
+		_spec.SetField(usagelog.FieldDiscountCampaignID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedDiscountCampaignID(); ok {
+		_spec.AddField(usagelog.FieldDiscountCampaignID, field.TypeInt64, value)
+	}
+	if _u.mutation.DiscountCampaignIDCleared() {
+		_spec.ClearField(usagelog.FieldDiscountCampaignID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.DiscountFactor(); ok {
+		_spec.SetField(usagelog.FieldDiscountFactor, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDiscountFactor(); ok {
+		_spec.AddField(usagelog.FieldDiscountFactor, field.TypeFloat64, value)
+	}
+	if _u.mutation.DiscountFactorCleared() {
+		_spec.ClearField(usagelog.FieldDiscountFactor, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.OriginalRateMultiplier(); ok {
+		_spec.SetField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedOriginalRateMultiplier(); ok {
+		_spec.AddField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64, value)
+	}
+	if _u.mutation.OriginalRateMultiplierCleared() {
+		_spec.ClearField(usagelog.FieldOriginalRateMultiplier, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.DiscountAmount(); ok {
+		_spec.SetField(usagelog.FieldDiscountAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedDiscountAmount(); ok {
+		_spec.AddField(usagelog.FieldDiscountAmount, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.LongContextBillingApplied(); ok {
 		_spec.SetField(usagelog.FieldLongContextBillingApplied, field.TypeBool, value)

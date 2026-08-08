@@ -195,6 +195,26 @@ func RateMultiplier(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldRateMultiplier, v))
 }
 
+// DiscountCampaignID applies equality check predicate on the "discount_campaign_id" field. It's identical to DiscountCampaignIDEQ.
+func DiscountCampaignID(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDiscountCampaignID, v))
+}
+
+// DiscountFactor applies equality check predicate on the "discount_factor" field. It's identical to DiscountFactorEQ.
+func DiscountFactor(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDiscountFactor, v))
+}
+
+// OriginalRateMultiplier applies equality check predicate on the "original_rate_multiplier" field. It's identical to OriginalRateMultiplierEQ.
+func OriginalRateMultiplier(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldOriginalRateMultiplier, v))
+}
+
+// DiscountAmount applies equality check predicate on the "discount_amount" field. It's identical to DiscountAmountEQ.
+func DiscountAmount(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDiscountAmount, v))
+}
+
 // LongContextBillingApplied applies equality check predicate on the "long_context_billing_applied" field. It's identical to LongContextBillingAppliedEQ.
 func LongContextBillingApplied(v bool) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldLongContextBillingApplied, v))
@@ -1573,6 +1593,196 @@ func RateMultiplierLT(v float64) predicate.UsageLog {
 // RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
 func RateMultiplierLTE(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldRateMultiplier, v))
+}
+
+// DiscountCampaignIDEQ applies the EQ predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDiscountCampaignID, v))
+}
+
+// DiscountCampaignIDNEQ applies the NEQ predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDNEQ(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldDiscountCampaignID, v))
+}
+
+// DiscountCampaignIDIn applies the In predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldDiscountCampaignID, vs...))
+}
+
+// DiscountCampaignIDNotIn applies the NotIn predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDNotIn(vs ...int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldDiscountCampaignID, vs...))
+}
+
+// DiscountCampaignIDGT applies the GT predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDGT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldDiscountCampaignID, v))
+}
+
+// DiscountCampaignIDGTE applies the GTE predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDGTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldDiscountCampaignID, v))
+}
+
+// DiscountCampaignIDLT applies the LT predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDLT(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldDiscountCampaignID, v))
+}
+
+// DiscountCampaignIDLTE applies the LTE predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDLTE(v int64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldDiscountCampaignID, v))
+}
+
+// DiscountCampaignIDIsNil applies the IsNil predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldDiscountCampaignID))
+}
+
+// DiscountCampaignIDNotNil applies the NotNil predicate on the "discount_campaign_id" field.
+func DiscountCampaignIDNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldDiscountCampaignID))
+}
+
+// DiscountFactorEQ applies the EQ predicate on the "discount_factor" field.
+func DiscountFactorEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDiscountFactor, v))
+}
+
+// DiscountFactorNEQ applies the NEQ predicate on the "discount_factor" field.
+func DiscountFactorNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldDiscountFactor, v))
+}
+
+// DiscountFactorIn applies the In predicate on the "discount_factor" field.
+func DiscountFactorIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldDiscountFactor, vs...))
+}
+
+// DiscountFactorNotIn applies the NotIn predicate on the "discount_factor" field.
+func DiscountFactorNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldDiscountFactor, vs...))
+}
+
+// DiscountFactorGT applies the GT predicate on the "discount_factor" field.
+func DiscountFactorGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldDiscountFactor, v))
+}
+
+// DiscountFactorGTE applies the GTE predicate on the "discount_factor" field.
+func DiscountFactorGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldDiscountFactor, v))
+}
+
+// DiscountFactorLT applies the LT predicate on the "discount_factor" field.
+func DiscountFactorLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldDiscountFactor, v))
+}
+
+// DiscountFactorLTE applies the LTE predicate on the "discount_factor" field.
+func DiscountFactorLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldDiscountFactor, v))
+}
+
+// DiscountFactorIsNil applies the IsNil predicate on the "discount_factor" field.
+func DiscountFactorIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldDiscountFactor))
+}
+
+// DiscountFactorNotNil applies the NotNil predicate on the "discount_factor" field.
+func DiscountFactorNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldDiscountFactor))
+}
+
+// OriginalRateMultiplierEQ applies the EQ predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldOriginalRateMultiplier, v))
+}
+
+// OriginalRateMultiplierNEQ applies the NEQ predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldOriginalRateMultiplier, v))
+}
+
+// OriginalRateMultiplierIn applies the In predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldOriginalRateMultiplier, vs...))
+}
+
+// OriginalRateMultiplierNotIn applies the NotIn predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldOriginalRateMultiplier, vs...))
+}
+
+// OriginalRateMultiplierGT applies the GT predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldOriginalRateMultiplier, v))
+}
+
+// OriginalRateMultiplierGTE applies the GTE predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldOriginalRateMultiplier, v))
+}
+
+// OriginalRateMultiplierLT applies the LT predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldOriginalRateMultiplier, v))
+}
+
+// OriginalRateMultiplierLTE applies the LTE predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldOriginalRateMultiplier, v))
+}
+
+// OriginalRateMultiplierIsNil applies the IsNil predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierIsNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIsNull(FieldOriginalRateMultiplier))
+}
+
+// OriginalRateMultiplierNotNil applies the NotNil predicate on the "original_rate_multiplier" field.
+func OriginalRateMultiplierNotNil() predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotNull(FieldOriginalRateMultiplier))
+}
+
+// DiscountAmountEQ applies the EQ predicate on the "discount_amount" field.
+func DiscountAmountEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldDiscountAmount, v))
+}
+
+// DiscountAmountNEQ applies the NEQ predicate on the "discount_amount" field.
+func DiscountAmountNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldDiscountAmount, v))
+}
+
+// DiscountAmountIn applies the In predicate on the "discount_amount" field.
+func DiscountAmountIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldDiscountAmount, vs...))
+}
+
+// DiscountAmountNotIn applies the NotIn predicate on the "discount_amount" field.
+func DiscountAmountNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldDiscountAmount, vs...))
+}
+
+// DiscountAmountGT applies the GT predicate on the "discount_amount" field.
+func DiscountAmountGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldDiscountAmount, v))
+}
+
+// DiscountAmountGTE applies the GTE predicate on the "discount_amount" field.
+func DiscountAmountGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldDiscountAmount, v))
+}
+
+// DiscountAmountLT applies the LT predicate on the "discount_amount" field.
+func DiscountAmountLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldDiscountAmount, v))
+}
+
+// DiscountAmountLTE applies the LTE predicate on the "discount_amount" field.
+func DiscountAmountLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldDiscountAmount, v))
 }
 
 // LongContextBillingAppliedEQ applies the EQ predicate on the "long_context_billing_applied" field.

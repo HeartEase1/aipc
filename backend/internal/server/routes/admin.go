@@ -48,6 +48,9 @@ func RegisterAdminRoutes(
 		// 福利与补偿发放
 		registerBenefitGrantRoutes(admin, h)
 
+		// Token 倍率限时折扣活动
+		registerDiscountCampaignRoutes(admin, h)
+
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
 
@@ -134,6 +137,16 @@ func registerBenefitGrantRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		grants.GET("/:id", h.Admin.BenefitGrant.Get)
 		grants.POST("/:id/retry-failed", h.Admin.BenefitGrant.RetryFailed)
 		grants.GET("/:id/export", h.Admin.BenefitGrant.Export)
+	}
+}
+
+func registerDiscountCampaignRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	campaigns := admin.Group("/discount-campaigns")
+	{
+		campaigns.GET("", h.Admin.DiscountCampaign.List)
+		campaigns.POST("", h.Admin.DiscountCampaign.Create)
+		campaigns.PUT("/:id", h.Admin.DiscountCampaign.Update)
+		campaigns.DELETE("/:id", h.Admin.DiscountCampaign.Delete)
 	}
 }
 

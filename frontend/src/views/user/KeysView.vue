@@ -32,51 +32,78 @@
       </template>
 
       <template #actions>
-        <div class="flex justify-end gap-3">
-          <button
-            @click="loadApiKeys"
-            :disabled="loading"
-            class="btn btn-secondary"
-            :title="t('common.refresh')"
-          >
-            <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-          </button>
-          <div class="relative" ref="columnDropdownRef">
-            <button
-              @click="showColumnDropdown = !showColumnDropdown"
-              class="btn btn-secondary px-2 md:px-3"
-              :title="t('keys.columnSettings')"
-            >
-              <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-              </svg>
-              <span class="hidden md:inline">{{ t('keys.columnSettings') }}</span>
-            </button>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div v-if="activeDiscountCampaigns.length" class="flex min-w-0 flex-1 flex-wrap gap-2">
             <div
-              v-if="showColumnDropdown"
-              class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+              v-for="campaign in activeDiscountCampaigns"
+              :key="campaign.key"
+              class="flex w-full min-w-0 items-center gap-3 rounded-lg border border-emerald-200/80 bg-emerald-50/70 px-3 py-2 shadow-sm dark:border-emerald-800/70 dark:bg-emerald-950/25 sm:w-auto"
             >
-              <button
-                v-for="col in toggleableColumns"
-                :key="col.key"
-                @click="toggleColumn(col.key)"
-                class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
-              >
-                <span>{{ col.label }}</span>
-                <Icon
-                  v-if="isColumnVisible(col.key)"
-                  name="check"
-                  size="sm"
-                  class="text-primary-500"
-                  :stroke-width="2"
-                />
-              </button>
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-sm dark:bg-emerald-500">
+                <Icon name="sparkles" size="sm" :stroke-width="2" />
+              </span>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+                  <span class="truncate font-semibold text-gray-900 dark:text-white">{{ campaign.name }}</span>
+                  <span class="text-gray-600 dark:text-gray-300">
+                    {{ t('keys.discountCampaign.currentDiscount') }}:
+                    <strong class="font-semibold text-emerald-700 dark:text-emerald-300">{{ formatCampaignDiscount(campaign.factor) }}</strong>
+                  </span>
+                </div>
+                <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>{{ t('keys.discountCampaign.balanceOnly') }}</span>
+                  <span aria-hidden="true" class="text-gray-300 dark:text-dark-500">·</span>
+                  <span>{{ t('keys.discountCampaign.subscriptionExcluded') }}</span>
+                </div>
+              </div>
             </div>
           </div>
-          <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
-            <Icon name="plus" size="md" class="mr-2" />
-            {{ t('keys.createKey') }}
-          </button>
+          <div class="ml-auto flex shrink-0 justify-end gap-3">
+            <button
+              @click="loadApiKeys"
+              :disabled="loading"
+              class="btn btn-secondary"
+              :title="t('common.refresh')"
+            >
+              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
+            </button>
+            <div class="relative" ref="columnDropdownRef">
+              <button
+                @click="showColumnDropdown = !showColumnDropdown"
+                class="btn btn-secondary px-2 md:px-3"
+                :title="t('keys.columnSettings')"
+              >
+                <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
+                </svg>
+                <span class="hidden md:inline">{{ t('keys.columnSettings') }}</span>
+              </button>
+              <div
+                v-if="showColumnDropdown"
+                class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+              >
+                <button
+                  v-for="col in toggleableColumns"
+                  :key="col.key"
+                  @click="toggleColumn(col.key)"
+                  class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+                >
+                  <span>{{ col.label }}</span>
+                  <Icon
+                    v-if="isColumnVisible(col.key)"
+                    name="check"
+                    size="sm"
+                    class="text-primary-500"
+                    :stroke-width="2"
+                  />
+                </button>
+              </div>
+            </div>
+            <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
+              <Icon name="plus" size="md" class="mr-2" />
+              {{ t('keys.createKey') }}
+            </button>
+          </div>
         </div>
       </template>
 
@@ -148,6 +175,11 @@
                   :subscription-type="row.group.subscription_type"
                   :rate-multiplier="row.group.rate_multiplier"
                   :user-rate-multiplier="userGroupRates[row.group.id]"
+                  :effective-rate-multiplier="availableGroupsByID.get(row.group.id)?.effective_rate_multiplier"
+                  :discount-factor="availableGroupsByID.get(row.group.id)?.discount_factor ?? null"
+                  :discount-campaign-name="availableGroupsByID.get(row.group.id)?.discount_campaign_name"
+                  :discount-ends-at="availableGroupsByID.get(row.group.id)?.discount_ends_at ?? null"
+                  :show-discount-percent="false"
                   :peak-rate-enabled="row.group.peak_rate_enabled"
                   :peak-start="row.group.peak_start"
                   :peak-end="row.group.peak_end"
@@ -482,6 +514,11 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :effective-rate-multiplier="(option as unknown as GroupOption).effectiveRate"
+                :discount-factor="(option as unknown as GroupOption).discountFactor"
+                :discount-campaign-name="(option as unknown as GroupOption).discountCampaignName"
+                :discount-ends-at="(option as unknown as GroupOption).discountEndsAt"
+                :show-discount-percent="false"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
                 :peak-end="(option as unknown as GroupOption).peakEnd"
@@ -496,6 +533,11 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :effective-rate-multiplier="(option as unknown as GroupOption).effectiveRate"
+                :discount-factor="(option as unknown as GroupOption).discountFactor"
+                :discount-campaign-name="(option as unknown as GroupOption).discountCampaignName"
+                :discount-ends-at="(option as unknown as GroupOption).discountEndsAt"
+                :show-discount-percent="false"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
                 :peak-end="(option as unknown as GroupOption).peakEnd"
@@ -1095,6 +1137,11 @@
               :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
               :user-rate-multiplier="option.userRate"
+              :effective-rate-multiplier="option.effectiveRate"
+              :discount-factor="option.discountFactor"
+              :discount-campaign-name="option.discountCampaignName"
+              :discount-ends-at="option.discountEndsAt"
+              :show-discount-percent="false"
               :peak-rate-enabled="option.peakRateEnabled"
               :peak-start="option.peakStart"
               :peak-end="option.peakEnd"
@@ -1163,6 +1210,10 @@ interface GroupOption {
   description: string | null
   rate: number
   userRate: number | null
+  effectiveRate: number | null
+  discountFactor: number | null
+  discountCampaignName: string
+  discountEndsAt: string | null
   peakRateEnabled: boolean
   peakStart: string
   peakEnd: string
@@ -1415,6 +1466,10 @@ const groupOptions = computed(() =>
     description: group.description,
     rate: group.rate_multiplier,
     userRate: userGroupRates.value[group.id] ?? null,
+    effectiveRate: group.effective_rate_multiplier ?? null,
+    discountFactor: group.discount_factor ?? null,
+    discountCampaignName: group.discount_campaign_name ?? '',
+    discountEndsAt: group.discount_ends_at ?? null,
     peakRateEnabled: group.peak_rate_enabled,
     peakStart: group.peak_start,
     peakEnd: group.peak_end,
@@ -1423,6 +1478,47 @@ const groupOptions = computed(() =>
     platform: group.platform
   }))
 )
+
+const availableGroupsByID = computed(() => new Map(groups.value.map((group) => [group.id, group])))
+
+interface ActiveDiscountCampaign {
+  key: string
+  name: string
+  factor: number
+}
+
+const activeDiscountCampaigns = computed<ActiveDiscountCampaign[]>(() => {
+  const campaigns = new Map<string, ActiveDiscountCampaign>()
+
+  for (const group of groups.value) {
+    const name = group.discount_campaign_name?.trim()
+    const factor = group.discount_factor
+    const endsAt = group.discount_ends_at ? Date.parse(group.discount_ends_at) : null
+    if (
+      group.subscription_type === 'subscription' ||
+      !name ||
+      factor == null ||
+      factor <= 0 ||
+      factor >= 1 ||
+      (endsAt != null && Number.isFinite(endsAt) && endsAt <= now.value.getTime())
+    ) {
+      continue
+    }
+
+    const key = group.discount_campaign_id != null
+      ? `id:${group.discount_campaign_id}`
+      : `${name}:${factor}:${group.discount_ends_at ?? ''}`
+    if (!campaigns.has(key)) campaigns.set(key, { key, name, factor })
+  }
+
+  return [...campaigns.values()]
+})
+
+const formatCampaignDiscount = (factor: number) => {
+  const value = Number((factor * 10).toFixed(2)).toString()
+  const percent = Number(((1 - factor) * 100).toFixed(2)).toString()
+  return t('keys.discountCampaign.discountValue', { value, percent })
+}
 
 // Group dropdown search
 const groupSearchQuery = ref('')

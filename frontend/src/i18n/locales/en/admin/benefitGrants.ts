@@ -5,6 +5,7 @@ export default {
     tabs: { create: 'New grant', history: 'Grant history' },
     sections: { rules: 'Grant rules', protection: 'Amount safeguards', notification: 'Arrival notification' },
     fields: {
+      includeSubscription: 'Include subscription usage', subscriptionPercentage: 'Subscription usage compensation percentage',
       type: 'Grant type', mode: 'Grant method', audience: 'Recipients', fixedAmount: 'Fixed amount per user',
       percentage: 'Spending compensation percentage', percentagePeriod: 'Spending period', platformIds: 'Specify by platform ID',
       customWindowStart: 'Start time', customWindowEnd: 'End time', minAmount: 'Minimum grant', perUserCap: 'Per-user cap',
@@ -25,6 +26,8 @@ export default {
     searchUsers: 'Search by email or username',
     customWindowHint: 'Times use your local timezone. The range may be up to 365 days and is locked when previewed.',
     selectedCount: '{count} selected',
+    walletPercentageHint: 'Calculated from wallet-billed usage in the selected period.',
+    subscriptionPercentageHint: 'Optional. Subscription-billed usage is calculated separately and credited to wallet balance using this percentage.',
     summary: { title: 'Current rules' },
     safety: {
       title: 'Excluded from recharge and affiliate totals',
@@ -46,6 +49,9 @@ export default {
     overBudget: 'The estimated total exceeds the batch budget cap and cannot be executed.',
     columns: { batch: 'Batch', progress: 'Succeeded / expected', amount: 'Amount', created: 'Created' },
     metrics: {
+      walletBaseCost: 'Wallet spending base', subscriptionBaseCost: 'Subscription usage base',
+      walletAmount: 'From wallet usage', subscriptionAmount: 'From subscription usage',
+      walletShort: 'Wallet', subscriptionShort: 'Subscription',
       recipients: 'Expected recipients', skipped: 'Skipped', baseCost: 'Spending base for selected period',
       totalAmount: 'Estimated total', average: 'Average amount', maximum: 'Largest grant', amount: 'Grant amount',
       succeeded: 'Succeeded', failed: 'Failed', distributed: 'Distributed', window: 'Locked spending window'

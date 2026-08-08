@@ -43389,6 +43389,14 @@ type UsageLogMutation struct {
 	addactual_cost               *float64
 	rate_multiplier              *float64
 	addrate_multiplier           *float64
+	discount_campaign_id         *int64
+	adddiscount_campaign_id      *int64
+	discount_factor              *float64
+	adddiscount_factor           *float64
+	original_rate_multiplier     *float64
+	addoriginal_rate_multiplier  *float64
+	discount_amount              *float64
+	adddiscount_amount           *float64
 	long_context_billing_applied *bool
 	account_rate_multiplier      *float64
 	addaccount_rate_multiplier   *float64
@@ -44948,6 +44956,272 @@ func (m *UsageLogMutation) ResetRateMultiplier() {
 	m.addrate_multiplier = nil
 }
 
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (m *UsageLogMutation) SetDiscountCampaignID(i int64) {
+	m.discount_campaign_id = &i
+	m.adddiscount_campaign_id = nil
+}
+
+// DiscountCampaignID returns the value of the "discount_campaign_id" field in the mutation.
+func (m *UsageLogMutation) DiscountCampaignID() (r int64, exists bool) {
+	v := m.discount_campaign_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountCampaignID returns the old "discount_campaign_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDiscountCampaignID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountCampaignID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountCampaignID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountCampaignID: %w", err)
+	}
+	return oldValue.DiscountCampaignID, nil
+}
+
+// AddDiscountCampaignID adds i to the "discount_campaign_id" field.
+func (m *UsageLogMutation) AddDiscountCampaignID(i int64) {
+	if m.adddiscount_campaign_id != nil {
+		*m.adddiscount_campaign_id += i
+	} else {
+		m.adddiscount_campaign_id = &i
+	}
+}
+
+// AddedDiscountCampaignID returns the value that was added to the "discount_campaign_id" field in this mutation.
+func (m *UsageLogMutation) AddedDiscountCampaignID() (r int64, exists bool) {
+	v := m.adddiscount_campaign_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (m *UsageLogMutation) ClearDiscountCampaignID() {
+	m.discount_campaign_id = nil
+	m.adddiscount_campaign_id = nil
+	m.clearedFields[usagelog.FieldDiscountCampaignID] = struct{}{}
+}
+
+// DiscountCampaignIDCleared returns if the "discount_campaign_id" field was cleared in this mutation.
+func (m *UsageLogMutation) DiscountCampaignIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldDiscountCampaignID]
+	return ok
+}
+
+// ResetDiscountCampaignID resets all changes to the "discount_campaign_id" field.
+func (m *UsageLogMutation) ResetDiscountCampaignID() {
+	m.discount_campaign_id = nil
+	m.adddiscount_campaign_id = nil
+	delete(m.clearedFields, usagelog.FieldDiscountCampaignID)
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (m *UsageLogMutation) SetDiscountFactor(f float64) {
+	m.discount_factor = &f
+	m.adddiscount_factor = nil
+}
+
+// DiscountFactor returns the value of the "discount_factor" field in the mutation.
+func (m *UsageLogMutation) DiscountFactor() (r float64, exists bool) {
+	v := m.discount_factor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountFactor returns the old "discount_factor" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDiscountFactor(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountFactor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountFactor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountFactor: %w", err)
+	}
+	return oldValue.DiscountFactor, nil
+}
+
+// AddDiscountFactor adds f to the "discount_factor" field.
+func (m *UsageLogMutation) AddDiscountFactor(f float64) {
+	if m.adddiscount_factor != nil {
+		*m.adddiscount_factor += f
+	} else {
+		m.adddiscount_factor = &f
+	}
+}
+
+// AddedDiscountFactor returns the value that was added to the "discount_factor" field in this mutation.
+func (m *UsageLogMutation) AddedDiscountFactor() (r float64, exists bool) {
+	v := m.adddiscount_factor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (m *UsageLogMutation) ClearDiscountFactor() {
+	m.discount_factor = nil
+	m.adddiscount_factor = nil
+	m.clearedFields[usagelog.FieldDiscountFactor] = struct{}{}
+}
+
+// DiscountFactorCleared returns if the "discount_factor" field was cleared in this mutation.
+func (m *UsageLogMutation) DiscountFactorCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldDiscountFactor]
+	return ok
+}
+
+// ResetDiscountFactor resets all changes to the "discount_factor" field.
+func (m *UsageLogMutation) ResetDiscountFactor() {
+	m.discount_factor = nil
+	m.adddiscount_factor = nil
+	delete(m.clearedFields, usagelog.FieldDiscountFactor)
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (m *UsageLogMutation) SetOriginalRateMultiplier(f float64) {
+	m.original_rate_multiplier = &f
+	m.addoriginal_rate_multiplier = nil
+}
+
+// OriginalRateMultiplier returns the value of the "original_rate_multiplier" field in the mutation.
+func (m *UsageLogMutation) OriginalRateMultiplier() (r float64, exists bool) {
+	v := m.original_rate_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOriginalRateMultiplier returns the old "original_rate_multiplier" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldOriginalRateMultiplier(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOriginalRateMultiplier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOriginalRateMultiplier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOriginalRateMultiplier: %w", err)
+	}
+	return oldValue.OriginalRateMultiplier, nil
+}
+
+// AddOriginalRateMultiplier adds f to the "original_rate_multiplier" field.
+func (m *UsageLogMutation) AddOriginalRateMultiplier(f float64) {
+	if m.addoriginal_rate_multiplier != nil {
+		*m.addoriginal_rate_multiplier += f
+	} else {
+		m.addoriginal_rate_multiplier = &f
+	}
+}
+
+// AddedOriginalRateMultiplier returns the value that was added to the "original_rate_multiplier" field in this mutation.
+func (m *UsageLogMutation) AddedOriginalRateMultiplier() (r float64, exists bool) {
+	v := m.addoriginal_rate_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (m *UsageLogMutation) ClearOriginalRateMultiplier() {
+	m.original_rate_multiplier = nil
+	m.addoriginal_rate_multiplier = nil
+	m.clearedFields[usagelog.FieldOriginalRateMultiplier] = struct{}{}
+}
+
+// OriginalRateMultiplierCleared returns if the "original_rate_multiplier" field was cleared in this mutation.
+func (m *UsageLogMutation) OriginalRateMultiplierCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldOriginalRateMultiplier]
+	return ok
+}
+
+// ResetOriginalRateMultiplier resets all changes to the "original_rate_multiplier" field.
+func (m *UsageLogMutation) ResetOriginalRateMultiplier() {
+	m.original_rate_multiplier = nil
+	m.addoriginal_rate_multiplier = nil
+	delete(m.clearedFields, usagelog.FieldOriginalRateMultiplier)
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (m *UsageLogMutation) SetDiscountAmount(f float64) {
+	m.discount_amount = &f
+	m.adddiscount_amount = nil
+}
+
+// DiscountAmount returns the value of the "discount_amount" field in the mutation.
+func (m *UsageLogMutation) DiscountAmount() (r float64, exists bool) {
+	v := m.discount_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountAmount returns the old "discount_amount" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDiscountAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountAmount: %w", err)
+	}
+	return oldValue.DiscountAmount, nil
+}
+
+// AddDiscountAmount adds f to the "discount_amount" field.
+func (m *UsageLogMutation) AddDiscountAmount(f float64) {
+	if m.adddiscount_amount != nil {
+		*m.adddiscount_amount += f
+	} else {
+		m.adddiscount_amount = &f
+	}
+}
+
+// AddedDiscountAmount returns the value that was added to the "discount_amount" field in this mutation.
+func (m *UsageLogMutation) AddedDiscountAmount() (r float64, exists bool) {
+	v := m.adddiscount_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDiscountAmount resets all changes to the "discount_amount" field.
+func (m *UsageLogMutation) ResetDiscountAmount() {
+	m.discount_amount = nil
+	m.adddiscount_amount = nil
+}
+
 // SetLongContextBillingApplied sets the "long_context_billing_applied" field.
 func (m *UsageLogMutation) SetLongContextBillingApplied(b bool) {
 	m.long_context_billing_applied = &b
@@ -46101,7 +46375,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 47)
+	fields := make([]string, 0, 51)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -46185,6 +46459,18 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldRateMultiplier)
+	}
+	if m.discount_campaign_id != nil {
+		fields = append(fields, usagelog.FieldDiscountCampaignID)
+	}
+	if m.discount_factor != nil {
+		fields = append(fields, usagelog.FieldDiscountFactor)
+	}
+	if m.original_rate_multiplier != nil {
+		fields = append(fields, usagelog.FieldOriginalRateMultiplier)
+	}
+	if m.discount_amount != nil {
+		fields = append(fields, usagelog.FieldDiscountAmount)
 	}
 	if m.long_context_billing_applied != nil {
 		fields = append(fields, usagelog.FieldLongContextBillingApplied)
@@ -46307,6 +46593,14 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.ActualCost()
 	case usagelog.FieldRateMultiplier:
 		return m.RateMultiplier()
+	case usagelog.FieldDiscountCampaignID:
+		return m.DiscountCampaignID()
+	case usagelog.FieldDiscountFactor:
+		return m.DiscountFactor()
+	case usagelog.FieldOriginalRateMultiplier:
+		return m.OriginalRateMultiplier()
+	case usagelog.FieldDiscountAmount:
+		return m.DiscountAmount()
 	case usagelog.FieldLongContextBillingApplied:
 		return m.LongContextBillingApplied()
 	case usagelog.FieldAccountRateMultiplier:
@@ -46410,6 +46704,14 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldActualCost(ctx)
 	case usagelog.FieldRateMultiplier:
 		return m.OldRateMultiplier(ctx)
+	case usagelog.FieldDiscountCampaignID:
+		return m.OldDiscountCampaignID(ctx)
+	case usagelog.FieldDiscountFactor:
+		return m.OldDiscountFactor(ctx)
+	case usagelog.FieldOriginalRateMultiplier:
+		return m.OldOriginalRateMultiplier(ctx)
+	case usagelog.FieldDiscountAmount:
+		return m.OldDiscountAmount(ctx)
 	case usagelog.FieldLongContextBillingApplied:
 		return m.OldLongContextBillingApplied(ctx)
 	case usagelog.FieldAccountRateMultiplier:
@@ -46653,6 +46955,34 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRateMultiplier(v)
 		return nil
+	case usagelog.FieldDiscountCampaignID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountCampaignID(v)
+		return nil
+	case usagelog.FieldDiscountFactor:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountFactor(v)
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOriginalRateMultiplier(v)
+		return nil
+	case usagelog.FieldDiscountAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountAmount(v)
+		return nil
 	case usagelog.FieldLongContextBillingApplied:
 		v, ok := value.(bool)
 		if !ok {
@@ -46836,6 +47166,18 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, usagelog.FieldRateMultiplier)
 	}
+	if m.adddiscount_campaign_id != nil {
+		fields = append(fields, usagelog.FieldDiscountCampaignID)
+	}
+	if m.adddiscount_factor != nil {
+		fields = append(fields, usagelog.FieldDiscountFactor)
+	}
+	if m.addoriginal_rate_multiplier != nil {
+		fields = append(fields, usagelog.FieldOriginalRateMultiplier)
+	}
+	if m.adddiscount_amount != nil {
+		fields = append(fields, usagelog.FieldDiscountAmount)
+	}
 	if m.addaccount_rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -46893,6 +47235,14 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedActualCost()
 	case usagelog.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case usagelog.FieldDiscountCampaignID:
+		return m.AddedDiscountCampaignID()
+	case usagelog.FieldDiscountFactor:
+		return m.AddedDiscountFactor()
+	case usagelog.FieldOriginalRateMultiplier:
+		return m.AddedOriginalRateMultiplier()
+	case usagelog.FieldDiscountAmount:
+		return m.AddedDiscountAmount()
 	case usagelog.FieldAccountRateMultiplier:
 		return m.AddedAccountRateMultiplier()
 	case usagelog.FieldBillingType:
@@ -47014,6 +47364,34 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddRateMultiplier(v)
 		return nil
+	case usagelog.FieldDiscountCampaignID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountCampaignID(v)
+		return nil
+	case usagelog.FieldDiscountFactor:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountFactor(v)
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOriginalRateMultiplier(v)
+		return nil
+	case usagelog.FieldDiscountAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountAmount(v)
+		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -47101,6 +47479,15 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
 	}
+	if m.FieldCleared(usagelog.FieldDiscountCampaignID) {
+		fields = append(fields, usagelog.FieldDiscountCampaignID)
+	}
+	if m.FieldCleared(usagelog.FieldDiscountFactor) {
+		fields = append(fields, usagelog.FieldDiscountFactor)
+	}
+	if m.FieldCleared(usagelog.FieldOriginalRateMultiplier) {
+		fields = append(fields, usagelog.FieldOriginalRateMultiplier)
+	}
 	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -47180,6 +47567,15 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case usagelog.FieldDiscountCampaignID:
+		m.ClearDiscountCampaignID()
+		return nil
+	case usagelog.FieldDiscountFactor:
+		m.ClearDiscountFactor()
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		m.ClearOriginalRateMultiplier()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ClearAccountRateMultiplier()
@@ -47308,6 +47704,18 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldRateMultiplier:
 		m.ResetRateMultiplier()
+		return nil
+	case usagelog.FieldDiscountCampaignID:
+		m.ResetDiscountCampaignID()
+		return nil
+	case usagelog.FieldDiscountFactor:
+		m.ResetDiscountFactor()
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		m.ResetOriginalRateMultiplier()
+		return nil
+	case usagelog.FieldDiscountAmount:
+		m.ResetDiscountAmount()
 		return nil
 	case usagelog.FieldLongContextBillingApplied:
 		m.ResetLongContextBillingApplied()

@@ -162,6 +162,10 @@ type UsageLog struct {
 	TotalCost                 float64
 	ActualCost                float64
 	RateMultiplier            float64
+	DiscountCampaignID        *int64
+	DiscountFactor            *float64
+	OriginalRateMultiplier    *float64
+	DiscountAmount            float64
 	LongContextBillingApplied bool
 	// AccountRateMultiplier 账号计费倍率快照（nil 表示历史数据，按 1.0 处理）
 	AccountRateMultiplier *float64

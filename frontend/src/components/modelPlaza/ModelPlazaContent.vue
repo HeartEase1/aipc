@@ -100,7 +100,7 @@ const descriptionHtml = computed(() => {
 
 /** 生效倍率 = 用户专属倍率 ?? 分组默认倍率。 */
 function effectiveRate(g: ModelPlazaGroup): number {
-  return g.user_rate_multiplier ?? g.rate_multiplier
+  return g.effective_rate_multiplier ?? g.user_rate_multiplier ?? g.rate_multiplier
 }
 
 const platforms = computed(() =>

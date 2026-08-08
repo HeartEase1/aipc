@@ -77,6 +77,12 @@ export default {
       clickToCopy: 'Click to copy this endpoint',
       speedTest: 'Speed Test',
     },
+    discountCampaign: {
+      currentDiscount: 'Current discount',
+      discountValue: '{percent}% off',
+      balanceOnly: 'Balance billing only',
+      subscriptionExcluded: 'Subscription requests are not discounted'
+    },
     allGroups: 'All Groups',
     allStatus: 'All Status',
     columnSettings: 'Column Settings',
@@ -527,6 +533,7 @@ export default {
 
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
+    discountActive: '{name}: Token billing is {percent}% off until {end}',
     title: 'Model Plaza',
     description: 'Browse available models and pricing by group',
     loading: 'Loading...',

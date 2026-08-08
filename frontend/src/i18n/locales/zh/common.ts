@@ -167,6 +167,7 @@ export default {
     profile: '个人资料',
     users: '用户管理',
     benefitGrants: '福利发放',
+    discountCampaigns: '限时折扣',
     groups: '分组管理',
     channels: '渠道管理',
     availableChannels: '可用渠道',

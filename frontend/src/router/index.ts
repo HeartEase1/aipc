@@ -507,6 +507,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/discount-campaigns',
+    name: 'AdminDiscountCampaigns',
+    component: () => import('@/views/admin/DiscountCampaignsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Scheduled Discounts',
+      titleKey: 'admin.discountCampaigns.title',
+      descriptionKey: 'admin.discountCampaigns.description'
+    }
+  },
+  {
     path: '/admin/groups',
     name: 'AdminGroups',
     component: () => import('@/views/admin/GroupsView.vue'),

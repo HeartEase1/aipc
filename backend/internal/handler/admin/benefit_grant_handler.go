@@ -29,22 +29,24 @@ func NewBenefitGrantHandler(
 }
 
 type BenefitGrantPreviewRequest struct {
-	GrantType           string  `json:"grant_type" binding:"required,oneof=welfare compensation"`
-	GrantMode           string  `json:"grant_mode" binding:"required,oneof=fixed percentage_24h"`
-	AudienceType        string  `json:"audience_type" binding:"required,oneof=all selected"`
-	UserIDs             []int64 `json:"user_ids"`
-	PlatformIDs         []int64 `json:"platform_ids"`
-	FixedAmount         string  `json:"fixed_amount"`
-	Percentage          string  `json:"percentage"`
-	PercentagePeriod    string  `json:"percentage_period"`
-	CustomWindowStart   string  `json:"custom_window_start"`
-	CustomWindowEnd     string  `json:"custom_window_end"`
-	MinAmount           string  `json:"min_amount"`
-	PerUserCap          string  `json:"per_user_cap"`
-	TotalBudgetCap      string  `json:"total_budget_cap"`
-	Reason              string  `json:"reason" binding:"required"`
-	NotificationTitle   string  `json:"notification_title" binding:"required"`
-	NotificationContent string  `json:"notification_content" binding:"required"`
+	GrantType              string  `json:"grant_type" binding:"required,oneof=welfare compensation"`
+	GrantMode              string  `json:"grant_mode" binding:"required,oneof=fixed percentage_24h"`
+	AudienceType           string  `json:"audience_type" binding:"required,oneof=all selected"`
+	UserIDs                []int64 `json:"user_ids"`
+	PlatformIDs            []int64 `json:"platform_ids"`
+	FixedAmount            string  `json:"fixed_amount"`
+	Percentage             string  `json:"percentage"`
+	IncludeSubscription    bool    `json:"include_subscription"`
+	SubscriptionPercentage string  `json:"subscription_percentage"`
+	PercentagePeriod       string  `json:"percentage_period"`
+	CustomWindowStart      string  `json:"custom_window_start"`
+	CustomWindowEnd        string  `json:"custom_window_end"`
+	MinAmount              string  `json:"min_amount"`
+	PerUserCap             string  `json:"per_user_cap"`
+	TotalBudgetCap         string  `json:"total_budget_cap"`
+	Reason                 string  `json:"reason" binding:"required"`
+	NotificationTitle      string  `json:"notification_title" binding:"required"`
+	NotificationContent    string  `json:"notification_content" binding:"required"`
 }
 
 func (h *BenefitGrantHandler) Preview(c *gin.Context) {
@@ -61,7 +63,9 @@ func (h *BenefitGrantHandler) Preview(c *gin.Context) {
 	batch, err := h.service.Preview(c.Request.Context(), service.BenefitGrantPreviewInput{
 		GrantType: req.GrantType, GrantMode: req.GrantMode, AudienceType: req.AudienceType,
 		UserIDs: req.UserIDs, PlatformIDs: req.PlatformIDs,
-		FixedAmount: req.FixedAmount, Percentage: req.Percentage, PercentagePeriod: req.PercentagePeriod,
+		FixedAmount: req.FixedAmount, Percentage: req.Percentage,
+		IncludeSubscription: req.IncludeSubscription, SubscriptionPercentage: req.SubscriptionPercentage,
+		PercentagePeriod:  req.PercentagePeriod,
 		CustomWindowStart: req.CustomWindowStart, CustomWindowEnd: req.CustomWindowEnd,
 		MinAmount: req.MinAmount, PerUserCap: req.PerUserCap, TotalBudgetCap: req.TotalBudgetCap,
 		Reason: req.Reason, NotificationTitle: req.NotificationTitle,
@@ -147,7 +151,7 @@ func (h *BenefitGrantHandler) Export(c *gin.Context) {
 		return
 	}
 	writer := csv.NewWriter(c.Writer)
-	_ = writer.Write([]string{"id", "batch_id", "user_id", "email", "username", "base_cost", "amount", "balance_before", "balance_after", "status", "error", "processed_at"})
+	_ = writer.Write([]string{"id", "batch_id", "user_id", "email", "username", "base_cost", "balance_base_cost", "subscription_base_cost", "amount", "balance_amount", "subscription_amount", "balance_before", "balance_after", "status", "error", "processed_at"})
 	err := h.service.WalkBatchItems(c.Request.Context(), batchID, func(item service.BenefitGrantItem) error {
 		processedAt := ""
 		if item.ProcessedAt != nil {
@@ -155,7 +159,8 @@ func (h *BenefitGrantHandler) Export(c *gin.Context) {
 		}
 		return writer.Write([]string{
 			strconv.FormatInt(item.ID, 10), strconv.FormatInt(item.BatchID, 10), strconv.FormatInt(item.UserID, 10),
-			safeCSVCell(item.Email), safeCSVCell(item.Username), item.BaseCost, item.Amount, stringValue(item.BalanceBefore),
+			safeCSVCell(item.Email), safeCSVCell(item.Username), item.BaseCost, item.BalanceBaseCost,
+			item.SubscriptionBaseCost, item.Amount, item.BalanceAmount, item.SubscriptionAmount, stringValue(item.BalanceBefore),
 			stringValue(item.BalanceAfter), item.Status, safeCSVCell(stringValue(item.ErrorMessage)), processedAt,
 		})
 	})

@@ -120,10 +120,26 @@
                 </div>
               </div>
               <div v-else class="space-y-4 sm:col-span-2">
-                <label class="input-label">{{ t('admin.benefitGrants.fields.percentage') }}</label>
-                <div class="relative mt-1">
-                  <input v-model.trim="form.percentage" required inputmode="decimal" class="input pr-8" placeholder="10" />
-                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+                <div class="grid gap-4 md:grid-cols-2">
+                  <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-900/40">
+                    <label class="input-label">{{ t('admin.benefitGrants.fields.percentage') }}</label>
+                    <div class="relative mt-2">
+                      <input v-model.trim="form.percentage" required inputmode="decimal" class="input pr-8" placeholder="10" />
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.benefitGrants.walletPercentageHint') }}</p>
+                  </div>
+                  <div class="rounded-lg border p-4 transition-colors" :class="form.include_subscription ? 'border-primary-300 bg-primary-50/60 dark:border-primary-800 dark:bg-primary-900/10' : 'border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-900/40'">
+                    <label class="flex items-center gap-2 text-sm font-medium text-gray-800 dark:text-gray-200">
+                      <input v-model="form.include_subscription" data-testid="include-subscription" type="checkbox" class="h-4 w-4 rounded text-primary-600" />
+                      {{ t('admin.benefitGrants.fields.includeSubscription') }}
+                    </label>
+                    <div v-if="form.include_subscription" class="relative mt-3">
+                      <input v-model.trim="form.subscription_percentage" data-testid="subscription-percentage" required inputmode="decimal" class="input pr-8" placeholder="5" />
+                      <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">%</span>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.benefitGrants.subscriptionPercentageHint') }}</p>
+                  </div>
                 </div>
                 <fieldset>
                   <legend class="input-label">{{ t('admin.benefitGrants.fields.percentagePeriod') }}</legend>
@@ -260,7 +276,11 @@
             <MetricBox :label="t('admin.benefitGrants.metrics.recipients')" :value="String(previewBatch.eligible_count)" />
             <MetricBox :label="t('admin.benefitGrants.metrics.skipped')" :value="String(previewBatch.skipped_count)" />
             <MetricBox :label="t('admin.benefitGrants.metrics.baseCost')" :value="`$${formatAmount(previewBatch.total_base_cost)}`" />
+            <MetricBox v-if="previewBatch.include_subscription" :label="t('admin.benefitGrants.metrics.walletBaseCost')" :value="`$${formatAmount(previewBatch.total_balance_base_cost)}`" />
+            <MetricBox v-if="previewBatch.include_subscription" :label="t('admin.benefitGrants.metrics.subscriptionBaseCost')" :value="`$${formatAmount(previewBatch.total_subscription_base_cost)}`" />
             <MetricBox :label="t('admin.benefitGrants.metrics.totalAmount')" :value="`$${formatAmount(previewBatch.total_amount)}`" emphasis />
+            <MetricBox v-if="previewBatch.include_subscription" :label="t('admin.benefitGrants.metrics.walletAmount')" :value="`$${formatAmount(previewBatch.total_balance_amount)}`" />
+            <MetricBox v-if="previewBatch.include_subscription" :label="t('admin.benefitGrants.metrics.subscriptionAmount')" :value="`$${formatAmount(previewBatch.total_subscription_amount)}`" />
             <MetricBox :label="t('admin.benefitGrants.metrics.average')" :value="`$${formatAmount(previewBatch.average_amount)}`" />
             <MetricBox :label="t('admin.benefitGrants.metrics.maximum')" :value="`$${formatAmount(previewBatch.max_amount)}`" />
           </div>
@@ -297,7 +317,7 @@
           <div class="max-h-[50vh] overflow-auto rounded-lg border border-gray-200 dark:border-dark-600">
             <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
               <thead class="sticky top-0 bg-gray-50 dark:bg-dark-800"><tr><th class="px-4 py-3 text-left">ID</th><th class="px-4 py-3 text-left">{{ t('admin.benefitGrants.fields.user') }}</th><th class="px-4 py-3 text-right">{{ t('admin.benefitGrants.metrics.baseCost') }}</th><th class="px-4 py-3 text-right">{{ t('admin.benefitGrants.metrics.amount') }}</th><th class="px-4 py-3 text-left">{{ t('common.status') }}</th></tr></thead>
-              <tbody class="divide-y divide-gray-100 dark:divide-dark-700"><tr v-for="item in detail.items" :key="item.id"><td class="px-4 py-3">{{ item.user_id }}</td><td class="px-4 py-3"><span class="block font-medium">{{ item.username || item.email }}</span><span class="block text-xs text-gray-500">{{ item.email }}</span></td><td class="px-4 py-3 text-right">${{ formatAmount(item.base_cost) }}</td><td class="px-4 py-3 text-right font-medium">${{ formatAmount(item.amount) }}</td><td class="px-4 py-3"><StatusBadge :status="item.status" :label="t(`admin.benefitGrants.itemStatuses.${item.status}`)" /></td></tr></tbody>
+              <tbody class="divide-y divide-gray-100 dark:divide-dark-700"><tr v-for="item in detail.items" :key="item.id"><td class="px-4 py-3">{{ item.user_id }}</td><td class="px-4 py-3"><span class="block font-medium">{{ item.username || item.email }}</span><span class="block text-xs text-gray-500">{{ item.email }}</span></td><td class="px-4 py-3 text-right"><span class="block">${{ formatAmount(item.base_cost) }}</span><span v-if="detail.batch.include_subscription" class="block text-[11px] text-gray-500">{{ t('admin.benefitGrants.metrics.walletShort') }} ${{ formatAmount(item.balance_base_cost) }} / {{ t('admin.benefitGrants.metrics.subscriptionShort') }} ${{ formatAmount(item.subscription_base_cost) }}</span></td><td class="px-4 py-3 text-right font-medium"><span class="block">${{ formatAmount(item.amount) }}</span><span v-if="detail.batch.include_subscription" class="block text-[11px] font-normal text-gray-500">{{ t('admin.benefitGrants.metrics.walletShort') }} ${{ formatAmount(item.balance_amount) }} / {{ t('admin.benefitGrants.metrics.subscriptionShort') }} ${{ formatAmount(item.subscription_amount) }}</span></td><td class="px-4 py-3"><StatusBadge :status="item.status" :label="t(`admin.benefitGrants.itemStatuses.${item.status}`)" /></td></tr></tbody>
             </table>
           </div>
           <Pagination v-if="detail.total > detail.page_size" :total="detail.total" :page="detail.page" :page-size="detail.page_size" :show-page-size-selector="false" @update:page="changeDetailPage" />
@@ -347,7 +367,7 @@ const audiences = ['all', 'selected'] as const
 const templateVariables = ['{{amount}}', '{{reason}}', '{{balance}}', '{{site_name}}']
 const form = reactive<BenefitGrantPreviewRequest>({
   grant_type: 'welfare', grant_mode: 'fixed', audience_type: 'all', user_ids: [],
-  fixed_amount: '', percentage: '10', percentage_period: '24h', min_amount: '', per_user_cap: '', total_budget_cap: '',
+  fixed_amount: '', percentage: '10', include_subscription: false, subscription_percentage: '5', percentage_period: '24h', min_amount: '', per_user_cap: '', total_budget_cap: '',
   reason: '', notification_title: t('admin.benefitGrants.defaults.title'),
   notification_content: t('admin.benefitGrants.defaults.content')
 })
@@ -411,7 +431,7 @@ const customWindowValid = computed(() => form.percentage_period !== 'custom' || 
 ))
 const canPreview = computed(() => form.reason && form.notification_title && form.notification_content &&
   (form.audience_type === 'all' || (selectedRecipientIDs.value.length > 0 && selectedRecipientIDs.value.length <= 500 && !platformIDParse.value.invalid.length)) &&
-  (form.grant_mode === 'fixed' ? form.fixed_amount : form.percentage && customWindowValid.value))
+  (form.grant_mode === 'fixed' ? form.fixed_amount : form.percentage && (!form.include_subscription || form.subscription_percentage) && customWindowValid.value))
 const notificationPreview = computed(() => {
   const amount = form.grant_mode === 'fixed' && form.fixed_amount ? form.fixed_amount : '10.00000000'
   const values: Record<string, string> = {
@@ -482,6 +502,8 @@ function buildPayload(): BenefitGrantPreviewRequest {
     user_ids: form.audience_type === 'selected' ? [...selectedUsers.keys()] : undefined,
     platform_ids: form.audience_type === 'selected' ? platformIDParse.value.ids : undefined,
     percentage_period: percentageMode ? form.percentage_period : undefined,
+    include_subscription: percentageMode ? form.include_subscription : false,
+    subscription_percentage: percentageMode && form.include_subscription ? form.subscription_percentage : undefined,
     custom_window_start: percentageMode && form.percentage_period === 'custom' ? new Date(customWindowStart.value).toISOString() : undefined,
     custom_window_end: percentageMode && form.percentage_period === 'custom' ? new Date(customWindowEnd.value).toISOString() : undefined,
     min_amount: guards.min && percentageMode ? form.min_amount : undefined,

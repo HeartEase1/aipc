@@ -2,6 +2,7 @@ package handler
 
 import (
 	"log/slog"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -54,18 +55,23 @@ type modelPlazaModel struct {
 
 // modelPlazaGroup 广场分组条目（白名单字段）。
 type modelPlazaGroup struct {
-	ID                 int64    `json:"id"`
-	Name               string   `json:"name"`
-	Description        string   `json:"description"`
-	Platform           string   `json:"platform"`
-	SubscriptionType   string   `json:"subscription_type"`
-	RateMultiplier     float64  `json:"rate_multiplier"`
-	UserRateMultiplier *float64 `json:"user_rate_multiplier,omitempty"`
-	PeakRateEnabled    bool     `json:"peak_rate_enabled"`
-	PeakStart          string   `json:"peak_start"`
-	PeakEnd            string   `json:"peak_end"`
-	PeakRateMultiplier float64  `json:"peak_rate_multiplier"`
-	IsExclusive        bool     `json:"is_exclusive"`
+	ID                      int64      `json:"id"`
+	Name                    string     `json:"name"`
+	Description             string     `json:"description"`
+	Platform                string     `json:"platform"`
+	SubscriptionType        string     `json:"subscription_type"`
+	RateMultiplier          float64    `json:"rate_multiplier"`
+	UserRateMultiplier      *float64   `json:"user_rate_multiplier,omitempty"`
+	EffectiveRateMultiplier float64    `json:"effective_rate_multiplier"`
+	DiscountCampaignID      *int64     `json:"discount_campaign_id,omitempty"`
+	DiscountCampaignName    string     `json:"discount_campaign_name,omitempty"`
+	DiscountFactor          *float64   `json:"discount_factor,omitempty"`
+	DiscountEndsAt          *time.Time `json:"discount_ends_at,omitempty"`
+	PeakRateEnabled         bool       `json:"peak_rate_enabled"`
+	PeakStart               string     `json:"peak_start"`
+	PeakEnd                 string     `json:"peak_end"`
+	PeakRateMultiplier      float64    `json:"peak_rate_multiplier"`
+	IsExclusive             bool       `json:"is_exclusive"`
 	// 生图独立倍率：为 true 时图片计费模型的实付倍率取 ImageRateMultiplier，
 	// 不取分组/用户专属倍率。
 	ImageRateIndependent bool              `json:"image_rate_independent"`
@@ -168,23 +174,35 @@ func toModelPlazaGroupDTO(g *service.PlazaGroup, userRates map[int64]float64) mo
 		})
 	}
 	dto := modelPlazaGroup{
-		ID:                   g.ID,
-		Name:                 g.Name,
-		Description:          g.Description,
-		Platform:             g.Platform,
-		SubscriptionType:     g.SubscriptionType,
-		RateMultiplier:       g.RateMultiplier,
-		PeakRateEnabled:      g.PeakRateEnabled,
-		PeakStart:            g.PeakStart,
-		PeakEnd:              g.PeakEnd,
-		PeakRateMultiplier:   g.PeakRateMultiplier,
-		IsExclusive:          g.IsExclusive,
-		ImageRateIndependent: g.ImageRateIndependent,
-		ImageRateMultiplier:  g.ImageRateMultiplier,
-		Models:               models,
+		ID:                      g.ID,
+		Name:                    g.Name,
+		Description:             g.Description,
+		Platform:                g.Platform,
+		SubscriptionType:        g.SubscriptionType,
+		RateMultiplier:          g.RateMultiplier,
+		EffectiveRateMultiplier: g.RateMultiplier,
+		PeakRateEnabled:         g.PeakRateEnabled,
+		PeakStart:               g.PeakStart,
+		PeakEnd:                 g.PeakEnd,
+		PeakRateMultiplier:      g.PeakRateMultiplier,
+		IsExclusive:             g.IsExclusive,
+		ImageRateIndependent:    g.ImageRateIndependent,
+		ImageRateMultiplier:     g.ImageRateMultiplier,
+		Models:                  models,
 	}
 	if rate, ok := userRates[g.ID]; ok {
 		dto.UserRateMultiplier = &rate
+		dto.EffectiveRateMultiplier = rate
+	}
+	group := &service.Group{ID: g.ID, SubscriptionType: g.SubscriptionType}
+	if discount := service.ResolveTokenDiscount(group, time.Now(), dto.EffectiveRateMultiplier); discount != nil {
+		campaignID := discount.CampaignID
+		factor := discount.DiscountFactor
+		dto.EffectiveRateMultiplier = discount.EffectiveRateMultiplier
+		dto.DiscountCampaignID = &campaignID
+		dto.DiscountCampaignName = discount.CampaignName
+		dto.DiscountFactor = &factor
+		dto.DiscountEndsAt = discount.EndsAt
 	}
 	return dto
 }

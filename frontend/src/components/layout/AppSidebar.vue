@@ -789,6 +789,7 @@ const adminNavItems = computed((): NavItem[] => {
     { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
     { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
     { path: '/admin/benefit-grants', label: t('nav.benefitGrants'), icon: GiftIcon, hideInSimpleMode: true },
+    { path: '/admin/discount-campaigns', label: t('nav.discountCampaigns'), icon: PriceTagIcon, hideInSimpleMode: true },
     { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true },
     {
       path: '/admin/channels',

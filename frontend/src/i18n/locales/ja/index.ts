@@ -1,4 +1,5 @@
 import en from '../en'
+import discountCampaigns from './admin/discountCampaigns'
 
 // Japanese currently reuses the complete English catalogue for unchanged
 // screens, while the leaderboard copy is translated locally.
@@ -9,11 +10,21 @@ export default {
     leaderboard: 'ランキング',
     usageGuide: '利用ガイド',
     benefits: '入金履歴',
-    benefitGrants: '特典付与'
+    benefitGrants: '特典付与',
+    discountCampaigns: '期間限定割引'
   },
   usageGuide: {
     title: '利用ガイド',
     description: 'APIキーの作成から対応クライアントの設定までを説明します。'
+  },
+  keys: {
+    ...en.keys,
+    discountCampaign: {
+      currentDiscount: '現在の割引',
+      discountValue: '{percent}% OFF',
+      balanceOnly: '残高払いのリクエストのみ対象',
+      subscriptionExcluded: 'サブスクリプション利用は割引対象外'
+    }
   },
   leaderboard: {
     ...en.leaderboard,
@@ -78,6 +89,7 @@ export default {
   },
   admin: {
     ...en.admin,
+    ...discountCampaigns,
     users: {
       ...en.admin.users,
       benefitGrant: '特典・補償を付与',
@@ -93,6 +105,7 @@ export default {
       tabs: { create: '新規付与', history: '付与履歴' },
       sections: { rules: '付与ルール', protection: '金額保護', notification: '入金通知' },
       fields: {
+        includeSubscription: 'サブスクリプション利用分を含める', subscriptionPercentage: 'サブスクリプション利用分の補償率',
         type: '付与タイプ', mode: '付与方法', audience: '対象ユーザー', fixedAmount: '1人あたりの固定額',
         percentage: '消費額に対する補償率', percentagePeriod: '消費集計期間', platformIds: 'プラットフォームIDで指定',
         customWindowStart: '開始日時', customWindowEnd: '終了日時', minAmount: '最低付与額', perUserCap: 'ユーザーごとの上限',
@@ -114,6 +127,8 @@ export default {
       customWindowHint: '端末のタイムゾーンで入力してください。最長365日で、プレビュー時に期間が固定されます。',
       selectedCount: '{count}人を選択済み',
       summary: { title: '現在のルール' },
+      walletPercentageHint: '選択期間内の残高課金による実消費額から計算します。',
+      subscriptionPercentageHint: '任意。サブスクリプション課金の利用分を別の割合で計算し、最終的に残高へ付与します。',
       safety: {
         title: 'チャージ額・紹介還元には算入されません',
         content: '利用可能残高のみを追加します。累計チャージ額、紹介還元、課金、価格、サブスクリプション枠には影響しません。'
@@ -126,6 +141,9 @@ export default {
       overBudget: '予定総額がバッチ予算上限を超えているため実行できません。',
       columns: { batch: 'バッチ', progress: '成功 / 予定', amount: '金額', created: '作成日時' },
       metrics: {
+        walletBaseCost: '残高消費の基準額', subscriptionBaseCost: 'サブスクリプション利用の基準額',
+        walletAmount: '残高消費分の補償', subscriptionAmount: 'サブスクリプション利用分の補償',
+        walletShort: '残高', subscriptionShort: 'サブスクリプション',
         recipients: '予定対象人数', skipped: 'スキップ', baseCost: '選択期間の消費基準額', totalAmount: '予定総額',
         average: '平均額', maximum: '最大付与額', amount: '付与額', succeeded: '成功', failed: '失敗',
         distributed: '付与済み金額', window: '固定された消費期間'

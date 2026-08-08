@@ -167,6 +167,7 @@ export default {
     profile: 'Profile',
     users: 'Users',
     benefitGrants: 'Benefit Grants',
+    discountCampaigns: 'Scheduled Discounts',
     groups: 'Groups',
     channels: 'Channels',
     availableChannels: 'Available Channels',
