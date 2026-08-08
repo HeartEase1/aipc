@@ -49,7 +49,9 @@
                     {{ t('keys.discountCampaign.currentDiscount') }}:
                     <strong class="font-semibold text-emerald-700 dark:text-emerald-300">{{ formatCampaignDiscount(campaign.factor) }}</strong>
                   </span>
+                  <span v-if="campaign.endsAt" class="text-xs font-medium text-emerald-700 dark:text-emerald-300">{{ formatCampaignRemaining(campaign.endsAt) }}</span>
                 </div>
+                <p v-if="campaign.description" class="mt-1 max-w-xl text-xs leading-5 text-gray-600 dark:text-gray-300">{{ campaign.description }}</p>
                 <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-500 dark:text-gray-400">
                   <span>{{ t('keys.discountCampaign.balanceOnly') }}</span>
                   <span aria-hidden="true" class="text-gray-300 dark:text-dark-500">·</span>
@@ -1325,7 +1327,9 @@ const groups = ref<Group[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
+const discountNow = ref(Date.now())
 let resetTimer: ReturnType<typeof setInterval> | null = null
+let discountTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
 const userGroupRates = ref<Record<number, number>>({})
 
@@ -1485,6 +1489,8 @@ interface ActiveDiscountCampaign {
   key: string
   name: string
   factor: number
+  description: string
+  endsAt: string | null
 }
 
 const activeDiscountCampaigns = computed<ActiveDiscountCampaign[]>(() => {
@@ -1500,7 +1506,7 @@ const activeDiscountCampaigns = computed<ActiveDiscountCampaign[]>(() => {
       factor == null ||
       factor <= 0 ||
       factor >= 1 ||
-      (endsAt != null && Number.isFinite(endsAt) && endsAt <= now.value.getTime())
+      (endsAt != null && Number.isFinite(endsAt) && endsAt <= discountNow.value)
     ) {
       continue
     }
@@ -1508,7 +1514,13 @@ const activeDiscountCampaigns = computed<ActiveDiscountCampaign[]>(() => {
     const key = group.discount_campaign_id != null
       ? `id:${group.discount_campaign_id}`
       : `${name}:${factor}:${group.discount_ends_at ?? ''}`
-    if (!campaigns.has(key)) campaigns.set(key, { key, name, factor })
+    if (!campaigns.has(key)) campaigns.set(key, {
+      key,
+      name,
+      factor,
+      description: group.discount_campaign_description?.trim() || '',
+      endsAt: group.discount_ends_at ?? null
+    })
   }
 
   return [...campaigns.values()]
@@ -1518,6 +1530,21 @@ const formatCampaignDiscount = (factor: number) => {
   const value = Number((factor * 10).toFixed(2)).toString()
   const percent = Number(((1 - factor) * 100).toFixed(2)).toString()
   return t('keys.discountCampaign.discountValue', { value, percent })
+}
+
+const formatCampaignRemaining = (endsAt: string | null) => {
+  if (!endsAt) return ''
+  const diff = Date.parse(endsAt) - discountNow.value
+  if (!Number.isFinite(diff) || diff <= 0) return t('keys.discountCampaign.endingSoon')
+  const totalSeconds = Math.floor(diff / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const clock = [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':')
+  return days > 0
+    ? t('keys.discountCampaign.remainingDays', { days, time: clock })
+    : t('keys.discountCampaign.remaining', { time: clock })
 }
 
 // Group dropdown search
@@ -2057,10 +2084,12 @@ onMounted(() => {
   loadPublicSettings()
   document.addEventListener('click', closeGroupSelector)
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
+  discountTimer = setInterval(() => { discountNow.value = Date.now() }, 1000)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeGroupSelector)
   if (resetTimer) clearInterval(resetTimer)
+  if (discountTimer) clearInterval(discountTimer)
 })
 </script>

@@ -79,6 +79,9 @@ export default {
     },
     discountCampaign: {
       currentDiscount: '当前折扣',
+      remaining: '剩余 {time}',
+      remainingDays: '剩余 {days} 天 {time}',
+      endingSoon: '即将结束',
       discountValue: '{value}折',
       balanceOnly: '仅余额请求生效',
       subscriptionExcluded: '套餐请求不打折'

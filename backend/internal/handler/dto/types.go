@@ -88,18 +88,19 @@ type APIKey struct {
 }
 
 type Group struct {
-	ID                      int64      `json:"id"`
-	Name                    string     `json:"name"`
-	Description             string     `json:"description"`
-	Platform                string     `json:"platform"`
-	RateMultiplier          float64    `json:"rate_multiplier"`
-	EffectiveRateMultiplier float64    `json:"effective_rate_multiplier"`
-	DiscountCampaignID      *int64     `json:"discount_campaign_id,omitempty"`
-	DiscountCampaignName    string     `json:"discount_campaign_name,omitempty"`
-	DiscountFactor          *float64   `json:"discount_factor,omitempty"`
-	DiscountEndsAt          *time.Time `json:"discount_ends_at,omitempty"`
-	IsExclusive             bool       `json:"is_exclusive"`
-	Status                  string     `json:"status"`
+	ID                          int64      `json:"id"`
+	Name                        string     `json:"name"`
+	Description                 string     `json:"description"`
+	Platform                    string     `json:"platform"`
+	RateMultiplier              float64    `json:"rate_multiplier"`
+	EffectiveRateMultiplier     float64    `json:"effective_rate_multiplier"`
+	DiscountCampaignID          *int64     `json:"discount_campaign_id,omitempty"`
+	DiscountCampaignName        string     `json:"discount_campaign_name,omitempty"`
+	DiscountCampaignDescription string     `json:"discount_campaign_description,omitempty"`
+	DiscountFactor              *float64   `json:"discount_factor,omitempty"`
+	DiscountEndsAt              *time.Time `json:"discount_ends_at,omitempty"`
+	IsExclusive                 bool       `json:"is_exclusive"`
+	Status                      string     `json:"status"`
 
 	SubscriptionType string   `json:"subscription_type"`
 	DailyLimitUSD    *float64 `json:"daily_limit_usd"`

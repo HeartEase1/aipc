@@ -303,6 +303,7 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 			item.EffectiveRateMultiplier = discount.EffectiveRateMultiplier
 			item.DiscountCampaignID = &campaignID
 			item.DiscountCampaignName = discount.CampaignName
+			item.DiscountCampaignDescription = discount.CampaignDescription
 			item.DiscountFactor = &factor
 			item.DiscountEndsAt = discount.EndsAt
 		}

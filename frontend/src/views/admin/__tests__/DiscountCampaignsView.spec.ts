@@ -36,6 +36,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 const existingCampaign = {
   id: 42,
   name: 'Sunday discount',
+  description: 'Weekend balance discount',
   enabled: true,
   schedule_type: 'weekly',
   timezone: 'Asia/Shanghai',
@@ -108,6 +109,7 @@ describe('DiscountCampaignsView', () => {
     const wrapper = mountView()
     await openCreateForm(wrapper)
     await wrapper.get('input[maxlength="120"]').setValue('Launch discount')
+    await wrapper.get('textarea[maxlength="500"]').setValue('Launch week offer')
     await wrapper.get('input[type="number"]').setValue('85')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
@@ -115,12 +117,22 @@ describe('DiscountCampaignsView', () => {
     expect(stepUpRun).toHaveBeenCalledTimes(1)
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Launch discount',
+      description: 'Launch week offer',
       schedule_type: 'one_time',
       timezone: 'Asia/Shanghai',
       discount_factor: '0.850000',
       weekdays: [],
       all_day: false
     }))
+  })
+
+  it('keeps form switches aligned within their rows', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+
+    const enabledSwitch = wrapper.findAll('button[role="switch"]').at(-1)
+    expect(enabledSwitch?.classes()).toContain('shrink-0')
+    expect(enabledSwitch?.classes()).toContain('block')
   })
 
   it('submits selected weekdays and a cross-midnight weekly window', async () => {

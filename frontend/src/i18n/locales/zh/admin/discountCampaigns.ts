@@ -9,7 +9,7 @@ export default {
     safetyTitle: '计费范围',
     safetyHint: '折扣只作用于普通分组的 Token 计费；订阅分组以及独立定价的生图、视频和 Web Search 均不参与。',
     fields: {
-      name: '活动名称', enabled: '启用活动', scheduleType: '活动周期', timezone: '活动时区',
+      name: '活动名称', description: '用户端活动说明', descriptionPlaceholder: '请输入给用户展示的活动规则或说明...', enabled: '启用活动', scheduleType: '活动周期', timezone: '活动时区',
       startsAt: '开始时间', endsAt: '结束时间', weekdays: '每周日期', allDay: '全天',
       startTime: '每日开始', endTime: '每日结束', discountPercent: '实付比例',
       minMultiplier: '折后最低倍率', budgetCap: '优惠预算上限'
@@ -21,7 +21,8 @@ export default {
       crossMidnight: '结束时间早于开始时间时，活动会自动延续到次日。',
       minimum: '可选。应用折扣后的倍率不会低于此值。',
       budget: '可选。已记录的优惠金额达到上限后，新请求不再参加；已开始的请求仍保留开始时价格。',
-      overlap: '多个活动重叠时，自动采用折后倍率最低的活动。'
+      overlap: '多个活动重叠时，自动采用折后倍率最低的活动。',
+      description: '活动生效时展示在 API 密钥页面，帮助用户理解活动规则。'
     },
     columns: { campaign: '活动', schedule: '活动时间', discount: '折扣', budget: '已优惠 / 预算', status: '状态', actions: '操作' },
     statuses: { active: '生效中', upcoming: '未开始', ended: '已结束', disabled: '未启用', budget_exhausted: '预算已用完' },

@@ -546,6 +546,7 @@ export interface Group {
   effective_rate_multiplier?: number
   discount_campaign_id?: number
   discount_campaign_name?: string
+  discount_campaign_description?: string
   discount_factor?: number
   discount_ends_at?: string
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set

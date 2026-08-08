@@ -53,22 +53,23 @@ func (h *AvailableChannelHandler) featureEnabled(c *gin.Context) bool {
 // 订阅视觉加深），并展示默认倍率与高峰倍率规则；用户专属倍率前端走
 // /groups/rates，和 API 密钥页面保持一致。
 type userAvailableGroup struct {
-	ID                      int64      `json:"id"`
-	Name                    string     `json:"name"`
-	Platform                string     `json:"platform"`
-	SubscriptionType        string     `json:"subscription_type"`
-	RateMultiplier          float64    `json:"rate_multiplier"`
-	UserRateMultiplier      *float64   `json:"user_rate_multiplier,omitempty"`
-	EffectiveRateMultiplier float64    `json:"effective_rate_multiplier"`
-	DiscountCampaignID      *int64     `json:"discount_campaign_id,omitempty"`
-	DiscountCampaignName    string     `json:"discount_campaign_name,omitempty"`
-	DiscountFactor          *float64   `json:"discount_factor,omitempty"`
-	DiscountEndsAt          *time.Time `json:"discount_ends_at,omitempty"`
-	PeakRateEnabled         bool       `json:"peak_rate_enabled"`
-	PeakStart               string     `json:"peak_start"`
-	PeakEnd                 string     `json:"peak_end"`
-	PeakRateMultiplier      float64    `json:"peak_rate_multiplier"`
-	IsExclusive             bool       `json:"is_exclusive"`
+	ID                          int64      `json:"id"`
+	Name                        string     `json:"name"`
+	Platform                    string     `json:"platform"`
+	SubscriptionType            string     `json:"subscription_type"`
+	RateMultiplier              float64    `json:"rate_multiplier"`
+	UserRateMultiplier          *float64   `json:"user_rate_multiplier,omitempty"`
+	EffectiveRateMultiplier     float64    `json:"effective_rate_multiplier"`
+	DiscountCampaignID          *int64     `json:"discount_campaign_id,omitempty"`
+	DiscountCampaignName        string     `json:"discount_campaign_name,omitempty"`
+	DiscountCampaignDescription string     `json:"discount_campaign_description,omitempty"`
+	DiscountFactor              *float64   `json:"discount_factor,omitempty"`
+	DiscountEndsAt              *time.Time `json:"discount_ends_at,omitempty"`
+	PeakRateEnabled             bool       `json:"peak_rate_enabled"`
+	PeakStart                   string     `json:"peak_start"`
+	PeakEnd                     string     `json:"peak_end"`
+	PeakRateMultiplier          float64    `json:"peak_rate_multiplier"`
+	IsExclusive                 bool       `json:"is_exclusive"`
 }
 
 // userSupportedModelPricing 用户可见的定价字段白名单。
@@ -280,6 +281,7 @@ func filterUserVisibleGroups(
 			item.EffectiveRateMultiplier = discount.EffectiveRateMultiplier
 			item.DiscountCampaignID = &campaignID
 			item.DiscountCampaignName = discount.CampaignName
+			item.DiscountCampaignDescription = discount.CampaignDescription
 			item.DiscountFactor = &factor
 			item.DiscountEndsAt = discount.EndsAt
 		}

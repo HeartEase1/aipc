@@ -79,6 +79,9 @@ export default {
     },
     discountCampaign: {
       currentDiscount: 'Current discount',
+      remaining: 'Ends in {time}',
+      remainingDays: 'Ends in {days}d {time}',
+      endingSoon: 'Ending soon',
       discountValue: '{percent}% off',
       balanceOnly: 'Balance billing only',
       subscriptionExcluded: 'Subscription requests are not discounted'

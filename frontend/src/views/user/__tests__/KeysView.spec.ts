@@ -41,6 +41,9 @@ const messages: Record<string, string> = {
   'keys.createKey': 'Create API Key',
   'keys.discountCampaign.currentDiscount': 'Current discount',
   'keys.discountCampaign.discountValue': '{percent}% off',
+  'keys.discountCampaign.remaining': 'Ends in {time}',
+  'keys.discountCampaign.remainingDays': 'Ends in {days}d {time}',
+  'keys.discountCampaign.endingSoon': 'Ending soon',
   'keys.discountCampaign.balanceOnly': 'Balance billing only',
   'keys.discountCampaign.subscriptionExcluded': 'Subscription requests are not discounted',
   'keys.created': 'Created',
@@ -326,6 +329,7 @@ describe('user KeysView column settings', () => {
         effective_rate_multiplier: 1.8,
         discount_campaign_id: 42,
         discount_campaign_name: 'Sunday Reward',
+        discount_campaign_description: 'All standard balance requests receive this discount.',
         discount_factor: 0.9,
         discount_ends_at: '2099-08-09T23:59:00+08:00',
       },
@@ -346,6 +350,8 @@ describe('user KeysView column settings', () => {
 
     expect(wrapper.text().match(/Sunday Reward/g)).toHaveLength(1)
     expect(wrapper.text()).toContain('Current discount: 10% off')
+    expect(wrapper.text()).toContain('All standard balance requests receive this discount.')
+    expect(wrapper.text()).toContain('Ends in')
     expect(wrapper.text()).toContain('Balance billing only')
     expect(wrapper.text()).toContain('Subscription requests are not discounted')
   })

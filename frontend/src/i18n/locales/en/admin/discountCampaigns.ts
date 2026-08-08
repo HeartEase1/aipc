@@ -9,7 +9,7 @@ export default {
     safetyTitle: 'Billing scope',
     safetyHint: 'Discounts apply only to Token billing for standard groups. Subscription groups and independently priced image, video, and Web Search usage are excluded.',
     fields: {
-      name: 'Campaign name', enabled: 'Enable campaign', scheduleType: 'Schedule', timezone: 'Timezone',
+      name: 'Campaign name', description: 'User-facing description', descriptionPlaceholder: 'Explain how this discount works...', enabled: 'Enable campaign', scheduleType: 'Schedule', timezone: 'Timezone',
       startsAt: 'Starts at', endsAt: 'Ends at', weekdays: 'Weekdays', allDay: 'All day',
       startTime: 'Daily start', endTime: 'Daily end', discountPercent: 'Payment percentage',
       minMultiplier: 'Minimum final multiplier', budgetCap: 'Discount budget cap'
@@ -21,7 +21,8 @@ export default {
       crossMidnight: 'An end time earlier than the start time continues into the next day.',
       minimum: 'Optional. The discounted multiplier will never fall below this value.',
       budget: 'Optional. New requests stop joining after the recorded savings reach this amount; in-flight requests retain their start-time price.',
-      overlap: 'When campaigns overlap, the lowest effective multiplier wins.'
+      overlap: 'When campaigns overlap, the lowest effective multiplier wins.',
+      description: 'Shown to users on the API key page while this campaign is active.'
     },
     columns: { campaign: 'Campaign', schedule: 'Schedule', discount: 'Discount', budget: 'Savings / budget', status: 'Status', actions: 'Actions' },
     statuses: { active: 'Active', upcoming: 'Upcoming', ended: 'Ended', disabled: 'Disabled', budget_exhausted: 'Budget exhausted' },

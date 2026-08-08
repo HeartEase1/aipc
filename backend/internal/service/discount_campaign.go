@@ -26,6 +26,7 @@ const (
 
 type DiscountCampaignInput struct {
 	Name                   string
+	Description            string
 	Enabled                bool
 	ScheduleType           string
 	Timezone               string
@@ -44,6 +45,7 @@ type DiscountCampaignInput struct {
 type DiscountCampaign struct {
 	ID                     int64      `json:"id"`
 	Name                   string     `json:"name"`
+	Description            string     `json:"description"`
 	Enabled                bool       `json:"enabled"`
 	ScheduleType           string     `json:"schedule_type"`
 	Timezone               string     `json:"timezone"`
@@ -67,6 +69,7 @@ type DiscountCampaign struct {
 type DiscountResolution struct {
 	CampaignID              int64      `json:"campaign_id"`
 	CampaignName            string     `json:"campaign_name"`
+	CampaignDescription     string     `json:"campaign_description,omitempty"`
 	DiscountFactor          float64    `json:"discount_factor"`
 	OriginalRateMultiplier  float64    `json:"original_rate_multiplier"`
 	EffectiveRateMultiplier float64    `json:"effective_rate_multiplier"`
@@ -88,6 +91,7 @@ type validatedDiscountCampaignInput struct {
 type runtimeDiscountCampaign struct {
 	id                     int64
 	name                   string
+	description            string
 	scheduleType           string
 	location               *time.Location
 	startsAt               *time.Time
@@ -196,7 +200,7 @@ func (s *DiscountCampaignService) Resolve(group *Group, at time.Time, originalRa
 			continue
 		}
 		candidate := &DiscountResolution{
-			CampaignID: campaign.id, CampaignName: campaign.name,
+			CampaignID: campaign.id, CampaignName: campaign.name, CampaignDescription: campaign.description,
 			DiscountFactor: factor, OriginalRateMultiplier: originalRateMultiplier,
 			EffectiveRateMultiplier: effective, EndsAt: campaign.currentWindowEnd(at),
 		}
@@ -256,7 +260,7 @@ func (s *DiscountCampaignService) Refresh(ctx context.Context) error {
 		return nil
 	}
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, schedule_type, timezone, starts_at, ends_at, weekdays,
+SELECT id, name, description, schedule_type, timezone, starts_at, ends_at, weekdays,
        start_minute, end_minute, all_day, discount_factor::float8,
        COALESCE(min_effective_multiplier::float8, 0), COALESCE(budget_cap::float8, 0), discount_spent::float8
 FROM discount_campaigns
@@ -272,7 +276,7 @@ WHERE enabled = TRUE AND deleted_at IS NULL`)
 		var startsAt, endsAt sql.NullTime
 		var startMinute, endMinute sql.NullInt64
 		var weekdays pq.Int64Array
-		if err := rows.Scan(&item.id, &item.name, &item.scheduleType, &timezoneName, &startsAt, &endsAt, &weekdays,
+		if err := rows.Scan(&item.id, &item.name, &item.description, &item.scheduleType, &timezoneName, &startsAt, &endsAt, &weekdays,
 			&startMinute, &endMinute, &item.allDay, &item.factor, &item.minEffectiveMultiplier,
 			&item.budgetCap, &item.discountSpent); err != nil {
 			return fmt.Errorf("scan discount campaign runtime: %w", err)
@@ -337,6 +341,10 @@ func validateDiscountCampaignInput(input DiscountCampaignInput) (*validatedDisco
 	}
 	if input.Name == "" || len([]rune(input.Name)) > 120 {
 		return nil, infraerrors.BadRequest("INVALID_DISCOUNT_NAME", "name is required and must not exceed 120 characters")
+	}
+	input.Description = strings.TrimSpace(input.Description)
+	if len([]rune(input.Description)) > 500 {
+		return nil, infraerrors.BadRequest("INVALID_DISCOUNT_DESCRIPTION", "description must not exceed 500 characters")
 	}
 	location, err := time.LoadLocation(input.Timezone)
 	if err != nil {
@@ -436,11 +444,11 @@ func (s *DiscountCampaignService) Create(ctx context.Context, input DiscountCamp
 	var id int64
 	err = s.db.QueryRowContext(ctx, `
 INSERT INTO discount_campaigns (
-  name, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
+  name, description, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
   start_minute, end_minute, all_day, discount_factor, min_effective_multiplier,
   budget_cap, created_by, updated_by
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12::numeric,$13::numeric,$14,$14)
-RETURNING id`, validated.Name, validated.Enabled, validated.ScheduleType, validated.Timezone,
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15,$15)
+RETURNING id`, validated.Name, validated.Description, validated.Enabled, validated.ScheduleType, validated.Timezone,
 		validated.startsAt, validated.endsAt, pq.Array(validated.Weekdays), validated.startMinute, validated.endMinute,
 		validated.AllDay, validated.discountFactor.StringFixed(6), decimalPointerArg(validated.minEffectiveMultiplier),
 		decimalPointerArg(validated.budgetCap), validated.ActorID).Scan(&id)
@@ -461,11 +469,11 @@ func (s *DiscountCampaignService) Update(ctx context.Context, id int64, input Di
 	}
 	result, err := s.db.ExecContext(ctx, `
 UPDATE discount_campaigns SET
-  name=$2, enabled=$3, schedule_type=$4, timezone=$5, starts_at=$6, ends_at=$7,
-  weekdays=$8, start_minute=$9, end_minute=$10, all_day=$11,
-  discount_factor=$12::numeric, min_effective_multiplier=$13::numeric,
-  budget_cap=$14::numeric, updated_by=$15, updated_at=NOW()
-WHERE id=$1 AND deleted_at IS NULL`, id, validated.Name, validated.Enabled, validated.ScheduleType,
+  name=$2, description=$3, enabled=$4, schedule_type=$5, timezone=$6, starts_at=$7, ends_at=$8,
+  weekdays=$9, start_minute=$10, end_minute=$11, all_day=$12,
+  discount_factor=$13::numeric, min_effective_multiplier=$14::numeric,
+  budget_cap=$15::numeric, updated_by=$16, updated_at=NOW()
+WHERE id=$1 AND deleted_at IS NULL`, id, validated.Name, validated.Description, validated.Enabled, validated.ScheduleType,
 		validated.Timezone, validated.startsAt, validated.endsAt, pq.Array(validated.Weekdays),
 		validated.startMinute, validated.endMinute, validated.AllDay, validated.discountFactor.StringFixed(6),
 		decimalPointerArg(validated.minEffectiveMultiplier), decimalPointerArg(validated.budgetCap), validated.ActorID)
@@ -498,7 +506,7 @@ WHERE id=$1 AND deleted_at IS NULL`, id, actorID)
 }
 
 const discountCampaignSelect = `
-SELECT id, name, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
+SELECT id, name, description, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
        start_minute, end_minute, all_day, discount_factor::text,
        min_effective_multiplier::text, budget_cap::text, discount_spent::text,
        created_by, updated_by, created_at, updated_at
@@ -511,7 +519,7 @@ func scanDiscountCampaign(scanner rowScanner) (*DiscountCampaign, error) {
 	var weekdays pq.Int64Array
 	var minMultiplier, budgetCap sql.NullString
 	var createdBy, updatedBy sql.NullInt64
-	if err := scanner.Scan(&item.ID, &item.Name, &item.Enabled, &item.ScheduleType, &item.Timezone,
+	if err := scanner.Scan(&item.ID, &item.Name, &item.Description, &item.Enabled, &item.ScheduleType, &item.Timezone,
 		&startsAt, &endsAt, &weekdays, &startMinute, &endMinute, &item.AllDay,
 		&item.DiscountFactor, &minMultiplier, &budgetCap, &item.DiscountSpent,
 		&createdBy, &updatedBy, &item.CreatedAt, &item.UpdatedAt); err != nil {

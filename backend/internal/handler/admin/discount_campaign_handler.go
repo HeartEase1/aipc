@@ -25,6 +25,7 @@ func NewDiscountCampaignHandler(
 
 type DiscountCampaignRequest struct {
 	Name                   string `json:"name" binding:"required"`
+	Description            string `json:"description"`
 	Enabled                bool   `json:"enabled"`
 	ScheduleType           string `json:"schedule_type" binding:"required,oneof=one_time weekly"`
 	Timezone               string `json:"timezone"`
@@ -115,7 +116,7 @@ func (h *DiscountCampaignHandler) Delete(c *gin.Context) {
 
 func (r DiscountCampaignRequest) toService(actorID int64) service.DiscountCampaignInput {
 	return service.DiscountCampaignInput{
-		Name: r.Name, Enabled: r.Enabled, ScheduleType: r.ScheduleType, Timezone: r.Timezone,
+		Name: r.Name, Description: r.Description, Enabled: r.Enabled, ScheduleType: r.ScheduleType, Timezone: r.Timezone,
 		StartsAt: r.StartsAt, EndsAt: r.EndsAt, Weekdays: r.Weekdays,
 		StartTime: r.StartTime, EndTime: r.EndTime, AllDay: r.AllDay,
 		DiscountFactor: r.DiscountFactor, MinEffectiveMultiplier: r.MinEffectiveMultiplier,

@@ -90,6 +90,11 @@
               <label class="input-label">{{ t('admin.discountCampaigns.fields.name') }}</label>
               <input v-model.trim="form.name" class="input mt-1" maxlength="120" required />
             </div>
+            <div class="md:col-span-2">
+              <label class="input-label">{{ t('admin.discountCampaigns.fields.description') }}</label>
+              <textarea v-model.trim="form.description" class="input mt-1 min-h-20 resize-y" maxlength="500" :placeholder="t('admin.discountCampaigns.fields.descriptionPlaceholder')" />
+              <p class="mt-1.5 text-xs text-gray-500">{{ t('admin.discountCampaigns.hints.description') }}</p>
+            </div>
 
             <div>
               <label class="input-label">{{ t('admin.discountCampaigns.fields.scheduleType') }}</label>
@@ -125,10 +130,10 @@
                   </label>
                 </div>
               </fieldset>
-              <div class="md:col-span-2 flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 dark:border-dark-600">
+              <div class="md:col-span-2 flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-dark-600">
                 <label class="font-medium text-gray-800 dark:text-gray-200">{{ t('admin.discountCampaigns.fields.allDay') }}</label>
-                <button type="button" role="switch" :aria-checked="form.all_day" class="relative h-6 w-11 rounded-full transition-colors" :class="form.all_day ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'" @click="form.all_day = !form.all_day">
-                  <span class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="form.all_day ? 'translate-x-5' : 'translate-x-0.5'" />
+                <button type="button" role="switch" :aria-checked="form.all_day" class="relative block h-6 w-11 shrink-0 rounded-full transition-colors" :class="form.all_day ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'" @click="form.all_day = !form.all_day">
+                  <span class="absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="form.all_day ? 'translate-x-5' : 'translate-x-0.5'" />
                 </button>
               </div>
               <template v-if="!form.all_day">
@@ -166,13 +171,13 @@
             </div>
           </div>
 
-          <div class="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3 dark:border-dark-600">
+          <div class="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-3 dark:border-dark-600">
             <div>
               <p class="font-medium text-gray-800 dark:text-gray-200">{{ t('admin.discountCampaigns.fields.enabled') }}</p>
               <p class="mt-0.5 text-xs text-gray-500">{{ form.enabled ? t('admin.discountCampaigns.enabled') : t('admin.discountCampaigns.disabled') }}</p>
             </div>
-            <button type="button" role="switch" :aria-checked="form.enabled" class="relative h-6 w-11 rounded-full transition-colors" :class="form.enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'" @click="form.enabled = !form.enabled">
-              <span class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="form.enabled ? 'translate-x-5' : 'translate-x-0.5'" />
+            <button type="button" role="switch" :aria-checked="form.enabled" class="relative block h-6 w-11 shrink-0 rounded-full transition-colors" :class="form.enabled ? 'bg-primary-600' : 'bg-gray-300 dark:bg-dark-600'" @click="form.enabled = !form.enabled">
+              <span class="absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="form.enabled ? 'translate-x-5' : 'translate-x-0.5'" />
             </button>
           </div>
         </form>
@@ -230,6 +235,7 @@ const weekdayOptions = [
 
 interface DiscountForm {
   name: string
+  description: string
   enabled: boolean
   schedule_type: DiscountScheduleType
   timezone: string
@@ -250,7 +256,7 @@ function emptyForm(): DiscountForm {
   const start = new Date(Date.now() + 60 * 60 * 1000)
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
   return {
-    name: '', enabled: false, schedule_type: 'one_time', timezone: 'Asia/Shanghai',
+    name: '', description: '', enabled: false, schedule_type: 'one_time', timezone: 'Asia/Shanghai',
     starts_at: toLocalInput(start), ends_at: toLocalInput(end), weekdays: [0],
     start_time: '00:00', end_time: '23:59', all_day: true, discount_percent: 90,
     min_effective_multiplier: '', budget_cap: ''
@@ -280,7 +286,7 @@ function openCreate() {
 
 function openEdit(campaign: DiscountCampaign) {
   Object.assign(form, {
-    name: campaign.name, enabled: campaign.enabled, schedule_type: campaign.schedule_type,
+    name: campaign.name, description: campaign.description || '', enabled: campaign.enabled, schedule_type: campaign.schedule_type,
     timezone: campaign.timezone, starts_at: campaign.starts_at ? toLocalInput(new Date(campaign.starts_at)) : '',
     ends_at: campaign.ends_at ? toLocalInput(new Date(campaign.ends_at)) : '', weekdays: [...campaign.weekdays],
     start_time: campaign.start_time || '00:00', end_time: campaign.end_time || '23:59', all_day: campaign.all_day,
@@ -296,7 +302,7 @@ function closeForm() { if (!saving.value) formVisible.value = false }
 function buildPayload(): DiscountCampaignRequest {
   const weekly = form.schedule_type === 'weekly'
   return {
-    name: form.name.trim(), enabled: form.enabled, schedule_type: form.schedule_type,
+    name: form.name.trim(), description: form.description.trim() || undefined, enabled: form.enabled, schedule_type: form.schedule_type,
     timezone: form.timezone.trim(),
     starts_at: weekly ? undefined : new Date(form.starts_at).toISOString(),
     ends_at: weekly ? undefined : new Date(form.ends_at).toISOString(),

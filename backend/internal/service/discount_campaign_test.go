@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -13,13 +14,25 @@ func TestDiscountCampaignResolveChoosesLowestEffectiveMultiplier(t *testing.T) {
 	end := now.Add(time.Hour)
 	svc := &DiscountCampaignService{campaigns: []runtimeDiscountCampaign{
 		{id: 3, name: "ten percent", scheduleType: DiscountScheduleOneTime, location: time.UTC, startsAt: &start, endsAt: &end, factor: 0.9},
-		{id: 2, name: "twenty percent", scheduleType: DiscountScheduleOneTime, location: time.UTC, startsAt: &start, endsAt: &end, factor: 0.8},
+		{id: 2, name: "twenty percent", description: "Weekend offer", scheduleType: DiscountScheduleOneTime, location: time.UTC, startsAt: &start, endsAt: &end, factor: 0.8},
 	}}
 
 	resolved := svc.Resolve(&Group{SubscriptionType: SubscriptionTypeStandard}, now, 2)
 	require.NotNil(t, resolved)
 	require.Equal(t, int64(2), resolved.CampaignID)
+	require.Equal(t, "Weekend offer", resolved.CampaignDescription)
 	require.InDelta(t, 1.6, resolved.EffectiveRateMultiplier, 1e-9)
+}
+
+func TestDiscountCampaignDescriptionValidation(t *testing.T) {
+	input := DiscountCampaignInput{
+		Name: "test", Description: strings.Repeat("a", 501), ActorID: 1,
+		ScheduleType: DiscountScheduleOneTime, StartsAt: "2026-08-09T00:00:00Z",
+		EndsAt: "2026-08-10T00:00:00Z", DiscountFactor: "0.9",
+	}
+
+	_, err := validateDiscountCampaignInput(input)
+	require.Error(t, err)
 }
 
 func TestDiscountCampaignResolveExcludesSubscriptionAndExhaustedBudget(t *testing.T) {

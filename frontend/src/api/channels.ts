@@ -18,6 +18,7 @@ export interface UserAvailableGroup {
   effective_rate_multiplier: number
   discount_campaign_id?: number
   discount_campaign_name?: string
+  discount_campaign_description?: string
   discount_factor?: number
   discount_ends_at?: string
   peak_rate_enabled: boolean

@@ -7,7 +7,7 @@ export default {
     safetyTitle: '課金対象',
     safetyHint: '通常グループのToken課金だけが対象です。サブスクリプション、画像・動画・Web Searchの独立価格は対象外です。',
     fields: {
-      name: 'キャンペーン名', enabled: 'キャンペーンを有効化', scheduleType: 'スケジュール', timezone: 'タイムゾーン',
+      name: 'キャンペーン名', description: 'ユーザー向け説明', descriptionPlaceholder: '割引のルールや説明を入力...', enabled: 'キャンペーンを有効化', scheduleType: 'スケジュール', timezone: 'タイムゾーン',
       startsAt: '開始日時', endsAt: '終了日時', weekdays: '曜日', allDay: '終日', startTime: '開始時刻', endTime: '終了時刻',
       discountPercent: '支払割合', minMultiplier: '割引後の最低倍率', budgetCap: '割引予算上限'
     },
@@ -17,7 +17,8 @@ export default {
       discountPercent: '例：90%の場合、2xは1.8xになります。', crossMidnight: '終了時刻が開始時刻より前の場合は翌日まで継続します。',
       minimum: '任意。割引後の倍率はこの値を下回りません。',
       budget: '任意。記録済みの割引額が上限に達すると新規リクエストは対象外になり、処理中のリクエストは開始時の価格を維持します。',
-      overlap: '複数のキャンペーンが重なる場合、最も低い実効倍率を適用します。'
+      overlap: '複数のキャンペーンが重なる場合、最も低い実効倍率を適用します。',
+      description: 'キャンペーン中、API キーページにユーザー向けに表示されます。'
     },
     columns: { campaign: 'キャンペーン', schedule: '期間', discount: '割引', budget: '割引済み / 予算', status: '状態', actions: '操作' },
     statuses: { active: '適用中', upcoming: '開始前', ended: '終了', disabled: '無効', budget_exhausted: '予算上限到達' },

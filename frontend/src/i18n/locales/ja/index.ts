@@ -21,6 +21,9 @@ export default {
     ...en.keys,
     discountCampaign: {
       currentDiscount: '現在の割引',
+      remaining: '残り {time}',
+      remainingDays: '残り {days}日 {time}',
+      endingSoon: 'まもなく終了',
       discountValue: '{percent}% OFF',
       balanceOnly: '残高払いのリクエストのみ対象',
       subscriptionExcluded: 'サブスクリプション利用は割引対象外'
