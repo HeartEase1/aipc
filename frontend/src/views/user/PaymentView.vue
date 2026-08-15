@@ -117,6 +117,10 @@
                 <p v-if="selectedPlan.description" class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                   {{ selectedPlan.description }}
                 </p>
+                <div v-if="selectedSubscriptionAction === 'restart'" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+                  <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">{{ t('payment.restart.selectedTitle') }}</p>
+                  <p class="mt-1 text-xs leading-5 text-amber-700 dark:text-amber-300">{{ t('payment.restart.selectedDescription') }}</p>
+                </div>
                 <!-- Rate + Limits grid -->
                 <div class="mt-3 grid grid-cols-2 gap-3">
                   <div>
@@ -177,9 +181,10 @@
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                   {{ t('common.processing') }}
                 </span>
+                <span v-else-if="selectedSubscriptionAction === 'restart'">{{ t('payment.restart.reviewAndPay', { amount: formatSelectedPaymentAmount(subTotalAmount) }) }}</span>
                 <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
               </button>
-              <button class="btn btn-secondary w-full" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
+              <button class="btn btn-secondary w-full" @click="clearSelectedPlan">{{ t('common.cancel') }}</button>
             </template>
             <!-- Plan list -->
             <template v-else>
@@ -244,6 +249,92 @@
         </div>
       </Transition>
     </Teleport>
+    <!-- Immediate reset confirmation -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showRestartConfirm"
+          class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          data-testid="restart-confirm-modal"
+          role="dialog"
+          aria-modal="true"
+          @click.self="closeRestartConfirm"
+        >
+          <div class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900">
+            <div class="border-b border-gray-100 px-6 py-5 dark:border-dark-700">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.restart.confirmTitle') }}</h3>
+                  <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ t('payment.restart.confirmDescription') }}</p>
+                </div>
+                <button class="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-200" :disabled="submitting" :aria-label="t('common.close')" @click="closeRestartConfirm">
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="space-y-5 px-6 py-5">
+              <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/70 dark:bg-red-950/30">
+                <p class="text-sm font-semibold text-red-800 dark:text-red-200">{{ t('payment.restart.forfeitTitle') }}</p>
+                <p class="mt-1 text-xs leading-5 text-red-700 dark:text-red-300">{{ t('payment.restart.forfeitDescription') }}</p>
+              </div>
+
+              <section>
+                <h4 class="mb-2 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">{{ t('payment.restart.currentTerm') }}</h4>
+                <div class="rounded-xl border border-gray-200 dark:border-dark-700">
+                  <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-4 py-3 text-sm dark:border-dark-700">
+                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.restart.remainingTime') }}</span>
+                    <span class="text-right font-medium text-gray-900 dark:text-white">
+                      {{ t('payment.restart.daysRemaining', { days: restartDaysRemaining }) }}
+                      <span v-if="restartCurrentSubscription?.expires_at" class="mt-0.5 block text-xs font-normal text-gray-400">{{ formatDateTime(restartCurrentSubscription.expires_at) }}</span>
+                    </span>
+                  </div>
+                  <div v-for="row in restartQuotaRows" :key="row.key" class="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-gray-100 px-4 py-3 text-sm last:border-b-0 dark:border-dark-700">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ row.label }}</span>
+                    <span class="text-right text-gray-500 dark:text-gray-400">
+                      <span class="block text-[10px] uppercase text-gray-400">{{ t('payment.restart.used') }}</span>
+                      {{ formatQuotaUSD(row.used) }}
+                    </span>
+                    <span class="min-w-24 text-right font-semibold text-red-600 dark:text-red-300">
+                      <span class="block text-[10px] uppercase text-red-400">{{ t('payment.restart.remainingForfeit') }}</span>
+                      {{ formatQuotaUSD(row.remaining) }}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h4 class="mb-2 text-xs font-semibold uppercase text-gray-400 dark:text-gray-500">{{ t('payment.restart.newTerm') }}</h4>
+                <div class="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                  <div class="flex justify-between gap-4">
+                    <span class="text-emerald-700 dark:text-emerald-300">{{ t('payment.restart.newValidity') }}</span>
+                    <span class="text-right font-semibold text-emerald-900 dark:text-emerald-100">{{ planValiditySuffix }}</span>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <span class="text-emerald-700 dark:text-emerald-300">{{ t('payment.restart.estimatedExpiry') }}</span>
+                    <span class="text-right font-semibold text-emerald-900 dark:text-emerald-100">{{ estimatedRestartExpiry }}</span>
+                  </div>
+                  <div class="flex justify-between gap-4 border-t border-emerald-200 pt-3 dark:border-emerald-900/60">
+                    <span class="text-emerald-700 dark:text-emerald-300">{{ t('payment.restart.paymentAmount') }}</span>
+                    <span class="text-lg font-bold text-emerald-900 dark:text-emerald-100">{{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
+                  </div>
+                </div>
+              </section>
+
+              <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">{{ t('payment.restart.paymentSafety') }}</p>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 border-t border-gray-100 px-6 py-4 sm:grid-cols-2 dark:border-dark-700">
+              <button class="btn btn-secondary order-2 w-full sm:order-1" :disabled="submitting" @click="closeRestartConfirm">{{ t('common.cancel') }}</button>
+              <button :class="['btn order-1 w-full sm:order-2', paymentButtonClass]" :disabled="submitting" data-testid="confirm-restart-payment" @click="confirmRestartPayment">
+                <span v-if="submitting">{{ t('common.processing') }}</span>
+                <span v-else>{{ t('payment.restart.confirmPayment', { amount: formatSelectedPaymentAmount(subTotalAmount) }) }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     <!-- Image Preview Overlay -->
     <Teleport to="body">
       <Transition name="modal">
@@ -267,7 +358,7 @@ import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { SubscriptionAction, SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -326,7 +417,66 @@ const activeTab = ref<'recharge' | 'subscription'>('recharge')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
+const selectedSubscriptionAction = ref<SubscriptionAction>('extend')
+const showRestartConfirm = ref(false)
 const previewImage = ref('')
+
+const restartCurrentSubscription = computed(() => {
+  if (!selectedPlan.value) return null
+  return activeSubscriptions.value.find(sub =>
+    sub.group_id === selectedPlan.value?.group_id && sub.status === 'active',
+  ) ?? null
+})
+
+const restartDaysRemaining = computed(() => {
+  const expiresAt = restartCurrentSubscription.value?.expires_at
+  return expiresAt ? getDaysRemaining(expiresAt) : 0
+})
+
+const restartQuotaRows = computed(() => {
+  const plan = selectedPlan.value
+  const subscription = restartCurrentSubscription.value
+  if (!plan || !subscription) return []
+
+  const candidates = [
+    { key: 'daily', label: t('payment.planCard.dailyLimit'), limit: plan.daily_limit_usd, used: subscription.daily_usage_usd },
+    { key: 'weekly', label: t('payment.planCard.weeklyLimit'), limit: plan.weekly_limit_usd, used: subscription.weekly_usage_usd },
+    { key: 'monthly', label: t('payment.planCard.monthlyLimit'), limit: plan.monthly_limit_usd, used: subscription.monthly_usage_usd },
+  ]
+  return candidates
+    .filter((row): row is { key: string; label: string; limit: number; used: number } => typeof row.limit === 'number' && row.limit > 0)
+    .map(row => ({
+      ...row,
+      used: Math.max(0, row.used || 0),
+      remaining: Math.max(0, row.limit - (row.used || 0)),
+    }))
+})
+
+const estimatedRestartExpiry = computed(() => {
+  if (!selectedPlan.value) return ''
+  const unit = String(selectedPlan.value.validity_unit || 'day').toLowerCase().replace(/s$/, '')
+  const multiplier = unit === 'week' ? 7 : unit === 'month' ? 30 : 1
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + selectedPlan.value.validity_days * multiplier)
+  return formatDateTime(expiresAt)
+})
+
+function formatQuotaUSD(value: number): string {
+  const normalized = Number(Math.max(0, value || 0).toFixed(8))
+  return `$${normalized.toLocaleString(undefined, { maximumFractionDigits: 8 })}`
+}
+
+function formatDateTime(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
@@ -336,6 +486,7 @@ interface CreateOrderOptions {
   paymentType?: string
   isResume?: boolean
   mobileQrFallbackAttempted?: boolean
+  subscriptionAction?: SubscriptionAction
 }
 
 interface WeixinJSBridgeLike {
@@ -441,7 +592,7 @@ async function redirectToPaymentResult(state: PaymentRecoverySnapshot): Promise<
 
 function buildWechatOAuthAuthorizeUrl(
   authorizeUrl: string,
-  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number },
+  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number; subscriptionAction?: SubscriptionAction },
 ): string {
   const normalizedUrl = authorizeUrl.trim()
   if (!normalizedUrl || typeof window === 'undefined') {
@@ -456,6 +607,14 @@ function buildWechatOAuthAuthorizeUrl(
 
     redirectUrl.searchParams.set('payment_type', paymentType)
     redirectUrl.searchParams.set('order_type', context.orderType)
+
+    if (context.orderType === 'subscription' && context.subscriptionAction === 'restart') {
+      redirectUrl.searchParams.set('subscription_action', context.subscriptionAction)
+      targetUrl.searchParams.set('subscription_action', context.subscriptionAction)
+    } else {
+      redirectUrl.searchParams.delete('subscription_action')
+      targetUrl.searchParams.delete('subscription_action')
+    }
 
     if (context.planId) {
       redirectUrl.searchParams.set('plan_id', String(context.planId))
@@ -480,6 +639,7 @@ function onPaymentDone() {
   const wasSubscription = paymentState.value.orderType === 'subscription'
   resetPayment()
   selectedPlan.value = null
+  selectedSubscriptionAction.value = 'extend'
   if (wasSubscription) {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
   }
@@ -737,16 +897,16 @@ function planPeakRateLabel(plan: SubscriptionPlan): string {
   return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
 }
 
-function selectPlan(plan: SubscriptionPlan) {
+function selectPlan(plan: SubscriptionPlan, action: SubscriptionAction = 'extend') {
+  selectedSubscriptionAction.value = action
   selectedPlan.value = plan
   errorMessage.value = ''
 }
 
-function selectPlanFromModal(plan: SubscriptionPlan) {
+function selectPlanFromModal(plan: SubscriptionPlan, action: SubscriptionAction) {
   showRenewalModal.value = false
   renewGroupId.value = null
-  selectedPlan.value = plan
-  errorMessage.value = ''
+  selectPlan(plan, action)
 }
 
 function closeRenewalModal() {
@@ -761,7 +921,36 @@ async function handleSubmitRecharge() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)
+  if (selectedSubscriptionAction.value === 'restart') {
+    if (!restartCurrentSubscription.value || restartQuotaRows.value.length === 0) {
+      appStore.showError(t('payment.restart.unavailable'))
+      return
+    }
+    showRestartConfirm.value = true
+    return
+  }
+  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id, {
+    subscriptionAction: 'extend',
+  })
+}
+
+function clearSelectedPlan() {
+  selectedPlan.value = null
+  selectedSubscriptionAction.value = 'extend'
+  showRestartConfirm.value = false
+}
+
+function closeRestartConfirm() {
+  if (submitting.value) return
+  showRestartConfirm.value = false
+}
+
+async function confirmRestartPayment() {
+  if (!selectedPlan.value || submitting.value) return
+  showRestartConfirm.value = false
+  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id, {
+    subscriptionAction: 'restart',
+  })
 }
 
 async function createOrder(orderAmount: number, orderType: OrderType, planId?: number, options: CreateOrderOptions = {}) {
@@ -769,12 +958,16 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
   errorMessage.value = ''
   errorHintMessage.value = ''
   const requestType = normalizeVisibleMethod(options.paymentType || selectedMethod.value) || options.paymentType || selectedMethod.value
+  const subscriptionAction = orderType === 'subscription'
+    ? (options.subscriptionAction || selectedSubscriptionAction.value)
+    : undefined
   try {
     const payload = buildCreateOrderPayload({
       amount: orderAmount,
       paymentType: requestType,
       orderType,
       planId,
+      subscriptionAction,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: isMobileDevice(),
       isWechatBrowser: typeof window !== 'undefined' && /MicroMessenger/i.test(window.navigator.userAgent),
@@ -840,6 +1033,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         orderType,
         planId,
         orderAmount,
+        subscriptionAction,
       })
       return
     }
@@ -880,6 +1074,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
               orderAmount,
               orderType,
               planId,
+              subscriptionAction,
               paymentType: visibleMethod,
               attempted: options.mobileQrFallbackAttempted === true,
             },
@@ -898,6 +1093,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
           orderAmount,
           orderType,
           planId,
+          subscriptionAction,
           paymentType: visibleMethod,
           attempted: options.mobileQrFallbackAttempted === true,
         })
@@ -927,6 +1123,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       orderAmount,
       orderType,
       planId,
+      subscriptionAction,
       paymentType: requestType,
       attempted: options.mobileQrFallbackAttempted === true,
     })) {
@@ -954,6 +1151,7 @@ interface MobileQrFallbackContext {
   orderAmount: number
   orderType: OrderType
   planId?: number
+  subscriptionAction?: SubscriptionAction
   paymentType: string
   attempted: boolean
 }
@@ -1003,6 +1201,7 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       paymentType: visibleMethod,
       orderType: context.orderType,
       planId: context.planId,
+      subscriptionAction: context.subscriptionAction,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: false,
       isWechatBrowser: false,
@@ -1074,6 +1273,7 @@ async function resumeWechatPaymentFromQuery() {
   }
   if (resume.orderType === 'subscription' && resume.planId) {
     selectedPlan.value = checkout.value.plans.find(plan => plan.id === resume.planId) ?? null
+    selectedSubscriptionAction.value = resume.subscriptionAction
   }
 
   await router.replace({ path: route.path, query: stripWechatResumeQuery(route.query) })
@@ -1083,6 +1283,7 @@ async function resumeWechatPaymentFromQuery() {
       wechatResumeToken: resume.wechatResumeToken,
       paymentType: resume.paymentType,
       isResume: true,
+      subscriptionAction: resume.subscriptionAction,
     })
     return
   }
@@ -1092,6 +1293,7 @@ async function resumeWechatPaymentFromQuery() {
       openid: resume.openid,
       paymentType: resume.paymentType,
       isResume: true,
+      subscriptionAction: resume.subscriptionAction,
     })
   }
 }
@@ -1144,8 +1346,10 @@ onMounted(async () => {
       if (route.query.group) {
         const groupId = Number(route.query.group)
         const groupPlans = checkout.value.plans.filter(p => p.group_id === groupId)
+        const routeSubscriptionAction: SubscriptionAction = route.query.action === 'restart' ? 'restart' : 'extend'
         if (groupPlans.length === 1) {
           selectedPlan.value = groupPlans[0]
+          selectedSubscriptionAction.value = routeSubscriptionAction
         } else if (groupPlans.length > 1) {
           renewGroupId.value = groupId
           showRenewalModal.value = true

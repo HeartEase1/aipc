@@ -92,14 +92,24 @@
 
       <div class="flex-1" />
 
-      <!-- Subscribe Button -->
-      <button
-        type="button"
-        :class="['w-full rounded-xl py-2.5 text-sm font-semibold transition-all active:scale-[0.98]', btnClass]"
-        @click="emit('select', plan)"
-      >
-        {{ isRenewal ? t('payment.renewNow') : t('payment.subscribeNow') }}
-      </button>
+      <!-- Purchase actions -->
+      <div :class="canRestart ? 'grid grid-cols-2 gap-2' : ''">
+        <button
+          type="button"
+          :class="['w-full rounded-xl py-2.5 text-sm font-semibold transition-all active:scale-[0.98]', btnClass]"
+          @click="emit('select', plan, 'extend')"
+        >
+          {{ isRenewal ? t('payment.renewNow') : t('payment.subscribeNow') }}
+        </button>
+        <button
+          v-if="canRestart"
+          type="button"
+          class="w-full rounded-xl border border-amber-300 bg-amber-50 py-2.5 text-sm font-semibold text-amber-800 transition-all hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/50"
+          @click="emit('select', plan, 'restart')"
+        >
+          {{ t('payment.restartNow') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -107,7 +117,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { SubscriptionPlan } from '@/types/payment'
+import type { SubscriptionAction, SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
@@ -125,13 +135,19 @@ import {
 } from '@/utils/platformColors'
 
 const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSubscription[] }>()
-const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()
+const emit = defineEmits<{ select: [plan: SubscriptionPlan, action: SubscriptionAction] }>()
 const { t } = useI18n()
 
 const platform = computed(() => props.plan.group_platform || '')
 const isRenewal = computed(() =>
   props.activeSubscriptions?.some(s => s.group_id === props.plan.group_id && s.status === 'active') ?? false
 )
+const hasQuotaLimit = computed(() =>
+  (props.plan.daily_limit_usd ?? 0) > 0
+  || (props.plan.weekly_limit_usd ?? 0) > 0
+  || (props.plan.monthly_limit_usd ?? 0) > 0
+)
+const canRestart = computed(() => isRenewal.value && hasQuotaLimit.value)
 
 // Derived color classes from central config
 const accentClass = computed(() => platformAccentBarClass(platform.value))

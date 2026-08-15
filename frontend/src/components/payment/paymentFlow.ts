@@ -3,6 +3,7 @@ import type {
   CreateOrderResult,
   MethodLimit,
   OrderType,
+  SubscriptionAction,
   WechatJSAPIPayload,
   WechatOAuthInfo,
 } from '@/types/payment'
@@ -81,6 +82,7 @@ export interface BuildCreateOrderPayloadInput {
   paymentType: string
   orderType: OrderType
   planId?: number
+  subscriptionAction?: SubscriptionAction
   origin?: string
   isMobile: boolean
   isWechatBrowser: boolean
@@ -138,6 +140,9 @@ export function buildCreateOrderPayload(input: BuildCreateOrderPayloadInput): Cr
 
   if (input.planId) {
     payload.plan_id = input.planId
+  }
+  if (input.orderType === 'subscription' && input.subscriptionAction) {
+    payload.subscription_action = input.subscriptionAction
   }
   if (normalizedOrigin) {
     payload.return_url = `${normalizedOrigin}/payment/result`

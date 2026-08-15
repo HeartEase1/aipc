@@ -26,6 +26,11 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if req.OrderType == "" {
 		req.OrderType = payment.OrderTypeBalance
 	}
+	subscriptionAction, err := normalizeSubscriptionAction(req.SubscriptionAction)
+	if err != nil {
+		return nil, err
+	}
+	req.SubscriptionAction = subscriptionAction
 	if normalized := NormalizeVisibleMethod(req.PaymentType); normalized != "" {
 		req.PaymentType = normalized
 	}
@@ -115,6 +120,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 }
 
 func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig) (*dbent.SubscriptionPlan, error) {
+	if req.OrderType != payment.OrderTypeSubscription && req.SubscriptionAction != payment.SubscriptionActionExtend {
+		return nil, infraerrors.BadRequest("INVALID_SUBSCRIPTION_ACTION", "subscription action is only valid for subscription orders")
+	}
 	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
 		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
 	}
@@ -146,7 +154,32 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	if !group.IsSubscriptionType() {
 		return nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
 	}
+	if req.SubscriptionAction == payment.SubscriptionActionRestart {
+		if !group.HasDailyLimit() && !group.HasWeeklyLimit() && !group.HasMonthlyLimit() {
+			return nil, infraerrors.BadRequest("SUBSCRIPTION_RESTART_UNAVAILABLE", "immediate reset requires a quota-limited subscription")
+		}
+		if s.subscriptionSvc == nil || s.subscriptionSvc.userSubRepo == nil {
+			return nil, infraerrors.ServiceUnavailable("SUBSCRIPTION_SERVICE_UNAVAILABLE", "subscription service is unavailable")
+		}
+		if _, err := s.subscriptionSvc.userSubRepo.GetActiveByUserIDAndGroupID(ctx, req.UserID, plan.GroupID); err != nil {
+			if errors.Is(err, ErrSubscriptionNotFound) {
+				return nil, infraerrors.Conflict("SUBSCRIPTION_RESTART_UNAVAILABLE", "an active subscription is required for immediate reset")
+			}
+			return nil, fmt.Errorf("check active subscription for immediate reset: %w", err)
+		}
+	}
 	return plan, nil
+}
+
+func normalizeSubscriptionAction(action string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "", payment.SubscriptionActionExtend:
+		return payment.SubscriptionActionExtend, nil
+	case payment.SubscriptionActionRestart:
+		return payment.SubscriptionActionRestart, nil
+	default:
+		return "", infraerrors.BadRequest("INVALID_SUBSCRIPTION_ACTION", "subscription action must be extend or restart")
+	}
 }
 
 func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, error) {
@@ -160,6 +193,20 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	if err := s.checkDailyLimit(ctx, tx, req.UserID, limitAmount, cfg.DailyLimit); err != nil {
 		return nil, err
+	}
+	if req.SubscriptionAction == payment.SubscriptionActionRestart && plan != nil {
+		exists, err := tx.PaymentOrder.Query().Where(
+			paymentorder.UserIDEQ(req.UserID),
+			paymentorder.SubscriptionGroupIDEQ(plan.GroupID),
+			paymentorder.SubscriptionActionEQ(payment.SubscriptionActionRestart),
+			paymentorder.StatusIn(OrderStatusPending, OrderStatusPaid, OrderStatusRecharging),
+		).Exist(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("check pending immediate reset order: %w", err)
+		}
+		if exists {
+			return nil, infraerrors.Conflict("SUBSCRIPTION_RESTART_ORDER_PENDING", "an immediate reset order is already being processed")
+		}
 	}
 	tm := cfg.OrderTimeoutMin
 	if tm <= 0 {
@@ -190,6 +237,7 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		SetPaymentType(req.PaymentType).
 		SetPaymentTradeNo("").
 		SetOrderType(req.OrderType).
+		SetSubscriptionAction(req.SubscriptionAction).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(exp).
 		SetClientIP(req.ClientIP).
@@ -211,6 +259,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	order, err := b.Save(ctx)
 	if err != nil {
+		if req.SubscriptionAction == payment.SubscriptionActionRestart && dbent.IsConstraintError(err) {
+			return nil, infraerrors.Conflict("SUBSCRIPTION_RESTART_ORDER_PENDING", "an immediate reset order is already being processed")
+		}
 		return nil, fmt.Errorf("create order: %w", err)
 	}
 	code := fmt.Sprintf("PAY-%d-%d", order.ID, time.Now().UnixNano()%100000)
@@ -769,6 +820,9 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	}
+	if req.SubscriptionAction == payment.SubscriptionActionRestart {
+		q.Set("subscription_action", req.SubscriptionAction)
 	}
 	if scope = strings.TrimSpace(scope); scope != "" {
 		q.Set("scope", scope)

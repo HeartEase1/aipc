@@ -17,6 +17,7 @@ const routerResolve = vi.hoisted(() => vi.fn(() => ({ href: '/payment/stripe?moc
 const createOrder = vi.hoisted(() => vi.fn())
 const refreshUser = vi.hoisted(() => vi.fn())
 const fetchActiveSubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const activeSubscriptionsState = vi.hoisted(() => ({ items: [] as Array<Record<string, unknown>> }))
 const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
@@ -64,7 +65,7 @@ vi.mock('@/stores/payment', () => ({
 
 vi.mock('@/stores/subscriptions', () => ({
   useSubscriptionStore: () => ({
-    activeSubscriptions: [],
+    activeSubscriptions: activeSubscriptionsState.items,
     fetchActiveSubscriptions,
   }),
 }))
@@ -200,12 +201,17 @@ function oauthOrderFixture() {
   }
 }
 
-async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoWithPlansFixture>[0] = {}) {
+async function mountSubscriptionConfirm(
+  options: Parameters<typeof checkoutInfoWithPlansFixture>[0] = {},
+  subscriptions: Array<Record<string, unknown>> = [],
+  subscriptionAction?: 'extend' | 'restart',
+) {
   vi.useRealTimers()
   routeState.path = '/purchase'
   routeState.query = {
     tab: 'subscription',
     group: '3',
+    ...(subscriptionAction ? { action: subscriptionAction } : {}),
   }
   routerReplace.mockReset().mockResolvedValue(undefined)
   routerPush.mockReset().mockResolvedValue(undefined)
@@ -213,6 +219,7 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   createOrder.mockReset()
   refreshUser.mockReset()
   fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+  activeSubscriptionsState.items = subscriptions
   showError.mockReset()
   showInfo.mockReset()
   showWarning.mockReset()
@@ -237,7 +244,11 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   return wrapper
 }
 
-async function mountSubscriptionPlanList(planCount: number) {
+async function mountSubscriptionPlanList(
+  planCount: number,
+  subscriptions: Array<Record<string, unknown>> = [],
+  planOverrides: Partial<SubscriptionPlan> = {},
+) {
   vi.useRealTimers()
   routeState.path = '/purchase'
   routeState.query = { tab: 'subscription' }
@@ -247,12 +258,14 @@ async function mountSubscriptionPlanList(planCount: number) {
   createOrder.mockReset()
   refreshUser.mockReset()
   fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+  activeSubscriptionsState.items = subscriptions
   showError.mockReset()
   showInfo.mockReset()
   showWarning.mockReset()
   const basePlan = checkoutInfoWithPlansFixture().data.plans[0]
   const plans = Array.from({ length: planCount }, (_, index) => ({
     ...basePlan,
+    ...planOverrides,
     id: index + 1,
     name: `Plan ${index + 1}`,
   }))
@@ -289,6 +302,94 @@ describe('PaymentView subscription plan grid', () => {
       'sm:grid-cols-2',
       'lg:grid-cols-3',
     ]))
+  })
+})
+
+describe('PaymentView immediate subscription reset', () => {
+  it('opens restart mode from the subscription page route without bypassing confirmation', async () => {
+    const subscription = {
+      id: 17,
+      user_id: 9,
+      group_id: 3,
+      status: 'active',
+      starts_at: '2026-08-01T00:00:00Z',
+      expires_at: '2026-09-15T00:00:00Z',
+      daily_usage_usd: 7,
+      weekly_usage_usd: 0,
+      monthly_usage_usd: 0,
+      daily_window_start: '2026-08-16T00:00:00Z',
+      weekly_window_start: null,
+      monthly_window_start: null,
+      created_at: '2026-08-01T00:00:00Z',
+      updated_at: '2026-08-16T00:00:00Z',
+    }
+    const wrapper = await mountSubscriptionConfirm(
+      { plan: { daily_limit_usd: 10 } },
+      [subscription],
+      'restart',
+    )
+
+    expect(wrapper.text()).toContain('payment.restart.selectedTitle')
+    expect(createOrder).not.toHaveBeenCalled()
+
+    const reviewButton = wrapper.findAll('button').find(button => button.text().includes('payment.restart.reviewAndPay'))
+    expect(reviewButton).toBeDefined()
+    await reviewButton!.trigger('click')
+
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="restart-confirm-modal"]').exists()).toBe(true)
+  })
+
+  it('shows the loss confirmation before creating a restart order', async () => {
+    const subscription = {
+      id: 17,
+      user_id: 9,
+      group_id: 3,
+      status: 'active',
+      starts_at: '2026-08-01T00:00:00Z',
+      expires_at: '2026-09-15T00:00:00Z',
+      daily_usage_usd: 7,
+      weekly_usage_usd: 20,
+      monthly_usage_usd: 40,
+      daily_window_start: '2026-08-16T00:00:00Z',
+      weekly_window_start: '2026-08-12T00:00:00Z',
+      monthly_window_start: '2026-08-01T00:00:00Z',
+      created_at: '2026-08-01T00:00:00Z',
+      updated_at: '2026-08-16T00:00:00Z',
+    }
+    const wrapper = await mountSubscriptionPlanList(1, [subscription], { daily_limit_usd: 10 })
+    const card = wrapper.getComponent(SubscriptionPlanCard)
+    const plan = card.props('plan') as SubscriptionPlan
+
+    card.vm.$emit('select', plan, 'restart')
+    await flushPromises()
+
+    const reviewButton = wrapper.findAll('button').find(button => button.text().includes('payment.restart.reviewAndPay'))
+    expect(reviewButton).toBeDefined()
+    await reviewButton!.trigger('click')
+
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="restart-confirm-modal"]').text()).toContain('payment.restart.forfeitTitle')
+    expect(wrapper.get('[data-testid="restart-confirm-modal"]').text()).toContain('$7')
+    expect(wrapper.get('[data-testid="restart-confirm-modal"]').text()).toContain('$3')
+
+    createOrder.mockResolvedValue({
+      order_id: 701,
+      amount: 128,
+      pay_amount: 128,
+      fee_rate: 0,
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'wxpay',
+      qr_code: 'weixin://wxpay/restart-701',
+    })
+    await wrapper.get('[data-testid="confirm-restart-payment"]').trigger('click')
+    await flushPromises()
+
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      order_type: 'subscription',
+      plan_id: plan.id,
+      subscription_action: 'restart',
+    }))
   })
 })
 

@@ -284,6 +284,20 @@ func (_u *PaymentOrderUpdate) SetNillableOrderType(v *string) *PaymentOrderUpdat
 	return _u
 }
 
+// SetSubscriptionAction sets the "subscription_action" field.
+func (_u *PaymentOrderUpdate) SetSubscriptionAction(v string) *PaymentOrderUpdate {
+	_u.mutation.SetSubscriptionAction(v)
+	return _u
+}
+
+// SetNillableSubscriptionAction sets the "subscription_action" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableSubscriptionAction(v *string) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetSubscriptionAction(*v)
+	}
+	return _u
+}
+
 // SetPlanID sets the "plan_id" field.
 func (_u *PaymentOrderUpdate) SetPlanID(v int64) *PaymentOrderUpdate {
 	_u.mutation.ResetPlanID()
@@ -803,6 +817,11 @@ func (_u *PaymentOrderUpdate) check() error {
 			return &ValidationError{Name: "order_type", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.order_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubscriptionAction(); ok {
+		if err := paymentorder.SubscriptionActionValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_action", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.subscription_action": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ProviderInstanceID(); ok {
 		if err := paymentorder.ProviderInstanceIDValidator(v); err != nil {
 			return &ValidationError{Name: "provider_instance_id", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_instance_id": %w`, err)}
@@ -913,6 +932,9 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.OrderType(); ok {
 		_spec.SetField(paymentorder.FieldOrderType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SubscriptionAction(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionAction, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PlanID(); ok {
 		_spec.SetField(paymentorder.FieldPlanID, field.TypeInt64, value)
@@ -1343,6 +1365,20 @@ func (_u *PaymentOrderUpdateOne) SetOrderType(v string) *PaymentOrderUpdateOne {
 func (_u *PaymentOrderUpdateOne) SetNillableOrderType(v *string) *PaymentOrderUpdateOne {
 	if v != nil {
 		_u.SetOrderType(*v)
+	}
+	return _u
+}
+
+// SetSubscriptionAction sets the "subscription_action" field.
+func (_u *PaymentOrderUpdateOne) SetSubscriptionAction(v string) *PaymentOrderUpdateOne {
+	_u.mutation.SetSubscriptionAction(v)
+	return _u
+}
+
+// SetNillableSubscriptionAction sets the "subscription_action" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableSubscriptionAction(v *string) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetSubscriptionAction(*v)
 	}
 	return _u
 }
@@ -1879,6 +1915,11 @@ func (_u *PaymentOrderUpdateOne) check() error {
 			return &ValidationError{Name: "order_type", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.order_type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubscriptionAction(); ok {
+		if err := paymentorder.SubscriptionActionValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_action", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.subscription_action": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ProviderInstanceID(); ok {
 		if err := paymentorder.ProviderInstanceIDValidator(v); err != nil {
 			return &ValidationError{Name: "provider_instance_id", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_instance_id": %w`, err)}
@@ -2006,6 +2047,9 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	}
 	if value, ok := _u.mutation.OrderType(); ok {
 		_spec.SetField(paymentorder.FieldOrderType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SubscriptionAction(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionAction, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.PlanID(); ok {
 		_spec.SetField(paymentorder.FieldPlanID, field.TypeInt64, value)

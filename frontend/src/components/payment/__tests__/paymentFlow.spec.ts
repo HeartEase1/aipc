@@ -331,6 +331,31 @@ describe('buildCreateOrderPayload', () => {
     })
   })
 
+  it('persists immediate reset only for subscription order payloads', () => {
+    expect(buildCreateOrderPayload({
+      amount: 128,
+      paymentType: 'wxpay',
+      orderType: 'subscription',
+      planId: 7,
+      subscriptionAction: 'restart',
+      isMobile: false,
+      isWechatBrowser: false,
+    })).toMatchObject({
+      order_type: 'subscription',
+      plan_id: 7,
+      subscription_action: 'restart',
+    })
+
+    expect(buildCreateOrderPayload({
+      amount: 128,
+      paymentType: 'wxpay',
+      orderType: 'balance',
+      subscriptionAction: 'restart',
+      isMobile: false,
+      isWechatBrowser: false,
+    })).not.toHaveProperty('subscription_action')
+  })
+
   it('passes is_mobile: false when forceQRCode is enabled for alipay', () => {
     expect(buildCreateOrderPayload({
       amount: 50,

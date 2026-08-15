@@ -78,6 +78,9 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.String("order_type").
 			MaxLen(20).
 			Default("balance"),
+		field.String("subscription_action").
+			MaxLen(20).
+			Default("extend"),
 		field.Int64("plan_id").
 			Optional().
 			Nillable(),
@@ -195,5 +198,9 @@ func (PaymentOrder) Indexes() []ent.Index {
 		index.Fields("paid_at"),
 		index.Fields("payment_type", "paid_at"),
 		index.Fields("order_type"),
+		index.Fields("user_id", "subscription_group_id").
+			StorageKey("idx_payment_orders_active_restart_unique").
+			Unique().
+			Annotations(entsql.IndexWhere("subscription_action = 'restart' AND status IN ('PENDING', 'PAID', 'RECHARGING')")),
 	}
 }

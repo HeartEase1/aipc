@@ -29671,6 +29671,7 @@ type PaymentOrderMutation struct {
 	qr_code                  *string
 	qr_code_img              *string
 	order_type               *string
+	subscription_action      *string
 	plan_id                  *int64
 	addplan_id               *int64
 	subscription_group_id    *int64
@@ -30455,6 +30456,42 @@ func (m *PaymentOrderMutation) OldOrderType(ctx context.Context) (v string, err 
 // ResetOrderType resets all changes to the "order_type" field.
 func (m *PaymentOrderMutation) ResetOrderType() {
 	m.order_type = nil
+}
+
+// SetSubscriptionAction sets the "subscription_action" field.
+func (m *PaymentOrderMutation) SetSubscriptionAction(s string) {
+	m.subscription_action = &s
+}
+
+// SubscriptionAction returns the value of the "subscription_action" field in the mutation.
+func (m *PaymentOrderMutation) SubscriptionAction() (r string, exists bool) {
+	v := m.subscription_action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionAction returns the old "subscription_action" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldSubscriptionAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionAction: %w", err)
+	}
+	return oldValue.SubscriptionAction, nil
+}
+
+// ResetSubscriptionAction resets all changes to the "subscription_action" field.
+func (m *PaymentOrderMutation) ResetSubscriptionAction() {
+	m.subscription_action = nil
 }
 
 // SetPlanID sets the "plan_id" field.
@@ -31673,7 +31710,7 @@ func (m *PaymentOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PaymentOrderMutation) Fields() []string {
-	fields := make([]string, 0, 39)
+	fields := make([]string, 0, 40)
 	if m.user != nil {
 		fields = append(fields, paymentorder.FieldUserID)
 	}
@@ -31718,6 +31755,9 @@ func (m *PaymentOrderMutation) Fields() []string {
 	}
 	if m.order_type != nil {
 		fields = append(fields, paymentorder.FieldOrderType)
+	}
+	if m.subscription_action != nil {
+		fields = append(fields, paymentorder.FieldSubscriptionAction)
 	}
 	if m.plan_id != nil {
 		fields = append(fields, paymentorder.FieldPlanID)
@@ -31829,6 +31869,8 @@ func (m *PaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.QrCodeImg()
 	case paymentorder.FieldOrderType:
 		return m.OrderType()
+	case paymentorder.FieldSubscriptionAction:
+		return m.SubscriptionAction()
 	case paymentorder.FieldPlanID:
 		return m.PlanID()
 	case paymentorder.FieldSubscriptionGroupID:
@@ -31916,6 +31958,8 @@ func (m *PaymentOrderMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldQrCodeImg(ctx)
 	case paymentorder.FieldOrderType:
 		return m.OldOrderType(ctx)
+	case paymentorder.FieldSubscriptionAction:
+		return m.OldSubscriptionAction(ctx)
 	case paymentorder.FieldPlanID:
 		return m.OldPlanID(ctx)
 	case paymentorder.FieldSubscriptionGroupID:
@@ -32077,6 +32121,13 @@ func (m *PaymentOrderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetOrderType(v)
+		return nil
+	case paymentorder.FieldSubscriptionAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionAction(v)
 		return nil
 	case paymentorder.FieldPlanID:
 		v, ok := value.(int64)
@@ -32549,6 +32600,9 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 		return nil
 	case paymentorder.FieldOrderType:
 		m.ResetOrderType()
+		return nil
+	case paymentorder.FieldSubscriptionAction:
+		m.ResetSubscriptionAction()
 		return nil
 	case paymentorder.FieldPlanID:
 		m.ResetPlanID()

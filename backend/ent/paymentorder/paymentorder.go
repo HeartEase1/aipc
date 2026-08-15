@@ -44,6 +44,8 @@ const (
 	FieldQrCodeImg = "qr_code_img"
 	// FieldOrderType holds the string denoting the order_type field in the database.
 	FieldOrderType = "order_type"
+	// FieldSubscriptionAction holds the string denoting the subscription_action field in the database.
+	FieldSubscriptionAction = "subscription_action"
 	// FieldPlanID holds the string denoting the plan_id field in the database.
 	FieldPlanID = "plan_id"
 	// FieldSubscriptionGroupID holds the string denoting the subscription_group_id field in the database.
@@ -123,6 +125,7 @@ var Columns = []string{
 	FieldQrCode,
 	FieldQrCodeImg,
 	FieldOrderType,
+	FieldSubscriptionAction,
 	FieldPlanID,
 	FieldSubscriptionGroupID,
 	FieldSubscriptionDays,
@@ -180,6 +183,10 @@ var (
 	DefaultOrderType string
 	// OrderTypeValidator is a validator for the "order_type" field. It is called by the builders before save.
 	OrderTypeValidator func(string) error
+	// DefaultSubscriptionAction holds the default value on creation for the "subscription_action" field.
+	DefaultSubscriptionAction string
+	// SubscriptionActionValidator is a validator for the "subscription_action" field. It is called by the builders before save.
+	SubscriptionActionValidator func(string) error
 	// ProviderInstanceIDValidator is a validator for the "provider_instance_id" field. It is called by the builders before save.
 	ProviderInstanceIDValidator func(string) error
 	// ProviderKeyValidator is a validator for the "provider_key" field. It is called by the builders before save.
@@ -287,6 +294,11 @@ func ByQrCodeImg(opts ...sql.OrderTermOption) OrderOption {
 // ByOrderType orders the results by the order_type field.
 func ByOrderType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldOrderType, opts...).ToFunc()
+}
+
+// BySubscriptionAction orders the results by the subscription_action field.
+func BySubscriptionAction(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubscriptionAction, opts...).ToFunc()
 }
 
 // ByPlanID orders the results by the plan_id field.

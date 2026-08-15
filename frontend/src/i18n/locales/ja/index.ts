@@ -29,6 +29,32 @@ export default {
       subscriptionExcluded: 'サブスクリプション利用は割引対象外'
     }
   },
+  payment: {
+    ...en.payment,
+    restartNow: '今すぐリセット',
+    restart: {
+      ...en.payment.restart,
+      selectedTitle: '即時リセットを選択中',
+      selectedDescription: '支払い完了後、現在の残り期間と未使用枠は失効し、直ちに新しい完全な契約期間が始まります。',
+      reviewAndPay: '即時リセットを確認 {amount}',
+      confirmTitle: 'サブスクリプションの即時リセットを確認',
+      confirmDescription: '失効する現在の特典をご確認ください。サブスクリプションは支払い成功後にのみ変更されます。',
+      forfeitTitle: '現在の未使用特典は繰り越されません',
+      forfeitDescription: '残り期間と各上限の未使用枠は支払い成功時に失効し、復元できません。',
+      currentTerm: '現在のサブスクリプション',
+      remainingTime: '残り期間',
+      daysRemaining: '約 {days} 日',
+      used: '使用済み',
+      remainingForfeit: '残り / 失効',
+      newTerm: 'リセット後の新しい契約',
+      newValidity: '完全な期間',
+      estimatedExpiry: '予定有効期限',
+      paymentAmount: '支払金額',
+      paymentSafety: '支払いの失敗、キャンセル、またはタイムアウト時は、現在の期間と利用枠は変更されません。新しい期間は実際の支払い完了時から始まります。',
+      confirmPayment: '{amount} を支払い今すぐリセット',
+      unavailable: '現在、このサブスクリプションは即時リセットの対象外です。ページを更新して再度お試しください。',
+    },
+  },
   leaderboard: {
     ...en.leaderboard,
     title: 'ランキング',

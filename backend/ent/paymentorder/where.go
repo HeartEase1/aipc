@@ -130,6 +130,11 @@ func OrderType(v string) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldOrderType, v))
 }
 
+// SubscriptionAction applies equality check predicate on the "subscription_action" field. It's identical to SubscriptionActionEQ.
+func SubscriptionAction(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldSubscriptionAction, v))
+}
+
 // PlanID applies equality check predicate on the "plan_id" field. It's identical to PlanIDEQ.
 func PlanID(v int64) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldPlanID, v))
@@ -1138,6 +1143,71 @@ func OrderTypeEqualFold(v string) predicate.PaymentOrder {
 // OrderTypeContainsFold applies the ContainsFold predicate on the "order_type" field.
 func OrderTypeContainsFold(v string) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldContainsFold(FieldOrderType, v))
+}
+
+// SubscriptionActionEQ applies the EQ predicate on the "subscription_action" field.
+func SubscriptionActionEQ(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionNEQ applies the NEQ predicate on the "subscription_action" field.
+func SubscriptionActionNEQ(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionIn applies the In predicate on the "subscription_action" field.
+func SubscriptionActionIn(vs ...string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldSubscriptionAction, vs...))
+}
+
+// SubscriptionActionNotIn applies the NotIn predicate on the "subscription_action" field.
+func SubscriptionActionNotIn(vs ...string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldSubscriptionAction, vs...))
+}
+
+// SubscriptionActionGT applies the GT predicate on the "subscription_action" field.
+func SubscriptionActionGT(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionGTE applies the GTE predicate on the "subscription_action" field.
+func SubscriptionActionGTE(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionLT applies the LT predicate on the "subscription_action" field.
+func SubscriptionActionLT(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionLTE applies the LTE predicate on the "subscription_action" field.
+func SubscriptionActionLTE(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionContains applies the Contains predicate on the "subscription_action" field.
+func SubscriptionActionContains(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldContains(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionHasPrefix applies the HasPrefix predicate on the "subscription_action" field.
+func SubscriptionActionHasPrefix(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldHasPrefix(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionHasSuffix applies the HasSuffix predicate on the "subscription_action" field.
+func SubscriptionActionHasSuffix(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldHasSuffix(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionEqualFold applies the EqualFold predicate on the "subscription_action" field.
+func SubscriptionActionEqualFold(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEqualFold(FieldSubscriptionAction, v))
+}
+
+// SubscriptionActionContainsFold applies the ContainsFold predicate on the "subscription_action" field.
+func SubscriptionActionContainsFold(v string) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldContainsFold(FieldSubscriptionAction, v))
 }
 
 // PlanIDEQ applies the EQ predicate on the "plan_id" field.

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/stretchr/testify/require"
 )
 
@@ -140,4 +141,57 @@ func TestAssignSubscriptionDoesNotReactivateRowSuspendedAfterStaleRead(t *testin
 	require.Equal(t, SubscriptionStatusSuspended, sub.Status)
 	require.Equal(t, current.ExpiresAt, sub.ExpiresAt)
 	require.Equal(t, current.Notes, sub.Notes)
+}
+
+func TestRestartExistingSubscriptionTermReplacesTimeAndUsage(t *testing.T) {
+	now := time.Date(2026, 8, 16, 12, 34, 56, 0, time.UTC)
+	dailyWindow := now.Add(-12 * time.Hour)
+	weeklyWindow := now.AddDate(0, 0, -3)
+	monthlyWindow := now.AddDate(0, 0, -12)
+	current := UserSubscription{
+		ID: 37, UserID: 41, GroupID: 43,
+		StartsAt: now.AddDate(0, 0, -5), ExpiresAt: now.AddDate(0, 0, 25),
+		Status: SubscriptionStatusActive, Notes: "existing note",
+		DailyWindowStart: &dailyWindow, WeeklyWindowStart: &weeklyWindow, MonthlyWindowStart: &monthlyWindow,
+		DailyUsageUSD: 7.5, WeeklyUsageUSD: 18.25, MonthlyUsageUSD: 42,
+	}
+	repo := &lockingRenewalRepo{stale: current, current: current}
+	svc := NewSubscriptionService(&subscriptionGroupRepoStub{group: &Group{ID: 43, SubscriptionType: SubscriptionTypeSubscription}}, repo, nil, nil, nil)
+	svc.now = func() time.Time { return now }
+
+	restarted, err := svc.restartExistingSubscriptionTerm(context.Background(), current.ID, 30, "payment order 99")
+
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.lockReads)
+	require.Equal(t, now, restarted.StartsAt)
+	require.Equal(t, now.AddDate(0, 0, 30), restarted.ExpiresAt)
+	require.Equal(t, SubscriptionStatusActive, restarted.Status)
+	require.Equal(t, timezone.StartOfDay(now), *restarted.DailyWindowStart)
+	require.Equal(t, now, *restarted.WeeklyWindowStart)
+	require.Equal(t, now, *restarted.MonthlyWindowStart)
+	require.Zero(t, restarted.DailyUsageUSD)
+	require.Zero(t, restarted.WeeklyUsageUSD)
+	require.Zero(t, restarted.MonthlyUsageUSD)
+	require.Equal(t, "existing note\npayment order 99", restarted.Notes)
+}
+
+func TestRestartExistingSubscriptionTermDoesNotReactivateSuspendedSubscription(t *testing.T) {
+	now := time.Date(2026, 8, 16, 12, 34, 56, 0, time.UTC)
+	windowStart := now.Add(-12 * time.Hour)
+	current := UserSubscription{
+		ID: 47, UserID: 51, GroupID: 53,
+		StartsAt: now.AddDate(0, 0, -5), ExpiresAt: now.AddDate(0, 0, 25),
+		Status: SubscriptionStatusSuspended, Notes: "suspended by admin",
+		DailyWindowStart: &windowStart, DailyUsageUSD: 7.5,
+	}
+	repo := &lockingRenewalRepo{stale: current, current: current}
+	svc := NewSubscriptionService(&subscriptionGroupRepoStub{group: &Group{ID: 53, SubscriptionType: SubscriptionTypeSubscription}}, repo, nil, nil, nil)
+	svc.now = func() time.Time { return now }
+
+	restarted, err := svc.restartExistingSubscriptionTerm(context.Background(), current.ID, 30, "payment order 109")
+
+	require.ErrorIs(t, err, ErrSubscriptionSuspended)
+	require.Nil(t, restarted)
+	require.Equal(t, 1, repo.lockReads)
+	require.Equal(t, current, repo.current)
 }

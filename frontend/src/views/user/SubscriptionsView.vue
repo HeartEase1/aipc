@@ -57,7 +57,7 @@
                 </div>
               </div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center justify-end gap-2">
               <span
                 :class="[
                   'rounded-full px-2 py-0.5 text-xs font-medium',
@@ -73,9 +73,16 @@
               <button
                 v-if="subscription.status === 'active'"
                 :class="['rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors', platformButtonClass(subscription.group?.platform || '')]"
-                @click="router.push({ path: '/purchase', query: { tab: 'subscription', group: String(subscription.group_id) } })"
+                @click="openSubscriptionPurchase(subscription, 'extend')"
               >
                 {{ t('payment.renewNow') }}
+              </button>
+              <button
+                v-if="subscription.status === 'active' && subscriptionCanRestart(subscription)"
+                class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:border-amber-400 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/50"
+                @click="openSubscriptionPurchase(subscription, 'restart')"
+              >
+                {{ t('payment.restartNow') }}
               </button>
             </div>
           </div>
@@ -254,6 +261,7 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
+import type { SubscriptionAction } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
@@ -282,6 +290,23 @@ const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
+
+function subscriptionCanRestart(subscription: UserSubscription): boolean {
+  return (subscription.group?.daily_limit_usd ?? 0) > 0
+    || (subscription.group?.weekly_limit_usd ?? 0) > 0
+    || (subscription.group?.monthly_limit_usd ?? 0) > 0
+}
+
+function openSubscriptionPurchase(subscription: UserSubscription, action: SubscriptionAction) {
+  router.push({
+    path: '/purchase',
+    query: {
+      tab: 'subscription',
+      group: String(subscription.group_id),
+      action,
+    },
+  })
+}
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
   return hasPeakRate(subscription.group)

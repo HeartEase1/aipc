@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -828,6 +829,67 @@ func TestExecuteSubscriptionFulfillmentRecoversCommittedAssignmentWithoutExtendi
 		Count(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, assignmentAuditCount)
+}
+
+func TestExecuteSubscriptionFulfillmentRestartReplacesCurrentTermExactlyOnce(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	staleAt := time.Now().Add(-paymentFulfillmentLeaseDuration - time.Minute)
+	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusRecharging, staleAt)
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetSubscriptionAction(payment.SubscriptionActionRestart).
+		SetUpdatedAt(staleAt).
+		Save(ctx)
+	require.NoError(t, err)
+
+	restartAt := time.Date(2026, 8, 16, 9, 45, 0, 0, time.UTC)
+	oldDailyWindow := restartAt.Add(-8 * time.Hour)
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID: 199, UserID: order.UserID, GroupID: *order.SubscriptionGroupID,
+		StartsAt: restartAt.AddDate(0, 0, -10), ExpiresAt: restartAt.AddDate(0, 0, 20),
+		Status: SubscriptionStatusActive, Notes: "customer note",
+		DailyWindowStart: &oldDailyWindow, DailyUsageUSD: 8,
+		WeeklyWindowStart: &oldDailyWindow, WeeklyUsageUSD: 19,
+		MonthlyWindowStart: &oldDailyWindow, MonthlyUsageUSD: 31,
+	})
+	dailyLimit := 10.0
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{
+			ID: *order.SubscriptionGroupID, Status: payment.EntityStatusActive,
+			SubscriptionType: SubscriptionTypeSubscription, DailyLimitUSD: &dailyLimit,
+		},
+	}
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	subscriptionSvc.now = func() time.Time { return restartAt }
+	svc := &PaymentService{entClient: client, groupRepo: groupRepo, subscriptionSvc: subscriptionSvc}
+
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, order.ID))
+	restarted, err := subRepo.GetByUserIDAndGroupID(ctx, order.UserID, *order.SubscriptionGroupID)
+	require.NoError(t, err)
+	require.Equal(t, restartAt, restarted.StartsAt)
+	require.Equal(t, restartAt.AddDate(0, 0, *order.SubscriptionDays), restarted.ExpiresAt)
+	require.Equal(t, timezone.StartOfDay(restartAt), *restarted.DailyWindowStart)
+	require.Equal(t, restartAt, *restarted.WeeklyWindowStart)
+	require.Equal(t, restartAt, *restarted.MonthlyWindowStart)
+	require.Zero(t, restarted.DailyUsageUSD)
+	require.Zero(t, restarted.WeeklyUsageUSD)
+	require.Zero(t, restarted.MonthlyUsageUSD)
+
+	firstStartsAt := restarted.StartsAt
+	firstExpiresAt := restarted.ExpiresAt
+	_, err = client.PaymentOrder.UpdateOneID(order.ID).
+		SetStatus(OrderStatusRecharging).
+		SetUpdatedAt(staleAt).
+		ClearCompletedAt().
+		Save(ctx)
+	require.NoError(t, err)
+	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, order.ID))
+	replayed, err := subRepo.GetByUserIDAndGroupID(ctx, order.UserID, *order.SubscriptionGroupID)
+	require.NoError(t, err)
+	require.Equal(t, firstStartsAt, replayed.StartsAt)
+	require.Equal(t, firstExpiresAt, replayed.ExpiresAt)
 }
 
 func TestHasPaymentSubscriptionOrderNoteRequiresIndependentExactLine(t *testing.T) {

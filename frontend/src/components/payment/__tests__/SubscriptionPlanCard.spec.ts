@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createPinia } from "pinia";
 import { createI18n } from "vue-i18n";
 import type { SubscriptionPlan } from "@/types/payment";
+import type { UserSubscription } from "@/types";
 import SubscriptionPlanCard from "../SubscriptionPlanCard.vue";
 
 const i18n = createI18n({
@@ -29,7 +30,11 @@ const i18n = createI18n({
   },
 });
 
-const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPlan> = {}) =>
+const mountPlanCard = (
+  groupPlatform: string,
+  overrides: Partial<SubscriptionPlan> = {},
+  activeSubscriptions: UserSubscription[] = [],
+) =>
   mount(SubscriptionPlanCard, {
     props: {
       plan: {
@@ -47,6 +52,7 @@ const mountPlanCard = (groupPlatform: string, overrides: Partial<SubscriptionPla
         is_active: true,
         ...overrides,
       },
+      activeSubscriptions,
     },
     global: { plugins: [i18n, createPinia()] },
   });
@@ -147,5 +153,36 @@ describe("SubscriptionPlanCard", () => {
       "justify-end",
     ]));
     expect(badge?.element.parentElement?.textContent).toContain("/ 30payment.days");
+  });
+
+  it("offers immediate reset next to renewal only for active quota-limited plans", async () => {
+    const activeSubscription = {
+      id: 20,
+      user_id: 30,
+      group_id: 10,
+      status: "active",
+      starts_at: "2026-08-01T00:00:00Z",
+      expires_at: "2026-09-01T00:00:00Z",
+      daily_usage_usd: 3,
+      weekly_usage_usd: 4,
+      monthly_usage_usd: 5,
+      daily_window_start: null,
+      weekly_window_start: null,
+      monthly_window_start: null,
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    } satisfies UserSubscription;
+    const wrapper = mountPlanCard("openai", { daily_limit_usd: 10 }, [activeSubscription]);
+    const buttons = wrapper.findAll("button");
+
+    expect(buttons).toHaveLength(2);
+    expect(buttons.map(button => button.text())).toEqual(["payment.renewNow", "payment.restartNow"]);
+
+    await buttons[1].trigger("click");
+    expect(wrapper.emitted("select")?.[0]).toEqual([expect.objectContaining({ id: 1 }), "restart"]);
+
+    const unlimited = mountPlanCard("openai", {}, [activeSubscription]);
+    expect(unlimited.findAll("button")).toHaveLength(1);
+    expect(unlimited.get("button").text()).toBe("payment.renewNow");
   });
 });

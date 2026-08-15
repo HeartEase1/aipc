@@ -23,6 +23,8 @@ export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' 
 
 export type OrderType = 'balance' | 'subscription'
 
+export type SubscriptionAction = 'extend' | 'restart'
+
 // ==================== Configuration ====================
 
 export interface PaymentConfig {
@@ -93,6 +95,7 @@ export interface PaymentOrder {
   out_trade_no: string
   status: OrderStatus
   order_type: OrderType
+  subscription_action?: SubscriptionAction
   created_at: string
   expires_at: string
   paid_at?: string
@@ -171,6 +174,7 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+  subscription_action?: SubscriptionAction
   return_url?: string
   payment_source?: string
   openid?: string

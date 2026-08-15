@@ -169,6 +169,20 @@ func (_c *PaymentOrderCreate) SetNillableOrderType(v *string) *PaymentOrderCreat
 	return _c
 }
 
+// SetSubscriptionAction sets the "subscription_action" field.
+func (_c *PaymentOrderCreate) SetSubscriptionAction(v string) *PaymentOrderCreate {
+	_c.mutation.SetSubscriptionAction(v)
+	return _c
+}
+
+// SetNillableSubscriptionAction sets the "subscription_action" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableSubscriptionAction(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetSubscriptionAction(*v)
+	}
+	return _c
+}
+
 // SetPlanID sets the "plan_id" field.
 func (_c *PaymentOrderCreate) SetPlanID(v int64) *PaymentOrderCreate {
 	_c.mutation.SetPlanID(v)
@@ -525,6 +539,10 @@ func (_c *PaymentOrderCreate) defaults() {
 		v := paymentorder.DefaultOrderType
 		_c.mutation.SetOrderType(v)
 	}
+	if _, ok := _c.mutation.SubscriptionAction(); !ok {
+		v := paymentorder.DefaultSubscriptionAction
+		_c.mutation.SetSubscriptionAction(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := paymentorder.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -615,6 +633,14 @@ func (_c *PaymentOrderCreate) check() error {
 	if v, ok := _c.mutation.OrderType(); ok {
 		if err := paymentorder.OrderTypeValidator(v); err != nil {
 			return &ValidationError{Name: "order_type", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.order_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.SubscriptionAction(); !ok {
+		return &ValidationError{Name: "subscription_action", err: errors.New(`ent: missing required field "PaymentOrder.subscription_action"`)}
+	}
+	if v, ok := _c.mutation.SubscriptionAction(); ok {
+		if err := paymentorder.SubscriptionActionValidator(v); err != nil {
+			return &ValidationError{Name: "subscription_action", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.subscription_action": %w`, err)}
 		}
 	}
 	if v, ok := _c.mutation.ProviderInstanceID(); ok {
@@ -756,6 +782,10 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.OrderType(); ok {
 		_spec.SetField(paymentorder.FieldOrderType, field.TypeString, value)
 		_node.OrderType = value
+	}
+	if value, ok := _c.mutation.SubscriptionAction(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionAction, field.TypeString, value)
+		_node.SubscriptionAction = value
 	}
 	if value, ok := _c.mutation.PlanID(); ok {
 		_spec.SetField(paymentorder.FieldPlanID, field.TypeInt64, value)
@@ -1141,6 +1171,18 @@ func (u *PaymentOrderUpsert) SetOrderType(v string) *PaymentOrderUpsert {
 // UpdateOrderType sets the "order_type" field to the value that was provided on create.
 func (u *PaymentOrderUpsert) UpdateOrderType() *PaymentOrderUpsert {
 	u.SetExcluded(paymentorder.FieldOrderType)
+	return u
+}
+
+// SetSubscriptionAction sets the "subscription_action" field.
+func (u *PaymentOrderUpsert) SetSubscriptionAction(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldSubscriptionAction, v)
+	return u
+}
+
+// UpdateSubscriptionAction sets the "subscription_action" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateSubscriptionAction() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldSubscriptionAction)
 	return u
 }
 
@@ -1841,6 +1883,20 @@ func (u *PaymentOrderUpsertOne) SetOrderType(v string) *PaymentOrderUpsertOne {
 func (u *PaymentOrderUpsertOne) UpdateOrderType() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.UpdateOrderType()
+	})
+}
+
+// SetSubscriptionAction sets the "subscription_action" field.
+func (u *PaymentOrderUpsertOne) SetSubscriptionAction(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSubscriptionAction(v)
+	})
+}
+
+// UpdateSubscriptionAction sets the "subscription_action" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateSubscriptionAction() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSubscriptionAction()
 	})
 }
 
@@ -2773,6 +2829,20 @@ func (u *PaymentOrderUpsertBulk) SetOrderType(v string) *PaymentOrderUpsertBulk 
 func (u *PaymentOrderUpsertBulk) UpdateOrderType() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.UpdateOrderType()
+	})
+}
+
+// SetSubscriptionAction sets the "subscription_action" field.
+func (u *PaymentOrderUpsertBulk) SetSubscriptionAction(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSubscriptionAction(v)
+	})
+}
+
+// UpdateSubscriptionAction sets the "subscription_action" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateSubscriptionAction() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSubscriptionAction()
 	})
 }
 
