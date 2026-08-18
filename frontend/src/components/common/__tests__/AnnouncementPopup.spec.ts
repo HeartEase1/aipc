@@ -156,7 +156,13 @@ describe('AnnouncementPopup', () => {
     expect(document.body.textContent).toContain('+$0.50')
     expect(document.body.textContent).toContain('benefits.calculation.actualAmount')
     expect(document.body.textContent).toContain('benefits.calculation.window')
+    expect(document.body.textContent).toContain('service incident')
+    expect(document.body.querySelector('[data-testid="benefit-grant-reason"]')).not.toBeNull()
     expect(document.body.querySelector('[data-testid="benefit-calculation-details"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="announcement-popup-panel"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="announcement-popup-body"]')?.classList).toContain(
+      'overflow-y-auto',
+    )
     expect(document.body.querySelector('.markdown-body script')).toBeNull()
 
     document.body.querySelector<HTMLButtonElement>('[data-testid="announcement-popup-dismiss"]')?.click()
@@ -188,6 +194,23 @@ describe('AnnouncementPopup', () => {
     })
 
     expect(document.body.querySelector('[data-testid="benefit-calculation-details"]')).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('does not duplicate a benefit reason already rendered by the notification template', () => {
+    const benefitWithRenderedReason: UserBenefitGrant = {
+      ...percentageBenefit,
+      content: `Reason: ${percentageBenefit.reason}`,
+    }
+    const wrapper = mount(AnnouncementPopup, {
+      props: {
+        announcement: benefitWithRenderedReason,
+        benefitDetails: benefitWithRenderedReason,
+      },
+    })
+
+    expect(document.body.querySelector('[data-testid="benefit-grant-reason"]')).toBeNull()
+    expect(document.body.textContent?.match(/service incident/g)).toHaveLength(1)
     wrapper.unmount()
   })
 

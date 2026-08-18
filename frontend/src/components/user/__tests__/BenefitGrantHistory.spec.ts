@@ -98,6 +98,9 @@ describe('BenefitGrantHistory', () => {
     expect(activities).toHaveLength(2)
     expect(activities[0].text()).toContain('redeem.balanceAddedRedeem')
     expect(activities[1].text()).toContain('Compensation received')
+    expect(wrapper.get('[data-activity-kind="compensation"]').classes()).toContain('border-l-4')
+    expect(wrapper.get('[data-activity-kind="compensation"]').classes()).toContain('bg-amber-50/45')
+    expect(wrapper.get('[data-activity-kind="standard"]').classes()).not.toContain('border-l-4')
 
     await wrapper.get('[data-test="next"]').trigger('click')
     await flushPromises()

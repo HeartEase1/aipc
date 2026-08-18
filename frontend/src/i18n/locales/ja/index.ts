@@ -115,6 +115,7 @@ export default {
     loadFailed: '入金履歴を読み込めませんでした。もう一度お試しください。',
     unread: '未読',
     popupBadge: '残高入金',
+    grantReason: '付与理由',
     balanceAfter: '付与後の残高：${amount}',
     acknowledge: '確認しました',
     calculation: {

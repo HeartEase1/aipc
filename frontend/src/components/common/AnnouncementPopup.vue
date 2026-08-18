@@ -6,7 +6,8 @@
         class="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-black/70 via-black/60 to-black/70 p-4 backdrop-blur-md sm:items-start sm:pt-[8vh]"
       >
         <div
-          class="flex max-h-[calc(100vh-2rem)] w-full max-w-[680px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
+          data-testid="announcement-popup-panel"
+          class="announcement-popup-panel flex w-full max-w-[680px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
           @click.stop
         >
           <!-- Header with warm gradient -->
@@ -49,10 +50,25 @@
           </div>
 
           <!-- Body -->
-          <div class="min-h-0 flex-1 overflow-y-auto bg-white px-8 py-8 dark:bg-dark-800">
+          <div
+            data-testid="announcement-popup-body"
+            class="announcement-popup-body min-h-0 flex-1 overflow-y-auto bg-white px-8 py-8 dark:bg-dark-800"
+          >
             <div class="relative">
               <div class="absolute left-0 top-0 bottom-0 w-1 rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-yellow-500"></div>
               <div class="pl-6">
+                <div
+                  v-if="showBenefitReasonBlock"
+                  data-testid="benefit-grant-reason"
+                  class="mb-6 border-l-4 border-amber-300 bg-amber-50/70 px-4 py-3 dark:border-amber-700 dark:bg-amber-900/15"
+                >
+                  <p class="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                    {{ t('benefits.grantReason') }}
+                  </p>
+                  <p class="mt-1 break-words text-sm text-gray-700 dark:text-gray-200">
+                    {{ displayedBenefitReason }}
+                  </p>
+                </div>
                 <BenefitGrantCalculationDetails
                   v-if="benefitDetails"
                   :grant="benefitDetails"
@@ -129,6 +145,15 @@ const announcementStore = useAnnouncementStore()
 const displayedAnnouncement = computed(() => (
   props.announcement || announcementStore.currentPopup
 ))
+const displayedBenefitReason = computed(() => props.benefitDetails?.reason?.trim() || '')
+const showBenefitReasonBlock = computed(() => {
+  const reason = displayedBenefitReason.value
+  if (!reason) return false
+
+  // Legacy/default templates may already render the reason in the Markdown body.
+  // Keep it visible exactly once while still guaranteeing it for custom templates.
+  return !String(displayedAnnouncement.value?.content || '').includes(reason)
+})
 
 marked.setOptions({
   breaks: true,
@@ -194,21 +219,38 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
+.announcement-popup-panel {
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+}
+
+@media (min-width: 640px) {
+  .announcement-popup-panel {
+    max-height: calc(92vh - 1rem);
+    max-height: calc(92dvh - 1rem);
+  }
+}
+
+.announcement-popup-body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Scrollbar Styling */
-.overflow-y-auto::-webkit-scrollbar {
+.announcement-popup-body::-webkit-scrollbar {
   width: 8px;
 }
 
-.overflow-y-auto::-webkit-scrollbar-track {
+.announcement-popup-body::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.overflow-y-auto::-webkit-scrollbar-thumb {
+.announcement-popup-body::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #cbd5e1, #94a3b8);
   border-radius: 4px;
 }
 
-.dark .overflow-y-auto::-webkit-scrollbar-thumb {
+.dark .announcement-popup-body::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #4b5563, #374151);
 }
 </style>

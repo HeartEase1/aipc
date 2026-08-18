@@ -9,6 +9,7 @@ export default {
     loadFailed: '到账记录加载失败，请稍后重试。',
     unread: '未读',
     popupBadge: '余额到账',
+    grantReason: '发放原因',
     balanceAfter: '到账后余额：${amount}',
     acknowledge: '知道了',
     calculation: {

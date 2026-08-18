@@ -81,7 +81,20 @@ function mountView() {
         StatusBadge: true,
         Pagination: true,
         BaseDialog: { props: ['show'], template: '<section v-if="show"><slot /><slot name="footer" /></section>' },
-        AnnouncementPopup: true,
+        AnnouncementPopup: {
+          props: ['announcement', 'benefitDetails', 'badgeLabel', 'acknowledgeLabel'],
+          template: `
+            <div
+              data-test="notification-preview"
+              :data-grant-mode="benefitDetails && benefitDetails.grant_mode"
+              :data-base-cost="benefitDetails && benefitDetails.base_cost"
+              :data-amount="benefitDetails && benefitDetails.amount"
+              :data-window-start="benefitDetails && benefitDetails.window_start"
+            >
+              {{ badgeLabel }} {{ acknowledgeLabel }}
+            </div>
+          `
+        },
         TotpStepUpDialog: true
       }
     }
@@ -164,6 +177,46 @@ describe('BenefitGrantsView', () => {
       subscription_percentage: '7.5',
       percentage: '10'
     }))
+  })
+
+  it('previews the current benefit popup variant with representative calculation details', async () => {
+    const wrapper = mountView()
+    await buttonByText(wrapper, 'admin.benefitGrants.modes.percentage_24h').trigger('click')
+    await wrapper.get('input[placeholder="10"]').setValue('12.5')
+    await wrapper.get('[data-testid="include-subscription"]').setValue(true)
+    await wrapper.get('[data-testid="subscription-percentage"]').setValue('7.5')
+    await buttonByText(wrapper, 'admin.benefitGrants.previewNotification').trigger('click')
+    await flushPromises()
+
+    const popup = wrapper.get('[data-test="notification-preview"]')
+    expect(popup.attributes('data-grant-mode')).toBe('percentage_24h')
+    expect(popup.attributes('data-base-cost')).toBe('200.00000000')
+    expect(popup.attributes('data-amount')).toBe('20.00000000')
+    expect(popup.attributes('data-window-start')).toBeTruthy()
+    expect(popup.text()).toContain('benefits.popupBadge')
+    expect(popup.text()).toContain('benefits.acknowledge')
+  })
+
+  it('applies minimum and per-user cap to the representative popup amount', async () => {
+    const wrapper = mountView()
+    await buttonByText(wrapper, 'admin.benefitGrants.modes.percentage_24h').trigger('click')
+
+    const minimumGuard = wrapper.findAll('label').find((label) => (
+      label.text().includes('admin.benefitGrants.fields.minAmount')
+    ))
+    const capGuard = wrapper.findAll('label').find((label) => (
+      label.text().includes('admin.benefitGrants.fields.perUserCap')
+    ))
+    if (!minimumGuard || !capGuard) throw new Error('amount guard controls not found')
+
+    await minimumGuard.get('input[type="checkbox"]').setValue(true)
+    await minimumGuard.get('input[inputmode="decimal"]').setValue('30')
+    await capGuard.get('input[type="checkbox"]').setValue(true)
+    await capGuard.get('input[inputmode="decimal"]').setValue('25')
+    await buttonByText(wrapper, 'admin.benefitGrants.previewNotification').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="notification-preview"]').attributes('data-amount')).toBe('25.00000000')
   })
 
   it('converts a custom local window to locked ISO timestamps', async () => {

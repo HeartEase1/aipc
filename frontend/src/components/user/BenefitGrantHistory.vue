@@ -44,39 +44,58 @@
         <article
           v-for="activity in activities"
           :key="activity.key"
-          class="px-5 py-5 sm:px-6"
+          data-testid="account-activity-item"
+          :data-activity-kind="activity.benefit ? activity.benefit.grant_type : 'standard'"
+          class="px-5 py-5 transition-colors sm:px-6"
+          :class="
+            activity.benefit
+              ? benefitActivityClass(activity.benefit.grant_type)
+              : 'bg-white hover:bg-gray-50/70 dark:bg-dark-800 dark:hover:bg-dark-700/30'
+          "
         >
           <template v-if="activity.benefit">
             <div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span
-                    class="rounded-md px-2 py-1 text-xs font-medium"
-                    :class="
-                      activity.benefit.grant_type === 'welfare'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                    "
-                  >
-                    {{ t(`benefits.types.${activity.benefit.grant_type}`) }}
-                  </span>
-                  <span
-                    v-if="!activity.benefit.read_at"
-                    class="h-2 w-2 rounded-full bg-primary-500"
-                    :title="t('benefits.unread')"
-                  ></span>
-                  <time class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ formatDateTime(activity.benefit.created_at) }}
-                  </time>
+              <div class="flex min-w-0 items-start gap-4">
+                <div
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset"
+                  :class="
+                    activity.benefit.grant_type === 'welfare'
+                      ? 'bg-emerald-100 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-800'
+                      : 'bg-amber-100 text-amber-700 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:ring-amber-800'
+                  "
+                >
+                  <Icon name="gift" size="md" />
                 </div>
-                <h3 class="mt-2 font-medium text-gray-900 dark:text-white">
-                  {{ activity.benefit.title }}
-                </h3>
-                <p class="mt-1 break-words text-sm text-gray-600 dark:text-gray-400">
-                  {{ activity.benefit.reason }}
-                </p>
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      class="rounded-md px-2 py-1 text-xs font-medium"
+                      :class="
+                        activity.benefit.grant_type === 'welfare'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      "
+                    >
+                      {{ t(`benefits.types.${activity.benefit.grant_type}`) }}
+                    </span>
+                    <span
+                      v-if="!activity.benefit.read_at"
+                      class="h-2 w-2 rounded-full bg-primary-500"
+                      :title="t('benefits.unread')"
+                    ></span>
+                    <time class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ formatDateTime(activity.benefit.created_at) }}
+                    </time>
+                  </div>
+                  <h3 class="mt-2 font-medium text-gray-900 dark:text-white">
+                    {{ activity.benefit.title }}
+                  </h3>
+                  <p class="mt-1 break-words text-sm text-gray-600 dark:text-gray-400">
+                    {{ activity.benefit.reason }}
+                  </p>
+                </div>
               </div>
-              <div class="sm:text-right">
+              <div class="pl-14 sm:pl-0 sm:text-right">
                 <p class="text-xl font-semibold text-emerald-600 dark:text-emerald-400">
                   +${{ formatGrantAmount(activity.benefit.amount) }}
                 </p>
@@ -90,7 +109,7 @@
               </div>
             </div>
 
-            <BenefitGrantCalculationDetails :grant="activity.benefit" class="mt-4" />
+            <BenefitGrantCalculationDetails :grant="activity.benefit" class="mt-4 sm:ml-14" />
           </template>
 
           <template v-else-if="activity.redeem">
@@ -260,6 +279,18 @@ const activities = computed<ActivityEntry[]>(() => {
 
 function formatGrantAmount(value: string): string {
   return value.replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
+}
+
+function benefitActivityClass(grantType: UserBenefitGrant['grant_type']): string[] {
+  return grantType === 'welfare'
+    ? [
+        'border-l-4 border-l-emerald-400 bg-emerald-50/45 hover:bg-emerald-50/70',
+        'dark:border-l-emerald-500 dark:bg-emerald-950/10 dark:hover:bg-emerald-950/20',
+      ]
+    : [
+        'border-l-4 border-l-amber-400 bg-amber-50/45 hover:bg-amber-50/70',
+        'dark:border-l-amber-500 dark:bg-amber-950/10 dark:hover:bg-amber-950/20',
+      ]
 }
 
 function isBalanceType(type: string): boolean {

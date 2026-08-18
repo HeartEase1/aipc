@@ -9,6 +9,7 @@ export default {
     loadFailed: 'Failed to load grant history. Please try again.',
     unread: 'Unread',
     popupBadge: 'Balance received',
+    grantReason: 'Grant reason',
     balanceAfter: 'Balance after grant: ${amount}',
     acknowledge: 'Got it',
     calculation: {

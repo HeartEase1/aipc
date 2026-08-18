@@ -328,7 +328,15 @@
         </template>
       </BaseDialog>
 
-      <AnnouncementPopup v-if="showNotificationPreview" :announcement="notificationPreview" preview @close="showNotificationPreview = false" />
+      <AnnouncementPopup
+        v-if="showNotificationPreview"
+        :announcement="notificationPreviewModel.announcement"
+        :benefit-details="notificationPreviewModel.benefit"
+        :badge-label="t('benefits.popupBadge')"
+        :acknowledge-label="t('benefits.acknowledge')"
+        preview
+        @close="showNotificationPreview = false"
+      />
       <TotpStepUpDialog :controller="stepUp" />
     </div>
   </AppLayout>
@@ -350,6 +358,7 @@ import Icon from '@/components/icons/Icon.vue'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import { adminAPI } from '@/api/admin'
 import type { BenefitGrantBatch, BenefitGrantBatchDetail, BenefitGrantMode, BenefitGrantPercentagePeriod, BenefitGrantPreviewRequest, BenefitGrantType } from '@/api/admin/benefitGrants'
+import type { UserBenefitGrant } from '@/api/benefitGrants'
 import type { AdminUser } from '@/types'
 import { useAppStore } from '@/stores'
 import { isStepUpCancelled, useStepUp } from '@/composables/useStepUp'
@@ -432,24 +441,123 @@ const customWindowValid = computed(() => form.percentage_period !== 'custom' || 
 const canPreview = computed(() => form.reason && form.notification_title && form.notification_content &&
   (form.audience_type === 'all' || (selectedRecipientIDs.value.length > 0 && selectedRecipientIDs.value.length <= 500 && !platformIDParse.value.invalid.length)) &&
   (form.grant_mode === 'fixed' ? form.fixed_amount : form.percentage && (!form.include_subscription || form.subscription_percentage) && customWindowValid.value))
-const notificationPreview = computed(() => {
-  const amount = form.grant_mode === 'fixed' && form.fixed_amount ? form.fixed_amount : '10.00000000'
+const notificationPreviewModel = computed(() => {
+  const createdAt = new Date()
+  const isPercentage = form.grant_mode === 'percentage_24h'
+  const includesSubscription = isPercentage && form.include_subscription === true
+  const percentage = normalizePreviewDecimal(form.percentage || '10')
+  const subscriptionPercentage = normalizePreviewDecimal(form.subscription_percentage || '5')
+  const balanceBaseCost = isPercentage ? '100.00000000' : '0.00000000'
+  const subscriptionBaseCost = includesSubscription
+    ? '100.00000000'
+    : '0.00000000'
+  const baseCost = addPreviewDecimals(balanceBaseCost, subscriptionBaseCost)
+  const balanceAmount = isPercentage
+    ? percentage
+    : normalizePreviewDecimal(form.fixed_amount || '10')
+  const subscriptionAmount = includesSubscription
+    ? subscriptionPercentage
+    : '0.00000000'
+  const rawAmount = addPreviewDecimals(balanceAmount, subscriptionAmount)
+  const amount = applyPreviewAmountGuards(rawAmount, isPercentage)
+  const balanceAfter = addPreviewDecimals('100.00000000', amount)
+  const window = isPercentage ? resolveNotificationPreviewWindow(createdAt) : {}
+  const reason = form.reason || t('admin.benefitGrants.defaults.previewReason')
   const values: Record<string, string> = {
     '{{amount}}': amount,
-    '{{reason}}': form.reason || t('admin.benefitGrants.defaults.previewReason'),
-    '{{balance}}': '100.00000000',
+    '{{reason}}': reason,
+    '{{balance}}': balanceAfter,
     '{{site_name}}': appStore.siteName
   }
   const render = (template: string) => Object.entries(values).reduce(
     (result, [key, value]) => result.split(key).join(value),
     template
   )
-  return {
+  const announcement = {
     title: render(form.notification_title),
     content: render(form.notification_content),
-    created_at: new Date().toISOString()
+    created_at: createdAt.toISOString()
+  }
+  const benefit: UserBenefitGrant = {
+    id: 0,
+    batch_id: 0,
+    grant_type: form.grant_type,
+    grant_mode: form.grant_mode,
+    base_cost: baseCost,
+    balance_base_cost: balanceBaseCost,
+    subscription_base_cost: subscriptionBaseCost,
+    percentage: isPercentage ? percentage : undefined,
+    include_subscription: includesSubscription,
+    subscription_percentage: includesSubscription
+      ? subscriptionPercentage
+      : undefined,
+    amount,
+    balance_after: balanceAfter,
+    reason,
+    title: announcement.title,
+    content: announcement.content,
+    window_start: window.start,
+    window_end: window.end,
+    created_at: announcement.created_at
+  }
+  return {
+    announcement,
+    benefit
   }
 })
+
+function normalizePreviewDecimal(value: string): string {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed.toFixed(8) : '0.00000000'
+}
+
+function addPreviewDecimals(...values: string[]): string {
+  const total = values.reduce((sum, value) => sum + Number(value), 0)
+  return normalizePreviewDecimal(String(total))
+}
+
+function applyPreviewAmountGuards(rawAmount: string, isPercentage: boolean): string {
+  let amount = Number(rawAmount)
+  if (!Number.isFinite(amount)) amount = 0
+
+  if (isPercentage && guards.min) {
+    const minimum = parsePreviewGuard(form.min_amount)
+    if (minimum !== null) amount = Math.max(amount, minimum)
+  }
+
+  if (guards.cap) {
+    const cap = parsePreviewGuard(form.per_user_cap)
+    if (cap !== null) amount = Math.min(amount, cap)
+  }
+
+  return normalizePreviewDecimal(String(amount))
+}
+
+function parsePreviewGuard(value?: string): number | null {
+  const normalized = value?.trim()
+  if (!normalized) return null
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function resolveNotificationPreviewWindow(now: Date): { start?: string; end?: string } {
+  if (form.percentage_period === 'custom' && customWindowValid.value) {
+    return {
+      start: new Date(customWindowStart.value).toISOString(),
+      end: new Date(customWindowEnd.value).toISOString()
+    }
+  }
+
+  const durationHours = form.percentage_period === '72h'
+    ? 72
+    : form.percentage_period === '30d'
+      ? 30 * 24
+      : 24
+  return {
+    start: new Date(now.getTime() - durationHours * 60 * 60 * 1000).toISOString(),
+    end: now.toISOString()
+  }
+}
 
 const GuardInput = defineComponent({
   props: { enabled: Boolean, value: { type: String, default: '' }, label: { type: String, required: true }, disabled: Boolean },
