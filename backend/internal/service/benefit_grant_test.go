@@ -412,10 +412,14 @@ func TestListAndReadUserGrantsAreScopedToAuthenticatedUser(t *testing.T) {
 		WithArgs(int64(42), 20, 0).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "batch_id", "grant_type", "amount", "balance_after", "reason",
-			"title", "content", "read_at", "created_at",
+			"title", "content", "read_at", "created_at", "grant_mode", "base_cost",
+			"balance_base_cost", "subscription_base_cost", "percentage", "include_subscription",
+			"subscription_percentage", "window_start", "window_end",
 		}).AddRow(
 			8, 7, BenefitGrantTypeWelfare, "1.50000000", "11.50000000", "welcome",
 			"{{site_name}} grant", "{{amount}} / {{balance}} / {{reason}}", nil, createdAt,
+			BenefitGrantModePercentage24h, "3.00000000", "2.00000000", "1.00000000",
+			"50.00000000", true, "25.00000000", createdAt.Add(-24*time.Hour), createdAt,
 		))
 	mock.ExpectExec(`UPDATE benefit_grant_items`).WithArgs(int64(8), int64(42)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
@@ -426,6 +430,11 @@ func TestListAndReadUserGrantsAreScopedToAuthenticatedUser(t *testing.T) {
 	require.Len(t, result.Items, 1)
 	require.Equal(t, "Sub2API grant", result.Items[0].Title)
 	require.Equal(t, "1.50000000 / 11.50000000 / welcome", result.Items[0].Content)
+	require.Equal(t, "3.00000000", result.Items[0].BaseCost)
+	require.Equal(t, "2.00000000", result.Items[0].BalanceBaseCost)
+	require.Equal(t, "1.00000000", result.Items[0].SubscriptionBaseCost)
+	require.Equal(t, "50.00000000", *result.Items[0].Percentage)
+	require.Equal(t, "25.00000000", *result.Items[0].SubscriptionPercentage)
 	require.NoError(t, grantService.MarkUserGrantRead(context.Background(), 42, 8))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
