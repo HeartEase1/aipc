@@ -108,12 +108,26 @@ export default {
     ...en.benefits,
     title: '入金履歴',
     description: '管理者から付与された特典と補償の履歴を確認できます。',
-    empty: '入金履歴はありません',
-    emptyHint: '特典または補償が付与されると、ここに履歴が保存されます。',
+    historyTitle: 'アカウント履歴',
+    historyDescription: 'コード交換、プラン、管理者調整、特典、補償を時系列でまとめて表示します。',
+    empty: 'アカウント履歴はありません',
+    emptyHint: 'コード交換、プラン、特典、補償の履歴がここに保存されます。',
+    loadFailed: '入金履歴を読み込めませんでした。もう一度お試しください。',
     unread: '未読',
     popupBadge: '残高入金',
     balanceAfter: '付与後の残高：${amount}',
     acknowledge: '確認しました',
+    calculation: {
+      title: '今回の補償明細',
+      balanceSpending: '残高利用分',
+      subscriptionSpending: 'プラン利用分',
+      calculatedAmount: '割合による計算額',
+      ruleAdjustment: '付与ルールによる調整',
+      actualAmount: '実際の入金額',
+      window: '利用集計期間',
+      windowStart: '開始',
+      windowEnd: '終了'
+    },
     types: { welfare: '特典', compensation: '補償' }
   },
   admin: {

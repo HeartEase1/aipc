@@ -180,6 +180,55 @@ func TestRenderBenefitGrantTemplateReplacesOnlySupportedVariables(t *testing.T) 
 	require.Equal(t, "1.25|incident|8.75|IPCAI|{{unknown}}", rendered)
 }
 
+func TestListUserGrantsIncludesPercentageCalculationSnapshot(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+
+	createdAt := time.Date(2026, 8, 18, 8, 30, 0, 0, time.UTC)
+	windowStart := createdAt.Add(-72 * time.Hour)
+	windowEnd := createdAt.Add(-time.Minute)
+	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM benefit_grant_items i`).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectQuery(`SELECT i.id, i.batch_id, b.grant_type, i.amount::text`).
+		WithArgs(int64(42), 20, 0).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "batch_id", "grant_type", "amount", "balance_after", "reason",
+			"notification_title", "notification_content", "read_at", "created_at",
+			"grant_mode", "base_cost", "balance_base_cost", "subscription_base_cost",
+			"percentage", "include_subscription", "subscription_percentage", "window_start", "window_end",
+		}).AddRow(
+			7, 11, BenefitGrantTypeCompensation, "2.50000000", "12.50000000", "service incident",
+			"{{site_name}} compensation", "Received {{amount}} for {{reason}}", nil, createdAt,
+			BenefitGrantModePercentage24h, "30.00000000", "20.00000000", "10.00000000",
+			"10.00000000", true, "5.00000000", windowStart, windowEnd,
+		))
+
+	grantService := NewBenefitGrantService(db, nil, nil, nil)
+	result, err := grantService.ListUserGrants(context.Background(), 42, 1, 20, false)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+
+	item := result.Items[0]
+	require.Equal(t, BenefitGrantModePercentage24h, item.GrantMode)
+	require.Equal(t, "30.00000000", item.BaseCost)
+	require.Equal(t, "20.00000000", item.BalanceBaseCost)
+	require.Equal(t, "10.00000000", item.SubscriptionBaseCost)
+	require.NotNil(t, item.Percentage)
+	require.Equal(t, "10.00000000", *item.Percentage)
+	require.True(t, item.IncludeSubscription)
+	require.NotNil(t, item.SubscriptionPercentage)
+	require.Equal(t, "5.00000000", *item.SubscriptionPercentage)
+	require.NotNil(t, item.WindowStart)
+	require.Equal(t, windowStart, *item.WindowStart)
+	require.NotNil(t, item.WindowEnd)
+	require.Equal(t, windowEnd, *item.WindowEnd)
+	require.Equal(t, "Sub2API compensation", item.Title)
+	require.Equal(t, "Received 2.50000000 for service incident", item.Content)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestBenefitGrantOverBudgetUsesDecimalComparison(t *testing.T) {
 	capValue := "10.00000000"
 	require.False(t, benefitGrantOverBudget(&BenefitGrantBatch{TotalAmount: "10.00000000", TotalBudgetCap: &capValue}))

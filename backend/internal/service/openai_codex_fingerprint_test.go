@@ -496,6 +496,28 @@ func rawVsMapClientMetadata(t *testing.T, body []byte, ids *codexFingerprintIDs)
 	return mapCM, rawCM
 }
 
+func normalizeCodexTurnStartedAtForComparison(t *testing.T, clientMetadata map[string]any) {
+	t.Helper()
+
+	raw, ok := clientMetadata["x-codex-turn-metadata"].(string)
+	if !ok || raw == "" {
+		return
+	}
+
+	var turnMetadata map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &turnMetadata))
+	startedAt, ok := turnMetadata["turn_started_at_unix_ms"].(float64)
+	if !ok {
+		return
+	}
+	require.Positive(t, startedAt)
+	turnMetadata["turn_started_at_unix_ms"] = float64(0)
+
+	normalized, err := json.Marshal(turnMetadata)
+	require.NoError(t, err)
+	clientMetadata["x-codex-turn-metadata"] = string(normalized)
+}
+
 func TestApplyCodexFingerprintClientMetadataRaw_MatchesMapVariant(t *testing.T) {
 	embedded := `{\"installation_id\":\"real-install\",\"session_id\":\"real-session\",\"sandbox\":\"seatbelt\"}`
 	bodies := map[string]string{
@@ -510,6 +532,8 @@ func TestApplyCodexFingerprintClientMetadataRaw_MatchesMapVariant(t *testing.T) 
 		for name, body := range bodies {
 			t.Run(string(mode)+"/"+name, func(t *testing.T) {
 				mapCM, rawCM := rawVsMapClientMetadata(t, []byte(body), ids)
+				normalizeCodexTurnStartedAtForComparison(t, mapCM)
+				normalizeCodexTurnStartedAtForComparison(t, rawCM)
 				assert.Equal(t, mapCM, rawCM, "raw 字节版与 map 版的 client_metadata 结果必须逐点一致")
 			})
 		}

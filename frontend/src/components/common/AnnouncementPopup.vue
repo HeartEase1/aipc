@@ -3,14 +3,14 @@
     <Transition name="popup-fade">
       <div
         v-if="displayedAnnouncement"
-        class="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-gradient-to-br from-black/70 via-black/60 to-black/70 p-4 pt-[8vh] backdrop-blur-md"
+        class="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-black/70 via-black/60 to-black/70 p-4 backdrop-blur-md sm:items-start sm:pt-[8vh]"
       >
         <div
-          class="w-full max-w-[680px] overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
+          class="flex max-h-[calc(100vh-2rem)] w-full max-w-[680px] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5 dark:bg-dark-800 dark:ring-white/10"
           @click.stop
         >
           <!-- Header with warm gradient -->
-          <div class="relative overflow-hidden border-b border-amber-100/80 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-yellow-50/30 px-8 py-6 dark:border-dark-700/50 dark:from-amber-900/20 dark:via-orange-900/10 dark:to-yellow-900/5">
+          <div class="relative shrink-0 overflow-hidden border-b border-amber-100/80 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-yellow-50/30 px-8 py-6 dark:border-dark-700/50 dark:from-amber-900/20 dark:via-orange-900/10 dark:to-yellow-900/5">
             <!-- Decorative background -->
             <div class="absolute right-0 top-0 h-full w-64 bg-gradient-to-l from-orange-100/30 to-transparent dark:from-orange-900/20"></div>
             <div class="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-amber-400/20 to-orange-500/20 blur-3xl"></div>
@@ -49,10 +49,15 @@
           </div>
 
           <!-- Body -->
-          <div class="max-h-[50vh] overflow-y-auto bg-white px-8 py-8 dark:bg-dark-800">
+          <div class="min-h-0 flex-1 overflow-y-auto bg-white px-8 py-8 dark:bg-dark-800">
             <div class="relative">
               <div class="absolute left-0 top-0 bottom-0 w-1 rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-yellow-500"></div>
               <div class="pl-6">
+                <BenefitGrantCalculationDetails
+                  v-if="benefitDetails"
+                  :grant="benefitDetails"
+                  class="mb-6"
+                />
                 <div
                   class="markdown-body prose prose-sm max-w-none dark:prose-invert"
                   v-html="renderedContent"
@@ -62,7 +67,7 @@
           </div>
 
           <!-- Footer -->
-          <div class="border-t border-gray-100 bg-gray-50/50 px-8 py-5 dark:border-dark-700 dark:bg-dark-900/30">
+          <div class="shrink-0 border-t border-gray-100 bg-gray-50/50 px-8 py-5 dark:border-dark-700 dark:bg-dark-900/30">
             <div class="flex items-center justify-end">
               <button
                 @click="handleDismiss"
@@ -95,6 +100,8 @@ import DOMPurify from 'dompurify'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { formatRelativeWithDateTime } from '@/utils/format'
 import type { Announcement, UserAnnouncement } from '@/types'
+import type { UserBenefitGrant } from '@/api/benefitGrants'
+import BenefitGrantCalculationDetails from '@/components/user/BenefitGrantCalculationDetails.vue'
 import '@/styles/announcement-markdown.css'
 
 type PreviewAnnouncement = Pick<Announcement | UserAnnouncement, 'title' | 'content' | 'created_at'>
@@ -104,11 +111,13 @@ const props = withDefaults(defineProps<{
   preview?: boolean
   badgeLabel?: string
   acknowledgeLabel?: string
+  benefitDetails?: UserBenefitGrant | null
 }>(), {
   announcement: null,
   preview: false,
   badgeLabel: '',
   acknowledgeLabel: '',
+  benefitDetails: null,
 })
 
 const emit = defineEmits<{

@@ -144,16 +144,25 @@ type BenefitGrantBatchList struct {
 }
 
 type UserBenefitGrant struct {
-	ID           int64      `json:"id"`
-	BatchID      int64      `json:"batch_id"`
-	GrantType    string     `json:"grant_type"`
-	Amount       string     `json:"amount"`
-	BalanceAfter string     `json:"balance_after"`
-	Reason       string     `json:"reason"`
-	Title        string     `json:"title"`
-	Content      string     `json:"content"`
-	ReadAt       *time.Time `json:"read_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
+	ID                     int64      `json:"id"`
+	BatchID                int64      `json:"batch_id"`
+	GrantType              string     `json:"grant_type"`
+	GrantMode              string     `json:"grant_mode"`
+	BaseCost               string     `json:"base_cost"`
+	BalanceBaseCost        string     `json:"balance_base_cost"`
+	SubscriptionBaseCost   string     `json:"subscription_base_cost"`
+	Percentage             *string    `json:"percentage,omitempty"`
+	IncludeSubscription    bool       `json:"include_subscription"`
+	SubscriptionPercentage *string    `json:"subscription_percentage,omitempty"`
+	Amount                 string     `json:"amount"`
+	BalanceAfter           string     `json:"balance_after"`
+	Reason                 string     `json:"reason"`
+	Title                  string     `json:"title"`
+	Content                string     `json:"content"`
+	WindowStart            *time.Time `json:"window_start,omitempty"`
+	WindowEnd              *time.Time `json:"window_end,omitempty"`
+	ReadAt                 *time.Time `json:"read_at,omitempty"`
+	CreatedAt              time.Time  `json:"created_at"`
 }
 
 type UserBenefitGrantList struct {
@@ -975,7 +984,11 @@ func (s *BenefitGrantService) ListUserGrants(ctx context.Context, userID int64, 
 SELECT i.id, i.batch_id, b.grant_type, i.amount::text,
        COALESCE(i.balance_after, 0)::text, b.reason,
        b.notification_title, b.notification_content,
-       i.read_at, COALESCE(i.processed_at, i.created_at)
+       i.read_at, COALESCE(i.processed_at, i.created_at),
+       b.grant_mode, i.base_cost::text,
+       i.balance_base_cost::text, i.subscription_base_cost::text,
+       b.percentage::text, b.include_subscription,
+       b.subscription_percentage::text, b.window_start, b.window_end
 FROM benefit_grant_items i
 JOIN benefit_grant_batches b ON b.id = i.batch_id
 `+where+`
@@ -993,13 +1006,20 @@ LIMIT $2 OFFSET $3`, userID, pageSize, (page-1)*pageSize)
 	for rows.Next() {
 		var item UserBenefitGrant
 		var titleTemplate, contentTemplate string
-		var readAt sql.NullTime
+		var percentage, subscriptionPercentage sql.NullString
+		var readAt, windowStart, windowEnd sql.NullTime
 		if err := rows.Scan(
 			&item.ID, &item.BatchID, &item.GrantType, &item.Amount, &item.BalanceAfter,
 			&item.Reason, &titleTemplate, &contentTemplate, &readAt, &item.CreatedAt,
+			&item.GrantMode, &item.BaseCost, &item.BalanceBaseCost, &item.SubscriptionBaseCost,
+			&percentage, &item.IncludeSubscription, &subscriptionPercentage, &windowStart, &windowEnd,
 		); err != nil {
 			return nil, fmt.Errorf("scan user benefit grant: %w", err)
 		}
+		item.Percentage = nullStringPointer(percentage)
+		item.SubscriptionPercentage = nullStringPointer(subscriptionPercentage)
+		item.WindowStart = nullTimePointer(windowStart)
+		item.WindowEnd = nullTimePointer(windowEnd)
 		item.ReadAt = nullTimePointer(readAt)
 		item.Title = renderBenefitGrantTemplate(titleTemplate, item.Amount, item.Reason, item.BalanceAfter, siteName)
 		item.Content = renderBenefitGrantTemplate(contentTemplate, item.Amount, item.Reason, item.BalanceAfter, siteName)

@@ -287,15 +287,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/benefits',
-    name: 'Benefits',
-    component: () => import('@/views/user/BenefitsView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Benefit Grants',
-      titleKey: 'benefits.title',
-      descriptionKey: 'benefits.description'
-    }
+    redirect: '/redeem'
   },
   {
     path: '/affiliate',

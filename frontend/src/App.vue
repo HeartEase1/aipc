@@ -163,6 +163,7 @@ onMounted(async () => {
   <AnnouncementPopup
     v-if="benefitGrantStore.currentPopup"
     :announcement="benefitGrantStore.currentPopup"
+    :benefit-details="benefitGrantStore.currentPopup"
     :badge-label="t('benefits.popupBadge')"
     :acknowledge-label="t('benefits.acknowledge')"
     @close="benefitGrantStore.dismissPopup"

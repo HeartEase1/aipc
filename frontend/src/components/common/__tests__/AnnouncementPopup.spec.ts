@@ -6,6 +6,7 @@ import { resolve } from 'node:path'
 
 import AnnouncementPopup from '../AnnouncementPopup.vue'
 import { useAnnouncementStore } from '@/stores/announcements'
+import type { UserBenefitGrant } from '@/api/benefitGrants'
 
 const announcementMarkdownStyles = readFileSync(
   resolve(process.cwd(), 'src/styles/announcement-markdown.css'),
@@ -32,6 +33,27 @@ const announcement = {
   created_at: '2026-07-24T07:30:00Z',
   updated_at: '2026-07-24T07:30:00Z',
 }
+
+const percentageBenefit = {
+  id: 8,
+  batch_id: 3,
+  grant_type: 'compensation',
+  grant_mode: 'percentage_24h',
+  base_cost: '30.00000000',
+  balance_base_cost: '20.00000000',
+  subscription_base_cost: '10.00000000',
+  percentage: '10.00000000',
+  include_subscription: true,
+  subscription_percentage: '5.00000000',
+  amount: '2.50000000',
+  balance_after: '12.50000000',
+  reason: 'service incident',
+  title: 'Compensation received',
+  content: 'Your compensation has arrived.',
+  window_start: '2026-07-21T07:30:00Z',
+  window_end: '2026-07-24T07:30:00Z',
+  created_at: '2026-07-24T07:30:00Z',
+} satisfies UserBenefitGrant
 
 describe('AnnouncementPopup', () => {
   beforeEach(() => {
@@ -115,7 +137,8 @@ describe('AnnouncementPopup', () => {
     const dismissPopup = vi.spyOn(store, 'dismissPopup')
     const wrapper = mount(AnnouncementPopup, {
       props: {
-        announcement,
+        announcement: percentageBenefit,
+        benefitDetails: percentageBenefit,
         badgeLabel: 'Balance received',
         acknowledgeLabel: 'Got it',
       },
@@ -123,6 +146,17 @@ describe('AnnouncementPopup', () => {
 
     expect(document.body.textContent).toContain('Balance received')
     expect(document.body.textContent).toContain('Got it')
+    expect(document.body.textContent).toContain('benefits.calculation.balanceSpending')
+    expect(document.body.textContent).toContain('benefits.calculation.subscriptionSpending')
+    expect(document.body.textContent).toContain('$20')
+    expect(document.body.textContent).toContain('$10')
+    expect(document.body.textContent).toContain('10%')
+    expect(document.body.textContent).toContain('5%')
+    expect(document.body.textContent).toContain('+$2.00')
+    expect(document.body.textContent).toContain('+$0.50')
+    expect(document.body.textContent).toContain('benefits.calculation.actualAmount')
+    expect(document.body.textContent).toContain('benefits.calculation.window')
+    expect(document.body.querySelector('[data-testid="benefit-calculation-details"]')).not.toBeNull()
     expect(document.body.querySelector('.markdown-body script')).toBeNull()
 
     document.body.querySelector<HTMLButtonElement>('[data-testid="announcement-popup-dismiss"]')?.click()
@@ -130,6 +164,30 @@ describe('AnnouncementPopup', () => {
 
     expect(wrapper.emitted('close')).toHaveLength(1)
     expect(dismissPopup).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('does not show calculation details for fixed-amount grants', () => {
+    const fixedBenefit: UserBenefitGrant = {
+      ...percentageBenefit,
+      grant_mode: 'fixed',
+      base_cost: '0.00000000',
+      balance_base_cost: '0.00000000',
+      subscription_base_cost: '0.00000000',
+      percentage: undefined,
+      include_subscription: false,
+      subscription_percentage: undefined,
+      window_start: undefined,
+      window_end: undefined,
+    }
+    const wrapper = mount(AnnouncementPopup, {
+      props: {
+        announcement: fixedBenefit,
+        benefitDetails: fixedBenefit,
+      },
+    })
+
+    expect(document.body.querySelector('[data-testid="benefit-calculation-details"]')).toBeNull()
     wrapper.unmount()
   })
 

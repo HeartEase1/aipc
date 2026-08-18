@@ -31,7 +31,7 @@ const mocks = vi.hoisted(() => {
 vi.mock('vue-router', () => ({
   RouterView: { template: '<div />' },
   useRouter: () => ({ afterEach: vi.fn(), replace: vi.fn() }),
-  useRoute: () => ({ fullPath: '/benefits', path: '/benefits', meta: {} }),
+  useRoute: () => ({ fullPath: '/redeem', path: '/redeem', meta: {} }),
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {

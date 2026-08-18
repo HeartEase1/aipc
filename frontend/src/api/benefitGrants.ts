@@ -1,15 +1,24 @@
 import { apiClient } from './client'
-import type { BenefitGrantType } from './admin/benefitGrants'
+import type { BenefitGrantMode, BenefitGrantType } from './admin/benefitGrants'
 
 export interface UserBenefitGrant {
   id: number
   batch_id: number
   grant_type: BenefitGrantType
+  grant_mode: BenefitGrantMode
+  base_cost: string
+  balance_base_cost: string
+  subscription_base_cost: string
+  percentage?: string
+  include_subscription: boolean
+  subscription_percentage?: string
   amount: string
   balance_after: string
   reason: string
   title: string
   content: string
+  window_start?: string
+  window_end?: string
   read_at?: string
   created_at: string
 }
