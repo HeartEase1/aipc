@@ -175,7 +175,7 @@ describe('hosted playground bridge', () => {
     expect(protectedSettings.profiles.every((profile) => profile.apiKey === 'sk-host-runtime')).toBe(true)
     expect(protectedSettings.allowPromptRewrite).toBe(false)
     expect(protectedSettings.agentWebSearch).toBe(false)
-    expect(protectedSettings.zipDownloadRoutes).toEqual([])
+    expect(protectedSettings.zipDownloadRoutes).toEqual(['task-selection'])
     expect(JSON.stringify(protectedSettings)).not.toContain('sk-imported-evil')
   })
 
@@ -246,14 +246,31 @@ describe('hosted playground bridge', () => {
     expect(module.getHostedConfig()).toBeNull()
 
     messageListeners[0](message())
-    await expect(configPromise).resolves.toMatchObject({ keyId: 7, textModel: 'text-a', imageModel: 'image-a' })
+    await expect(configPromise).resolves.toMatchObject({
+      keyId: 7,
+      textModel: 'text-a',
+      imageModel: 'image-a',
+      responseFormatB64Json: true,
+    })
 
     const updates: Array<ReturnType<typeof module.getHostedConfig>> = []
     const unsubscribe = module.subscribeHostedConfig((config) => updates.push(config))
-    messageListeners[0](message({ keyId: 8, apiKey: 'sk-second', textModel: 'text-b', imageModel: 'image-b' }))
+    messageListeners[0](message({
+      keyId: 8,
+      apiKey: 'sk-second',
+      textModel: 'text-b',
+      imageModel: 'image-b',
+      responseFormatB64Json: false,
+    }))
     unsubscribe()
 
-    expect(module.getHostedConfig()).toMatchObject({ keyId: 8, apiKey: 'sk-second', textModel: 'text-b', imageModel: 'image-b' })
+    expect(module.getHostedConfig()).toMatchObject({
+      keyId: 8,
+      apiKey: 'sk-second',
+      textModel: 'text-b',
+      imageModel: 'image-b',
+      responseFormatB64Json: false,
+    })
     expect(updates).toHaveLength(1)
   })
 

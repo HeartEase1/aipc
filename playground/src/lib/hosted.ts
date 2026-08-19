@@ -45,6 +45,8 @@ export interface HostedPlaygroundConfig {
   baseUrl: string
   textModel: string
   imageModel: string
+  /** Parent-controlled preference; absent means the historical default (on). */
+  responseFormatB64Json: boolean
   theme: 'light' | 'dark'
 }
 
@@ -95,7 +97,8 @@ export function protectHostedRuntimeSettings(
     providerOrder: current.providerOrder,
     reuseTaskApiProfileTemporarily: false,
     allowPromptRewrite: false,
-    zipDownloadRoutes: [],
+    // 下载途径只是本地交互偏好，不会改变托管 API 配置；保存设置时保留用户选择。
+    zipDownloadRoutes: candidate.zipDownloadRoutes,
     agentMaxToolRounds: current.agentMaxToolRounds,
     agentWebSearch: false,
     agentApiConfigMode: current.agentApiConfigMode,
@@ -140,6 +143,7 @@ function parseHostedConfig(event: MessageEvent): HostedPlaygroundConfig | null {
     || typeof value.imageModel !== 'string'
     || !value.imageModel.trim()
     || value.imageModel.length > 256
+    || (value.responseFormatB64Json !== undefined && typeof value.responseFormatB64Json !== 'boolean')
     || (value.theme !== 'light' && value.theme !== 'dark')
   ) {
     return null
@@ -171,6 +175,7 @@ function parseHostedConfig(event: MessageEvent): HostedPlaygroundConfig | null {
     baseUrl: `${window.location.origin}/v1`,
     textModel: value.textModel.trim(),
     imageModel: value.imageModel.trim(),
+    responseFormatB64Json: value.responseFormatB64Json !== false,
     theme: value.theme,
   }
 

@@ -85,6 +85,7 @@ type HistoryModalProps = {
 export default function HistoryModal({ onClose, ignoreOutsideClickRef }: HistoryModalProps) {
   const conversations = useStore((s) => s.agentConversations)
   const activeConversationId = useStore((s) => s.activeAgentConversationId)
+  const conversationsLoaded = useStore((s) => s.agentConversationsLoaded)
   const setActiveConversationId = useStore((s) => s.setActiveAgentConversationId)
   const renameConversation = useStore((s) => s.renameAgentConversation)
   const deleteConversation = useStore((s) => s.deleteAgentConversation)
@@ -230,11 +231,18 @@ export default function HistoryModal({ onClose, ignoreOutsideClickRef }: History
         </HistoryActionButton>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1 overscroll-contain">
-        {filteredConversations.length === 0 && (
+        {!conversationsLoaded && (
+          <div className="flex items-center justify-center gap-2 px-3 py-8 text-sm text-gray-500">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" aria-hidden="true" />
+            正在加载历史记录...
+          </div>
+        )}
+
+        {conversationsLoaded && filteredConversations.length === 0 && (
           <div className="px-3 py-8 text-center text-sm text-gray-500">没有找到匹配的聊天</div>
         )}
 
-        {Object.entries(groups).map(([label, items]) => (
+        {conversationsLoaded && Object.entries(groups).map(([label, items]) => (
           <div key={label}>
             <div className="mt-4 mb-1 px-3 text-xs font-medium text-gray-500">{label}</div>
             {items.map(c => (

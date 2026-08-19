@@ -119,6 +119,10 @@ function isErrorToastTitle(title: string): boolean {
 
 export type SettingsTab = 'general' | 'agent' | 'api' | 'data' | 'about'
 
+// Hosted workspaces may expose local preferences and local data management,
+// but their API configuration remains controlled by the parent application.
+const HOSTED_SETTINGS_TABS = new Set<SettingsTab>(['general', 'data', 'about'])
+
 const TIMEOUT_STREAMING_HINT = '也可尝试打开「流式传输」，并提高「请求中间步骤图像数」来维持连接。'
 const TIMEOUT_PARTIAL_IMAGES_ZERO_HINT = '官方流式接口不发送心跳，当前「请求中间步骤图像数」为 0，连接可能因无数据传输而断开。建议提高到 2 或 3。'
 const TIMEOUT_PARTIAL_IMAGES_LOW_HINT = '也可尝试提高「请求中间步骤图像数」来维持连接，避免长时间无数据传输导致断开。'
@@ -942,11 +946,15 @@ export const useStore = create<AppState>()(
       showSettings: false,
       settingsTabRequest: null,
       setShowSettings: (showSettings, settingsTabRequest) => {
-        if (isHostedMode && showSettings) return
         if (showSettings) dismissAllTooltips()
+        const safeTabRequest = isHostedMode
+          && settingsTabRequest
+          && !HOSTED_SETTINGS_TABS.has(settingsTabRequest)
+          ? 'general'
+          : settingsTabRequest
         set({
           showSettings,
-          ...(settingsTabRequest ? { settingsTabRequest } : {}),
+          ...(safeTabRequest ? { settingsTabRequest: safeTabRequest } : {}),
           ...(!showSettings ? { settingsTabRequest: null } : {}),
         })
       },

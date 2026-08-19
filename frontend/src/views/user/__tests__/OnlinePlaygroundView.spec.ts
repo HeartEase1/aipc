@@ -113,6 +113,10 @@ describe('OnlinePlaygroundView', () => {
     expect(iframeURL.searchParams.get('user')).toBe('42')
     expect(iframeURL.href).not.toContain(activeKey.key)
     expect(wrapper.html()).not.toContain(activeKey.key)
+    // The database key id remains in the hosted handshake, but is not a
+    // user-facing part of the selector label.
+    expect(wrapper.text()).toContain(activeKey.name)
+    expect(wrapper.text()).not.toContain(`#${activeKey.id}`)
     expect(iframe.getAttribute('allow')).toBe('clipboard-write')
     expect(iframe.getAttribute('referrerpolicy')).toBe('no-referrer')
 
@@ -149,6 +153,20 @@ describe('OnlinePlaygroundView', () => {
         baseUrl: `${window.location.origin}/v1`,
         textModel: 'gpt-5',
         imageModel: 'gpt-image-1',
+        responseFormatB64Json: true,
+      }),
+      window.location.origin,
+    )
+
+    postMessage.mockClear()
+    const base64Switch = wrapper.get('button[role="switch"]')
+    expect(base64Switch.attributes('aria-checked')).toBe('true')
+    await base64Switch.trigger('click')
+    await flushPromises()
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'ipcai:playground-config',
+        responseFormatB64Json: false,
       }),
       window.location.origin,
     )

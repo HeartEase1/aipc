@@ -104,6 +104,32 @@ function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
+/**
+ * Some OpenAI-compatible gateways reject `response_format: b64_json` before
+ * doing any work.  Only retry those explicit validation errors; retrying
+ * arbitrary 4xx responses could duplicate a request that the provider has
+ * already accepted or hide a real user/configuration error.
+ */
+function isUnsupportedBase64ResponseFormat(status: number | undefined, message: string): boolean {
+  if (status !== 400 && status !== 415 && status !== 422) return false
+
+  const marker = message.match(/response[\s_-]*format|b64[\s_-]*json|base64/i)
+  if (!marker) return false
+
+  // Keep the match local to the format field. This avoids retrying a normal
+  // prompt/content error that happens to mention the word "base64" elsewhere.
+  const markerIndex = marker.index ?? 0
+  const relatedText = message.slice(
+    Math.max(0, markerIndex - 128),
+    Math.min(message.length, markerIndex + marker[0].length + 128),
+  )
+  const unsupported = /unsupported|not[\s_-]+supported|does[\s_-]+not[\s_-]+support|not[\s_-]+allowed|unknown|unrecognized|must[\s_-]+be|only[\s_-]+(?:return|support)|不支持|不被支持|不允许|未知|不识别/i
+  if (unsupported.test(relatedText)) return true
+
+  return /response[\s_-]*format|b64[\s_-]*json/i.test(marker[0])
+    && /invalid|无效/i.test(relatedText)
+}
+
 function getNumberValue(source: Record<string, unknown>, key: string): number | undefined {
   const value = source[key]
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
@@ -613,6 +639,18 @@ async function callImagesApiSingle(opts: CallApiOptions, profile: ApiProfile): P
 
     if (!response.ok) {
       const errorMessage = await getApiErrorMessage(response)
+      if (
+        profile.responseFormatB64Json
+        && !profile.streamImages
+        && !opts.signal?.aborted
+        && isUnsupportedBase64ResponseFormat(response.status, errorMessage)
+      ) {
+        // The first request is rejected during parameter validation, so the
+        // provider has not generated an image. Rebuild the request without
+        // response_format and let the normal URL/data parsing path continue.
+        clearTimeout(timeoutId)
+        return callImagesApiSingle(opts, { ...profile, responseFormatB64Json: false })
+      }
       throw new Error(maybeAppendStreamingHint(errorMessage, response.status, profile.streamImages))
     }
 
@@ -819,7 +857,11 @@ async function submitCustomRequest(mapping: CustomProviderSubmitMapping, opts: C
     signal: controller.signal,
   })
 
-  if (!response.ok) throw new Error(await getApiErrorMessage(response))
+  if (!response.ok) {
+    const error = new Error(await getApiErrorMessage(response))
+    ;(error as Error & { status?: number }).status = response.status
+    throw error
+  }
   return response.json()
 }
 
@@ -925,6 +967,23 @@ async function callCustomHttpImageApi(opts: CallApiOptions, profile: ApiProfile,
       timeoutId = null
     }
     return pollCustomTaskResult(profile, customProvider.poll, taskId, mime, controller.signal)
+  } catch (error) {
+    const status = error instanceof Error
+      ? (error as Error & { status?: number }).status
+      : undefined
+    if (
+      profile.responseFormatB64Json
+      && !profile.streamImages
+      && !opts.signal?.aborted
+      && isUnsupportedBase64ResponseFormat(status, getErrorMessage(error))
+    ) {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+        timeoutId = null
+      }
+      return callCustomHttpImageApi(opts, { ...profile, responseFormatB64Json: false }, customProvider)
+    }
+    throw error
   } finally {
     if (timeoutId) clearTimeout(timeoutId)
     unlinkAbortSignal()

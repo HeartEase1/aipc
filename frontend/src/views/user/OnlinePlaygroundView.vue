@@ -109,6 +109,33 @@
           </label>
         </div>
 
+        <div class="mt-4 flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50/70 p-3.5 dark:border-dark-700 dark:bg-dark-900/40">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-dark-200">
+              <Icon name="sparkles" size="sm" class="text-gray-400" />
+              <span>{{ t('onlinePlayground.base64Images') }}</span>
+            </div>
+            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-dark-400">
+              {{ t('onlinePlayground.base64ImagesHint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-dark-800"
+            :class="useBase64Images ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'"
+            role="switch"
+            :aria-checked="useBase64Images"
+            :aria-label="t('onlinePlayground.base64Images')"
+            :title="useBase64Images ? t('onlinePlayground.base64ImagesOn') : t('onlinePlayground.base64ImagesOff')"
+            @click="useBase64Images = !useBase64Images"
+          >
+            <span
+              class="inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform"
+              :class="useBase64Images ? 'translate-x-[18px]' : 'translate-x-[2px]'"
+            />
+          </button>
+        </div>
+
         <div v-if="keysLoading" class="mt-4 flex items-center gap-2 text-sm text-gray-500 dark:text-dark-400" role="status">
           <span class="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
           {{ t('onlinePlayground.loadingKeys') }}
@@ -262,6 +289,7 @@ const selectedKeyId = ref<number | null>(null)
 const models = ref<PlaygroundModels>({ all: [], text: [], image: [] })
 const selectedTextModel = ref<string | null>(null)
 const selectedImageModel = ref<string | null>(null)
+const useBase64Images = ref(true)
 const keysLoading = ref(false)
 const modelsLoading = ref(false)
 const keysLoadFailed = ref(false)
@@ -294,7 +322,9 @@ const selectedKey = computed(() => (
 
 const keyOptions = computed(() => activeKeys.value.map((key) => ({
   value: key.id,
-  label: `${key.name || t('onlinePlayground.unnamedKey')} (#${key.id})`,
+  // The numeric id is an internal database identifier. Keep it as the
+  // option value (and in the hosted handshake), but do not expose it in UI.
+  label: key.name || t('onlinePlayground.unnamedKey'),
 })))
 
 const textModelOptions = computed(() => models.value.text.map((model) => ({
@@ -404,6 +434,7 @@ function sendHostedConfig() {
     baseUrl: new URL('/v1', window.location.origin).toString().replace(/\/$/, ''),
     textModel: selectedTextModel.value,
     imageModel: selectedImageModel.value,
+    responseFormatB64Json: useBase64Images.value,
     theme: theme.value,
   }, window.location.origin)
 }
@@ -552,7 +583,7 @@ watch(selectedKeyId, (next, previous) => {
   void loadModels()
 })
 
-watch([selectedTextModel, selectedImageModel, theme], () => {
+watch([selectedTextModel, selectedImageModel, theme, useBase64Images], () => {
   sendHostedConfig()
 })
 

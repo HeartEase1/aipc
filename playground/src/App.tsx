@@ -35,6 +35,9 @@ function createHostedSettings(settings: AppSettings, config: HostedPlaygroundCon
     model: config.imageModel,
     apiMode: 'images',
     apiProxy: false,
+    // Prefer inline image data in hosted mode so external image URLs do not
+    // depend on the upstream image host's CORS configuration.
+    responseFormatB64Json: config.responseFormatB64Json !== false,
     streamImages: false,
   })
   const textProfile = createDefaultOpenAIProfile({
@@ -69,7 +72,8 @@ function createHostedSettings(settings: AppSettings, config: HostedPlaygroundCon
     agentMaxToolRounds: 6,
     reuseTaskApiProfileTemporarily: false,
     allowPromptRewrite: false,
-    zipDownloadRoutes: [],
+    // 父页面刷新托管 API 配置（例如切换模型或主题）时保留本地偏好。
+    zipDownloadRoutes: settings.zipDownloadRoutes,
   })
 }
 
@@ -215,7 +219,7 @@ export default function App() {
       <InputBar />
       <DetailModal />
       <Lightbox />
-      {!isHostedMode && <SettingsModal />}
+      <SettingsModal />
       <ConfirmDialog />
       {!isHostedMode && <SupportPromptModal />}
       <FavoriteCollectionPickerModal />

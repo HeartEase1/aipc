@@ -50,6 +50,205 @@ describe('callImageApi', () => {
     expect(requestSignals[0].aborted).toBe(true)
   })
 
+  it('requests inline Base64 image data when the active profile opts in', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      data: [{ b64_json: 'aW1hZ2U=' }],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    await callImageApi({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        apiKey: 'test-key',
+        profiles: DEFAULT_SETTINGS.profiles.map((profile) => ({
+          ...profile,
+          apiKey: 'test-key',
+          responseFormatB64Json: true,
+        })),
+      },
+      prompt: 'prompt',
+      params: { ...DEFAULT_PARAMS },
+      inputImageDataUrls: [],
+    })
+
+    const [, init] = fetchMock.mock.calls[0]
+    const body = JSON.parse(String((init as RequestInit).body))
+    expect(body.response_format).toBe('b64_json')
+  })
+
+  it('retries once without Base64 when an image provider explicitly rejects the format', async () => {
+    const imageUrl = 'https://cdn.example.test/generated.png'
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: { message: 'response_format b64_json is not supported' },
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: [{ url: imageUrl }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(new Blob(['png']), {
+        status: 200,
+        headers: { 'Content-Type': 'image/png' },
+      }))
+
+    const result = await callImageApi({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        apiKey: 'test-key',
+        profiles: DEFAULT_SETTINGS.profiles.map((profile) => ({
+          ...profile,
+          apiKey: 'test-key',
+          responseFormatB64Json: true,
+        })),
+      },
+      prompt: 'prompt',
+      params: { ...DEFAULT_PARAMS },
+      inputImageDataUrls: [],
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const [, firstInit] = fetchMock.mock.calls[0]
+    const [, retryInit] = fetchMock.mock.calls[1]
+    expect(JSON.parse(String((firstInit as RequestInit).body)).response_format).toBe('b64_json')
+    expect(JSON.parse(String((retryInit as RequestInit).body)).response_format).toBeUndefined()
+    expect(result.images[0]).toMatch(/^data:image\/png;base64,/)
+  })
+
+  it('does not retry unrelated validation errors when Base64 is enabled', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { message: 'prompt violates content policy' },
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    await expect(callImageApi({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        apiKey: 'test-key',
+        profiles: DEFAULT_SETTINGS.profiles.map((profile) => ({
+          ...profile,
+          apiKey: 'test-key',
+          responseFormatB64Json: true,
+        })),
+      },
+      prompt: 'prompt',
+      params: { ...DEFAULT_PARAMS },
+      inputImageDataUrls: [],
+    })).rejects.toThrow('prompt violates content policy')
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  it('rebuilds multipart edit requests when the provider rejects Base64', async () => {
+    let apiRequestCount = 0
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      // dataUrlToBlob fetches the input data URL before the multipart request.
+      if (!init) {
+        return new Response(new Blob(['source']), {
+          status: 200,
+          headers: { 'Content-Type': 'image/png' },
+        })
+      }
+
+      apiRequestCount += 1
+      if (apiRequestCount === 1) {
+        return new Response(JSON.stringify({
+          error: { message: 'response_format b64_json is not supported' },
+        }), {
+          status: 422,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      return new Response(JSON.stringify({
+        data: [{ b64_json: 'aW1hZ2U=' }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+
+    await callImageApi({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        apiKey: 'test-key',
+        profiles: DEFAULT_SETTINGS.profiles.map((profile) => ({
+          ...profile,
+          apiKey: 'test-key',
+          responseFormatB64Json: true,
+        })),
+      },
+      prompt: 'edit prompt',
+      params: { ...DEFAULT_PARAMS },
+      inputImageDataUrls: ['data:image/png;base64,aW1hZ2U='],
+    })
+
+    const requestCalls = fetchMock.mock.calls.filter(([, init]) =>
+      (init as RequestInit | undefined)?.body instanceof FormData,
+    )
+    expect(requestCalls).toHaveLength(2)
+    const [, firstInit] = requestCalls[0]
+    const [, retryInit] = requestCalls[1]
+    expect((firstInit as RequestInit).body).toBeInstanceOf(FormData)
+    expect((retryInit as RequestInit).body).toBeInstanceOf(FormData)
+    expect(((firstInit as RequestInit).body as FormData).get('response_format')).toBe('b64_json')
+    expect(((retryInit as RequestInit).body as FormData).get('response_format')).toBeNull()
+  })
+
+  it('keeps a raw image URL available when the provider URL is blocked by CORS', async () => {
+    const imageUrl = 'https://cdn.example.test/generated.png'
+    let requestCount = 0
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      requestCount += 1
+      if (requestCount === 1) {
+        return new Response(JSON.stringify({ data: [{ url: imageUrl }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if ((init as RequestInit | undefined)?.mode === 'no-cors') {
+        return { type: 'opaque' } as Response
+      }
+      throw new TypeError('Failed to fetch')
+    })
+
+    let error: unknown
+    try {
+      await callImageApi({
+        settings: {
+          ...DEFAULT_SETTINGS,
+          apiKey: 'test-key',
+          profiles: DEFAULT_SETTINGS.profiles.map((profile) => ({
+            ...profile,
+            apiKey: 'test-key',
+            responseFormatB64Json: true,
+          })),
+        },
+        prompt: 'prompt',
+        params: { ...DEFAULT_PARAMS },
+        inputImageDataUrls: [],
+      })
+    } catch (caught) {
+      error = caught
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const [, requestInit] = fetchMock.mock.calls[0]
+    expect(JSON.parse(String((requestInit as RequestInit).body)).response_format).toBe('b64_json')
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toContain('图片已生成，但因服务商未允许跨域')
+    expect((error as Error & { rawImageUrls?: string[] }).rawImageUrls).toEqual([imageUrl])
+  })
+
   it.each([false, true])(
     'adds the prompt rewrite guard on Responses API when Codex CLI mode is %s',
     async (codexCli) => {

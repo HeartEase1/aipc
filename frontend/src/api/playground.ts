@@ -29,6 +29,8 @@ export interface PlaygroundHostedConfig {
   baseUrl: string
   textModel: string
   imageModel: string
+  /** Whether image requests should prefer inline b64_json responses. */
+  responseFormatB64Json?: boolean
   theme: 'light' | 'dark'
 }
 

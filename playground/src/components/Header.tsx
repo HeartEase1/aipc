@@ -190,12 +190,13 @@ export default function Header() {
                 </a>
               )}
             </h1>
-            {appMode === 'agent' && <div className="hidden sm:flex items-center gap-1 relative">
+            {(appMode === 'agent' || isHostedMode) && <div className={`${isHostedMode ? 'order-first flex sm:order-none' : 'hidden sm:flex'} items-center gap-1 relative shrink-0`}>
               <button
                 ref={historyButtonRef}
                 type="button"
                 onClick={() => setShowHistoryModal((visible) => !visible)}
                 className="p-1.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.04] rounded-lg transition-colors"
+                aria-label="历史任务"
                 title="历史任务"
               >
                 <HistoryIcon className="w-5 h-5" />
@@ -203,10 +204,12 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => {
+                  setShowHistoryModal(false)
                   setAppMode('agent')
                   createConversation()
                 }}
                 className="p-1.5 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/[0.04] rounded-lg transition-colors"
+                aria-label="新对话"
                 title="新对话"
               >
                 <EditIcon className="w-5 h-5" />
@@ -295,23 +298,21 @@ export default function Header() {
                 操作指南
               </ViewportTooltip>
             </div>
-            {!isHostedMode && (
-              <div
-                className="relative"
-                {...settingsTooltip.handlers}
+            <div
+              className="relative"
+              {...settingsTooltip.handlers}
+            >
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                aria-label="设置"
               >
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-                  aria-label="设置"
-                >
-                  <SettingsIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </button>
-                <ViewportTooltip visible={settingsTooltip.visible} className="whitespace-nowrap">
-                  设置
-                </ViewportTooltip>
-              </div>
-            )}
+                <SettingsIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+              <ViewportTooltip visible={settingsTooltip.visible} className="whitespace-nowrap">
+                设置
+              </ViewportTooltip>
+            </div>
           </div>
         </div>
         <div className={`safe-area-x sm:hidden overflow-hidden transition-all duration-300 ease-in-out ${appMode === 'gallery' && scrollDirection === 'down' ? 'max-h-0 opacity-0 pb-0' : 'max-h-20 opacity-100 pb-2'}`}>
