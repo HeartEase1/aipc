@@ -52,6 +52,12 @@ export default {
           priceDescription: '价格说明（Markdown）',
           priceDescriptionHint: '展示在模型广场页面顶部，可用于说明计费规则、汇率、优惠活动等。',
         },
+        onlinePlayground: {
+          title: '在线使用',
+          description: '控制浏览器内多轮对话、在线生图和图片编辑工作区是否对用户开放。',
+          enabled: '启用在线使用',
+          enabledHint: '关闭后用户侧边栏入口隐藏，直接访问 /playground 也会被拦截；不会影响 API 调用和现有计费。',
+        },
         riskControl: {
           title: '风控中心',
           description: '启用内容审计菜单和全端点请求审核入口。默认关闭。',

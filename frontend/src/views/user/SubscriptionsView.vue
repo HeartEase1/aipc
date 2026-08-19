@@ -108,11 +108,29 @@
             </div>
 
             <!-- Daily Usage -->
-            <div v-if="subscription.group?.daily_limit_usd" class="space-y-2">
+            <div
+              v-if="hasFiniteQuotaLimit(subscription.group?.daily_limit_usd)"
+              class="space-y-2"
+            >
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('userSubscriptions.daily') }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('userSubscriptions.daily') }}
+                  </span>
+                  <span
+                    data-testid="subscription-used-percentage"
+                    class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-700 dark:text-gray-300"
+                  >
+                    {{
+                      t('userSubscriptions.usedPercentage', {
+                        percentage: formatQuotaUsagePercentage(
+                          subscription.daily_usage_usd,
+                          subscription.group.daily_limit_usd
+                        )
+                      })
+                    }}
+                  </span>
+                </div>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
                   ${{ (subscription.daily_usage_usd || 0).toFixed(2) }} / ${{
                     subscription.group.daily_limit_usd.toFixed(2)
@@ -145,11 +163,29 @@
             </div>
 
             <!-- Weekly Usage -->
-            <div v-if="subscription.group?.weekly_limit_usd" class="space-y-2">
+            <div
+              v-if="hasFiniteQuotaLimit(subscription.group?.weekly_limit_usd)"
+              class="space-y-2"
+            >
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('userSubscriptions.weekly') }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('userSubscriptions.weekly') }}
+                  </span>
+                  <span
+                    data-testid="subscription-used-percentage"
+                    class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-700 dark:text-gray-300"
+                  >
+                    {{
+                      t('userSubscriptions.usedPercentage', {
+                        percentage: formatQuotaUsagePercentage(
+                          subscription.weekly_usage_usd,
+                          subscription.group.weekly_limit_usd
+                        )
+                      })
+                    }}
+                  </span>
+                </div>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
                   ${{ (subscription.weekly_usage_usd || 0).toFixed(2) }} / ${{
                     subscription.group.weekly_limit_usd.toFixed(2)
@@ -186,11 +222,29 @@
             </div>
 
             <!-- Monthly Usage -->
-            <div v-if="subscription.group?.monthly_limit_usd" class="space-y-2">
+            <div
+              v-if="hasFiniteQuotaLimit(subscription.group?.monthly_limit_usd)"
+              class="space-y-2"
+            >
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('userSubscriptions.monthly') }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('userSubscriptions.monthly') }}
+                  </span>
+                  <span
+                    data-testid="subscription-used-percentage"
+                    class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium tabular-nums text-gray-600 dark:bg-dark-700 dark:text-gray-300"
+                  >
+                    {{
+                      t('userSubscriptions.usedPercentage', {
+                        percentage: formatQuotaUsagePercentage(
+                          subscription.monthly_usage_usd,
+                          subscription.group.monthly_limit_usd
+                        )
+                      })
+                    }}
+                  </span>
+                </div>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
                   ${{ (subscription.monthly_usage_usd || 0).toFixed(2) }} / ${{
                     subscription.group.monthly_limit_usd.toFixed(2)
@@ -229,9 +283,9 @@
             <!-- No limits configured - Unlimited badge -->
             <div
               v-if="
-                !subscription.group?.daily_limit_usd &&
-                !subscription.group?.weekly_limit_usd &&
-                !subscription.group?.monthly_limit_usd
+                !hasFiniteQuotaLimit(subscription.group?.daily_limit_usd) &&
+                !hasFiniteQuotaLimit(subscription.group?.weekly_limit_usd) &&
+                !hasFiniteQuotaLimit(subscription.group?.monthly_limit_usd)
               "
               class="flex items-center justify-center rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 py-6 dark:from-emerald-900/20 dark:to-teal-900/20"
             >
@@ -269,7 +323,10 @@ import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/
 import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
 import {
   getExpirationDateRelation,
+  formatQuotaUsagePercentage,
   getRemainingDurationParts,
+  getQuotaUsagePercentage,
+  hasFiniteQuotaLimit,
   isOneTimeDailyQuota,
   type RemainingDurationParts
 } from '@/utils/subscriptionQuota'
@@ -329,14 +386,13 @@ async function loadSubscriptions() {
 }
 
 function getProgressWidth(used: number | undefined, limit: number | null | undefined): string {
-  if (!limit || limit === 0) return '0%'
-  const percentage = Math.min(((used || 0) / limit) * 100, 100)
-  return `${percentage}%`
+  const percentage = getQuotaUsagePercentage(used, limit)
+  return `${percentage ?? 0}%`
 }
 
 function getProgressBarClass(used: number | undefined, limit: number | null | undefined): string {
-  if (!limit || limit === 0) return 'bg-gray-400'
-  const percentage = ((used || 0) / limit) * 100
+  const percentage = getQuotaUsagePercentage(used, limit)
+  if (percentage === null) return 'bg-gray-400'
   if (percentage >= 90) return 'bg-red-500'
   if (percentage >= 70) return 'bg-orange-500'
   return 'bg-green-500'

@@ -12,11 +12,18 @@ import (
 // immutable caching without relying on a reverse proxy to classify paths.
 const staticAssetsCacheControl = "public, max-age=31536000, immutable"
 
+func isHostedPlaygroundAssetPath(cleanPath string) bool {
+	cleanPath = strings.TrimPrefix(strings.TrimSpace(cleanPath), "/")
+	return cleanPath == "playground-app" || strings.HasPrefix(cleanPath, "playground-app/")
+}
+
 // isFingerprintedEmbeddedAssetPath reports whether a cleaned URL path refers to
 // a Vite asset whose filename contains the default eight-character build hash.
+// Both the main app and the hosted playground emit hashed assets.
 func isFingerprintedEmbeddedAssetPath(cleanPath string) bool {
 	cleanPath = strings.TrimPrefix(cleanPath, "/")
-	if !strings.HasPrefix(cleanPath, "assets/") {
+	if !strings.HasPrefix(cleanPath, "assets/") &&
+		!strings.HasPrefix(cleanPath, "playground-app/assets/") {
 		return false
 	}
 

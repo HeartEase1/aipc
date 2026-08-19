@@ -53,6 +53,9 @@ var requiredCSPDirectiveValues = []struct {
 	directive string
 	value     string
 }{
+	// Vue Router navigation does not reload the document, so the root page CSP
+	// must already permit the same-origin hosted playground iframe.
+	{"frame-src", "'self'"},
 	{"script-src", CloudflareInsightsDomain},
 	{"script-src", TencentCaptchaDomain},
 	{"frame-src", TencentCaptchaDomain},
@@ -124,8 +127,14 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 			}
 		}
 
+		frameOptions := "DENY"
+		if isHostedPlaygroundPath(c) {
+			frameOptions = "SAMEORIGIN"
+			finalPolicy = replaceCSPDirective(finalPolicy, "frame-ancestors", "'self'")
+		}
+
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		c.Header("X-Frame-Options", frameOptions)
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		if isAPIRoutePath(c) {
 			c.Next()
@@ -146,6 +155,41 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 		c.Next()
 	}
+}
+
+func isHostedPlaygroundPath(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	path := c.Request.URL.Path
+	return path == "/playground-app" ||
+		path == "/playground-app/" ||
+		path == "/playground-app/index.html"
+}
+
+func replaceCSPDirective(policy, directive, value string) string {
+	directives := strings.Split(policy, ";")
+	result := make([]string, 0, len(directives)+1)
+	replaced := false
+	for _, rawDirective := range directives {
+		trimmed := strings.TrimSpace(rawDirective)
+		if trimmed == "" {
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) > 0 && fields[0] == directive {
+			if !replaced {
+				result = append(result, directive+" "+value)
+				replaced = true
+			}
+			continue
+		}
+		result = append(result, trimmed)
+	}
+	if !replaced {
+		result = append(result, directive+" "+value)
+	}
+	return strings.Join(result, "; ")
 }
 
 func isAPIRoutePath(c *gin.Context) bool {

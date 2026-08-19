@@ -146,3 +146,6 @@ output/
 
 # Vitest / Vite cache at repo root
 .vite/
+
+# Local Playwright inspection snapshots
+.playwright-cli/

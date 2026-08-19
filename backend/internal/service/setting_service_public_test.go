@@ -101,6 +101,21 @@ func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T
 	require.False(t, missingSettings.CompactHomeEnabled)
 }
 
+func TestSettingService_GetPublicSettings_OnlinePlaygroundDefaultsEnabled(t *testing.T) {
+	missing, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).
+		GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, missing.OnlinePlaygroundEnabled, "missing legacy setting must preserve the live playground")
+
+	for _, value := range []string{"false", "0", "off", "disabled"} {
+		settings, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+			SettingKeyOnlinePlaygroundEnabled: value,
+		}}, &config.Config{}).GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.False(t, settings.OnlinePlaygroundEnabled, "value=%q", value)
+	}
+}
+
 func TestSettingService_GetPublicSettings_ExposesNormalizedRechargeMultiplier(t *testing.T) {
 	tests := []struct {
 		name string

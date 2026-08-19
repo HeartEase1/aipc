@@ -90,3 +90,30 @@ func TestSetWebAccessRegionSettingsDoesNotRefreshAfterWriteFailure(t *testing.T)
 	require.ErrorContains(t, err, "database unavailable")
 	require.Zero(t, refreshes)
 }
+
+func TestIsOnlinePlaygroundEnabledDefaultsEnabledWhenSettingIsMissing(t *testing.T) {
+	service := &SettingService{settingRepo: &webAccessSettingRepoStub{getErr: ErrSettingNotFound}}
+
+	enabled, err := service.IsOnlinePlaygroundEnabled(context.Background())
+
+	require.NoError(t, err)
+	require.True(t, enabled)
+}
+
+func TestIsOnlinePlaygroundEnabledHonorsExplicitDisable(t *testing.T) {
+	service := &SettingService{settingRepo: &webAccessSettingRepoStub{value: "false"}}
+
+	enabled, err := service.IsOnlinePlaygroundEnabled(context.Background())
+
+	require.NoError(t, err)
+	require.False(t, enabled)
+}
+
+func TestIsOnlinePlaygroundEnabledReturnsStorageErrors(t *testing.T) {
+	service := &SettingService{settingRepo: &webAccessSettingRepoStub{getErr: errors.New("database unavailable")}}
+
+	enabled, err := service.IsOnlinePlaygroundEnabled(context.Background())
+
+	require.ErrorContains(t, err, "database unavailable")
+	require.False(t, enabled)
+}

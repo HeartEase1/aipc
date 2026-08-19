@@ -52,6 +52,12 @@ export default {
           priceDescription: 'Pricing notes (Markdown)',
           priceDescriptionHint: 'Rendered at the top of the plaza page. Use it for billing rules, exchange rates, promotions, etc.',
         },
+        onlinePlayground: {
+          title: 'Online Playground',
+          description: 'Control whether the browser-based chat, image generation, and image editing workspace is available to users.',
+          enabled: 'Enable Online Playground',
+          enabledHint: 'When off, the user sidebar entry is hidden and /playground is blocked. API access and existing billing are unaffected.',
+        },
         riskControl: {
           title: 'Risk Control',
           description: 'Enable the content moderation menu and gateway audit entry point. Disabled by default.',

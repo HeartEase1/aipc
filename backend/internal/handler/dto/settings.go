@@ -315,6 +315,9 @@ type SystemSettings struct {
 	// Available Channels feature switch (user-facing aggregate view)
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
+	// Online playground feature switch (user-facing)
+	OnlinePlaygroundEnabled bool `json:"online_playground_enabled"`
+
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled     bool   `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth bool   `json:"model_plaza_require_auth"`
@@ -419,6 +422,7 @@ type PublicSettings struct {
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	OnlinePlaygroundEnabled  bool `json:"online_playground_enabled"`
 
 	ModelPlazaEnabled     bool `json:"model_plaza_enabled"`
 	ModelPlazaRequireAuth bool `json:"model_plaza_require_auth"`

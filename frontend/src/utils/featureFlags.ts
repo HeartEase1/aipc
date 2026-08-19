@@ -109,6 +109,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Model Plaza',
   }),
+  onlinePlayground: defineFlag({
+    key: 'online_playground_enabled',
+    mode: 'opt-out',
+    label: 'Online Playground',
+  }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',

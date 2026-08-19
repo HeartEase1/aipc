@@ -25,6 +25,7 @@ const appStore = vi.hoisted(() => ({
   cachedPublicSettings: null as null | {
     payment_enabled?: boolean
     risk_control_enabled?: boolean
+    online_playground_enabled?: boolean
     custom_menu_items?: []
   },
   fetchPublicSettings: vi.fn(),
@@ -173,5 +174,38 @@ describe('feature route guard', () => {
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
     expect(next).toHaveBeenCalledOnce()
     expect(next).toHaveBeenCalledWith(target)
+  })
+
+  it('refreshes online playground access and redirects when the feature is disabled', async () => {
+    appStore.cachedPublicSettings = { online_playground_enabled: true }
+    appStore.publicSettingsLoaded = true
+    appStore.fetchPublicSettings.mockImplementation(async () => {
+      appStore.cachedPublicSettings = { online_playground_enabled: false }
+      return appStore.cachedPublicSettings
+    })
+
+    const { navigation, next } = runGuard(
+      { requiresOnlinePlayground: true },
+      '/playground',
+    )
+    await navigation
+
+    expect(appStore.fetchPublicSettings).toHaveBeenCalledOnce()
+    expect(appStore.fetchPublicSettings).toHaveBeenCalledWith(true)
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('does not treat a failed online playground settings refresh as explicitly disabled', async () => {
+    appStore.fetchPublicSettings.mockResolvedValue(null)
+
+    const { navigation, next } = runGuard(
+      { requiresOnlinePlayground: true },
+      '/playground',
+    )
+    await navigation
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(next).toHaveBeenCalledWith()
   })
 })

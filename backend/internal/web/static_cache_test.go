@@ -22,6 +22,9 @@ func TestIsFingerprintedEmbeddedAssetPath(t *testing.T) {
 		{name: "fingerprinted_url_safe_hash", path: "assets/app-aB1-2_Cd.css", want: true},
 		{name: "nested_fingerprinted_asset", path: "assets/vendor/chunk-AbCd1234.js", want: true},
 		{name: "leading_slash_fingerprinted_asset", path: "/assets/index-AbCd1234.js", want: true},
+		{name: "playground_fingerprinted_js", path: "playground-app/assets/index-AbCd1234.js", want: true},
+		{name: "playground_leading_slash", path: "/playground-app/assets/app-a1B2c3D4.css", want: true},
+		{name: "playground_unhashed_asset", path: "playground-app/assets/index.js", want: false},
 		{name: "unhashed_asset", path: "assets/index.js", want: false},
 		{name: "short_suffix", path: "assets/index-abc123.js", want: false},
 		{name: "logo", path: "logo.png", want: false},
@@ -68,4 +71,21 @@ func TestApplyStaticAssetCacheHeaders(t *testing.T) {
 			applyStaticAssetCacheHeaders(nil, "assets/index-AbCd1234.js")
 		})
 	})
+}
+
+func TestIsHostedPlaygroundAssetPath(t *testing.T) {
+	t.Parallel()
+
+	for _, candidate := range []string{
+		"playground-app",
+		"playground-app/",
+		"playground-app/index.html",
+		"/playground-app/assets/index-AbCd1234.js",
+	} {
+		assert.True(t, isHostedPlaygroundAssetPath(candidate), candidate)
+	}
+
+	for _, candidate := range []string{"playground", "playground-app-copy/index.html", "assets/index.js", ""} {
+		assert.False(t, isHostedPlaygroundAssetPath(candidate), candidate)
+	}
 }

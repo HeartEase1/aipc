@@ -238,6 +238,15 @@ func TestSettingService_UpdateSettings_PersistsCompactHomeEnabled(t *testing.T) 
 	require.Equal(t, "true", repo.updates[SettingKeyCompactHomeEnabled])
 }
 
+func TestSettingService_UpdateSettings_PersistsOnlinePlaygroundEnabled(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{OnlinePlaygroundEnabled: false})
+	require.NoError(t, err)
+	require.Equal(t, "false", repo.updates[SettingKeyOnlinePlaygroundEnabled])
+}
+
 func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidGroup(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	groupReader := &defaultSubGroupReaderStub{

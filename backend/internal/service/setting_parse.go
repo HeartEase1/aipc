@@ -200,6 +200,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Available channels feature (default disabled; opt-in)
 		SettingKeyAvailableChannelsEnabled: "false",
 
+		// Online playground feature (default enabled to preserve existing deployments)
+		SettingKeyOnlinePlaygroundEnabled: "true",
+
 		// Model plaza feature (default disabled; opt-in, public unless require_auth)
 		SettingKeyModelPlazaEnabled:     "false",
 		SettingKeyModelPlazaRequireAuth: "false",
@@ -815,6 +818,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"
+
+	// Online playground feature (default: enabled for backwards compatibility;
+	// only an explicit false-like value disables it).
+	result.OnlinePlaygroundEnabled = !isFalseSettingValue(settings[SettingKeyOnlinePlaygroundEnabled])
 
 	// Model plaza feature (default: disabled; strict true)
 	result.ModelPlazaEnabled = settings[SettingKeyModelPlazaEnabled] == "true"

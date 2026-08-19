@@ -4,6 +4,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,9 +16,11 @@ import (
 )
 
 type regionAccessProviderStub struct {
-	blocked  bool
-	siteName string
-	err      error
+	blocked            bool
+	siteName           string
+	err                error
+	playgroundDisabled bool
+	playgroundErr      error
 }
 
 func (s *regionAccessProviderStub) GetPublicSettingsForInjection(context.Context) (any, error) {
@@ -30,6 +33,10 @@ func (s *regionAccessProviderStub) IsMainlandChinaWebAccessBlocked(context.Conte
 
 func (s *regionAccessProviderStub) GetSiteName(context.Context) string {
 	return s.siteName
+}
+
+func (s *regionAccessProviderStub) IsOnlinePlaygroundEnabled(context.Context) (bool, error) {
+	return !s.playgroundDisabled, s.playgroundErr
 }
 
 func newRegionAccessTestRouter(t *testing.T, provider *regionAccessProviderStub) *gin.Engine {
@@ -99,4 +106,44 @@ func TestFrontendRegionAccessNeverBlocksAPIRoutes(t *testing.T) {
 
 		require.Equal(t, http.StatusNoContent, response.Code, path)
 	}
+}
+
+func TestFrontendOnlinePlaygroundPolicyBlocksOnlyHostedUI(t *testing.T) {
+	router := newRegionAccessTestRouter(t, &regionAccessProviderStub{playgroundDisabled: true})
+
+	for _, path := range []string{
+		"/playground-app",
+		"/playground-app/",
+		"/playground-app/index.html",
+		"/playground-app/assets/missing.js",
+	} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		router.ServeHTTP(response, request)
+
+		require.Equal(t, http.StatusNotFound, response.Code, path)
+		require.Equal(t, "no-store", response.Header().Get("Cache-Control"), path)
+		require.NotContains(t, response.Body.String(), "GPT Image Playground", path)
+	}
+
+	for _, path := range []string{"/api/v1/ping", "/v1/models"} {
+		response := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		router.ServeHTTP(response, request)
+
+		require.Equal(t, http.StatusNoContent, response.Code, path)
+	}
+}
+
+func TestFrontendOnlinePlaygroundPolicyDefaultsEnabledOnRefreshError(t *testing.T) {
+	router := newRegionAccessTestRouter(t, &regionAccessProviderStub{
+		playgroundErr: errors.New("database unavailable"),
+	})
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/playground-app/?hosted=1", nil)
+	router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), "GPT Image Playground")
 }

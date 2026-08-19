@@ -676,6 +676,59 @@ func TestFrontendServer_Middleware(t *testing.T) {
 		assert.Equal(t, http.StatusOK, assetWriter.Code)
 		assert.Equal(t, staticAssetsCacheControl, assetWriter.Header().Get("Cache-Control"))
 	})
+
+	t.Run("serves_hosted_playground_without_main_spa_fallback", func(t *testing.T) {
+		provider := &mockSettingsProvider{settings: map[string]string{"test": "value"}}
+		server, err := NewFrontendServer(provider)
+		require.NoError(t, err)
+
+		router := gin.New()
+		router.Use(server.Middleware())
+
+		rootWriter := httptest.NewRecorder()
+		rootRequest := httptest.NewRequest(http.MethodGet, "/playground-app/?hosted=1", nil)
+		router.ServeHTTP(rootWriter, rootRequest)
+		assert.Equal(t, http.StatusOK, rootWriter.Code)
+		assert.Contains(t, rootWriter.Body.String(), "GPT Image Playground")
+		assert.Equal(t, "no-cache", rootWriter.Header().Get("Cache-Control"))
+		assert.Equal(t, "no-referrer", rootWriter.Header().Get("Referrer-Policy"))
+
+		indexWriter := httptest.NewRecorder()
+		indexRequest := httptest.NewRequest(http.MethodGet, "/playground-app/index.html?hosted=1", nil)
+		router.ServeHTTP(indexWriter, indexRequest)
+		assert.Equal(t, http.StatusOK, indexWriter.Code)
+		assert.Contains(t, indexWriter.Body.String(), "GPT Image Playground")
+
+		directoryWriter := httptest.NewRecorder()
+		directoryRequest := httptest.NewRequest(http.MethodGet, "/playground-app?hosted=1", nil)
+		router.ServeHTTP(directoryWriter, directoryRequest)
+		assert.Equal(t, http.StatusMovedPermanently, directoryWriter.Code)
+		assert.Equal(t, "/playground-app/?hosted=1", directoryWriter.Header().Get("Location"))
+
+		entries, err := fs.ReadDir(server.distFS, "playground-app/assets")
+		require.NoError(t, err)
+		fingerprintedPath := ""
+		for _, entry := range entries {
+			candidate := "playground-app/assets/" + entry.Name()
+			if !entry.IsDir() && isFingerprintedEmbeddedAssetPath(candidate) {
+				fingerprintedPath = candidate
+				break
+			}
+		}
+		require.NotEmpty(t, fingerprintedPath)
+
+		assetWriter := httptest.NewRecorder()
+		assetRequest := httptest.NewRequest(http.MethodGet, "/"+fingerprintedPath, nil)
+		router.ServeHTTP(assetWriter, assetRequest)
+		assert.Equal(t, http.StatusOK, assetWriter.Code)
+		assert.Equal(t, staticAssetsCacheControl, assetWriter.Header().Get("Cache-Control"))
+
+		missingWriter := httptest.NewRecorder()
+		missingRequest := httptest.NewRequest(http.MethodGet, "/playground-app/assets/missing.js", nil)
+		router.ServeHTTP(missingWriter, missingRequest)
+		assert.Equal(t, http.StatusNotFound, missingWriter.Code)
+		assert.NotContains(t, missingWriter.Body.String(), "window.__APP_CONFIG__")
+	})
 }
 
 func TestEmbeddedFrontendBypassesBareVideoAPIRoutes(t *testing.T) {
@@ -811,6 +864,25 @@ func TestServeEmbeddedFrontend(t *testing.T) {
 				assert.True(t, nextCalled, "next handler should be called for API route")
 			})
 		}
+	})
+
+	t.Run("serves_hosted_playground_and_rejects_missing_nested_assets", func(t *testing.T) {
+		middleware := ServeEmbeddedFrontend()
+		router := gin.New()
+		router.Use(middleware)
+
+		rootWriter := httptest.NewRecorder()
+		rootRequest := httptest.NewRequest(http.MethodGet, "/playground-app/?hosted=1", nil)
+		router.ServeHTTP(rootWriter, rootRequest)
+		assert.Equal(t, http.StatusOK, rootWriter.Code)
+		assert.Contains(t, rootWriter.Body.String(), "GPT Image Playground")
+		assert.Equal(t, "no-referrer", rootWriter.Header().Get("Referrer-Policy"))
+
+		missingWriter := httptest.NewRecorder()
+		missingRequest := httptest.NewRequest(http.MethodGet, "/playground-app/assets/missing.js", nil)
+		router.ServeHTTP(missingWriter, missingRequest)
+		assert.Equal(t, http.StatusNotFound, missingWriter.Code)
+		assert.NotContains(t, missingWriter.Body.String(), "<!doctype html>")
 	})
 }
 

@@ -8,6 +8,7 @@ export default {
   nav: {
     ...en.nav,
     leaderboard: 'ランキング',
+    onlinePlayground: 'オンライン利用',
     usageGuide: '利用ガイド',
     benefits: '入金履歴',
     benefitGrants: '特典付与',
@@ -16,6 +17,45 @@ export default {
   usageGuide: {
     title: '利用ガイド',
     description: 'APIキーの作成から対応クライアントの設定までを説明します。'
+  },
+  userSubscriptions: {
+    ...en.userSubscriptions,
+    usedPercentage: '使用済み {percentage}%'
+  },
+  onlinePlayground: {
+    ...en.onlinePlayground,
+    title: 'オンライン利用',
+    description: 'サイト内のAPIキーを使って、複数ターンのチャット、画像生成、画像編集を利用できます。',
+    configuration: 'ワークスペース設定',
+    textChat: 'マルチウィンドウチャット',
+    imageGeneration: 'オンライン画像生成',
+    selectKey: 'APIキー',
+    selectKeyPlaceholder: '有効なキーを選択',
+    unnamedKey: '名称未設定のキー',
+    selectTextModel: 'チャットモデル',
+    selectImageModel: '画像モデル',
+    selectModelPlaceholder: 'モデルを選択',
+    keyPrivacyNotice: 'キーはこのページのメモリ内だけで使用され、URL、チャット履歴、ローカル履歴には保存されません。すべてのリクエストはサイトのゲートウェイを経由して従来のルールで課金されます。Agent は1つの操作で複数の課金対象リクエストを行う場合があり、対話は最大6ラウンド、画像生成は最大6件です。',
+    loadingKeys: '利用可能なキーを読み込んでいます…',
+    loadingModels: 'モデル一覧を取得しています…',
+    keysLoadFailed: 'APIキーを読み込めませんでした。ネットワークを確認して再試行してください。',
+    modelsLoadFailed: '選択したキーでモデル一覧を取得できませんでした。キー、グループ、IP制限を確認してください。',
+    httpStatus: 'リクエスト状態：{status}',
+    noActiveKey: '利用可能なAPIキーがありません',
+    createKeyHint: '先にAPIキーを作成して有効にしてください。',
+    goToKeys: 'APIキーを作成',
+    refreshModels: 'モデルを更新',
+    retry: '再試行',
+    workspace: 'オンライン制作ワークスペース',
+    iframeTitle: 'オンラインチャット・画像生成ワークスペース',
+    connecting: 'ワークスペースに接続しています…',
+    connected: 'ワークスペースに接続済み',
+    connectionFailed: 'ワークスペースへの接続に失敗しました',
+    connectionFailedHint: '静的ファイルがまだビルドされていないか、接続がタイムアウトしました。再接続してください。',
+    reconnect: '再接続',
+    enterFullscreen: 'ワークスペースを全画面表示',
+    exitFullscreen: '全画面表示を終了',
+    localHistoryNotice: '会話、タスク、画像はアカウント別のブラウザストレージにのみ保存され、クラウドには同期されません。同じブラウザプロファイルを使う他の利用者がローカルデータを閲覧できる可能性があるため、共有端末では利用後にこのサイトのブラウザデータを消去してください。'
   },
   keys: {
     ...en.keys,
@@ -134,6 +174,19 @@ export default {
   admin: {
     ...en.admin,
     ...discountCampaigns,
+    settings: {
+      ...en.admin.settings,
+      features: {
+        ...en.admin.settings.features,
+        onlinePlayground: {
+          ...en.admin.settings.features.onlinePlayground,
+          title: 'オンライン利用',
+          description: 'ブラウザ内のチャット、画像生成、画像編集ワークスペースをユーザーに公開するか設定します。',
+          enabled: 'オンライン利用を有効化',
+          enabledHint: 'オフにするとユーザー側の入口を隠し、/playground への直接アクセスもブロックします。API と既存の課金には影響しません。'
+        }
+      }
+    },
     users: {
       ...en.admin.users,
       benefitGrant: '特典・補償を付与',

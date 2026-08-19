@@ -24,6 +24,21 @@ func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
 	return value == "true"
 }
 
+// IsOnlinePlaygroundEnabled is the lightweight feature-policy view consumed
+// by the embedded frontend server. Missing settings stay enabled for backward
+// compatibility; real storage errors are returned so the server can retain
+// its last known policy instead of unexpectedly changing access.
+func (s *SettingService) IsOnlinePlaygroundEnabled(ctx context.Context) (bool, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyOnlinePlaygroundEnabled)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return true, nil
+		}
+		return false, fmt.Errorf("get online playground setting: %w", err)
+	}
+	return !isFalseSettingValue(value), nil
+}
+
 // IsEmailVerifyEnabled 检查是否开启邮件验证
 func (s *SettingService) IsEmailVerifyEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyEmailVerifyEnabled)

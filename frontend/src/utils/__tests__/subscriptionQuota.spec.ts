@@ -1,6 +1,40 @@
 import { describe, expect, it } from 'vitest'
 
-import { getExpirationDateRelation, getRemainingExpiryDuration } from '../subscriptionQuota'
+import {
+  formatQuotaUsagePercentage,
+  getExpirationDateRelation,
+  getQuotaUsagePercentage,
+  getRemainingExpiryDuration,
+  hasFiniteQuotaLimit,
+} from '../subscriptionQuota'
+
+describe('subscription quota usage percentage', () => {
+  it('formats whole and fractional percentages without unnecessary decimals', () => {
+    expect(formatQuotaUsagePercentage(3, 20)).toBe('15')
+    expect(formatQuotaUsagePercentage(1, 8)).toBe('12.5')
+    expect(formatQuotaUsagePercentage(1, 3)).toBe('33.3')
+  })
+
+  it('clamps usage to the display range', () => {
+    expect(formatQuotaUsagePercentage(0, 20)).toBe('0')
+    expect(getQuotaUsagePercentage(-2, 20)).toBe(0)
+    expect(formatQuotaUsagePercentage(20, 20)).toBe('100')
+    expect(getQuotaUsagePercentage(30, 20)).toBe(100)
+    expect(formatQuotaUsagePercentage(30, 20)).toBe('100')
+  })
+
+  it('handles missing, zero, unlimited, and non-finite values safely', () => {
+    expect(hasFiniteQuotaLimit(20)).toBe(true)
+    expect(hasFiniteQuotaLimit(0)).toBe(false)
+    expect(hasFiniteQuotaLimit(null)).toBe(false)
+    expect(hasFiniteQuotaLimit(undefined)).toBe(false)
+    expect(hasFiniteQuotaLimit(Number.POSITIVE_INFINITY)).toBe(false)
+    expect(formatQuotaUsagePercentage(5, 0)).toBeNull()
+    expect(formatQuotaUsagePercentage(5, null)).toBeNull()
+    expect(formatQuotaUsagePercentage(5, undefined)).toBeNull()
+    expect(formatQuotaUsagePercentage(Number.NaN, 20)).toBe('0')
+  })
+})
 
 describe('subscription expiry timing', () => {
   it('uses local calendar dates for today and tomorrow', () => {

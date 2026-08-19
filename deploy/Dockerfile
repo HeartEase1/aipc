@@ -1,7 +1,7 @@
 # =============================================================================
 # Sub2API Multi-Stage Dockerfile
 # =============================================================================
-# Stage 1: Build frontend
+# Stage 1: Build frontend applications
 # Stage 2: Build Go backend with embedded frontend
 # Stage 3: Final minimal image
 # =============================================================================
@@ -36,6 +36,22 @@ RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 COPY docs/legal/ /app/docs/legal/
 RUN pnpm run build
+
+# Build the hosted React playground after the Vue app. The Vue build clears
+# the shared dist directory, while the playground only clears its own nested
+# output directory.
+WORKDIR /app/playground
+COPY playground/package.json playground/package-lock.json ./
+RUN --mount=type=cache,id=aipc-playground-npm,target=/root/.npm \
+    if [ -n "${NPM_CONFIG_REGISTRY}" ]; then npm config set registry "${NPM_CONFIG_REGISTRY}"; fi && \
+    npm ci --prefer-offline
+
+COPY playground/ ./
+RUN npm run build && \
+    test -f /app/backend/internal/web/dist/index.html && \
+    test -f /app/backend/internal/web/dist/playground-app/index.html && \
+    test -f /app/backend/internal/web/dist/playground-app/THIRD_PARTY_NOTICES.txt && \
+    test -n "$(find /app/backend/internal/web/dist/playground-app/assets -type f -print -quit)"
 
 # -----------------------------------------------------------------------------
 # Stage 2: Backend Builder

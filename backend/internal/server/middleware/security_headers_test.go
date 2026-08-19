@@ -97,6 +97,71 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
 	})
 
+	t.Run("allows_spa_documents_to_frame_the_same_origin_playground", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; script-src 'self' __CSP_NONCE__; frame-src https://example.com; frame-ancestors 'none'",
+		}
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/playground", nil)
+		SecurityHeaders(cfg, nil)(c)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+		assert.True(t, directiveHasValue(csp, "frame-src", "'self'"))
+		assert.True(t, directiveHasValue(csp, "frame-src", "https://example.com"))
+		assert.True(t, directiveHasValue(csp, "frame-ancestors", "'none'"))
+	})
+
+	t.Run("allows_the_hosted_playground_to_be_framed_only_by_the_same_origin", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; script-src 'self' __CSP_NONCE__; frame-ancestors 'none'",
+		}
+
+		for _, requestPath := range []string{
+			"/playground-app",
+			"/playground-app/",
+			"/playground-app/index.html",
+		} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, requestPath, nil)
+			SecurityHeaders(cfg, nil)(c)
+
+			csp := w.Header().Get("Content-Security-Policy")
+			assert.Equal(t, "SAMEORIGIN", w.Header().Get("X-Frame-Options"), requestPath)
+			assert.True(t, directiveHasValue(csp, "frame-ancestors", "'self'"), requestPath)
+			assert.False(t, directiveHasValue(csp, "frame-ancestors", "'none'"), requestPath)
+		}
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/playground-app/assets/index-AbCd1234.js", nil)
+		SecurityHeaders(cfg, nil)(c)
+		assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+		assert.True(t, directiveHasValue(w.Header().Get("Content-Security-Policy"), "frame-ancestors", "'none'"))
+	})
+
+	t.Run("keeps_other_web_pages_unframeable", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; script-src 'self' __CSP_NONCE__; frame-src https://example.com; frame-ancestors 'none'",
+		}
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/playground-other", nil)
+		SecurityHeaders(cfg, nil)(c)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+		assert.True(t, directiveHasValue(csp, "frame-src", "'self'"))
+		assert.True(t, directiveHasValue(csp, "frame-ancestors", "'none'"))
+	})
+
 	t.Run("csp_disabled_no_csp_header", func(t *testing.T) {
 		cfg := config.CSPConfig{Enabled: false}
 		middleware := SecurityHeaders(cfg, nil)

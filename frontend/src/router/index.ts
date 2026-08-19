@@ -216,6 +216,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/playground',
+    name: 'OnlinePlayground',
+    component: () => import('@/views/user/OnlinePlaygroundView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      requiresOnlinePlayground: true,
+      title: 'Online Playground',
+      titleKey: 'onlinePlayground.title',
+      descriptionKey: 'onlinePlayground.description'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',
@@ -929,6 +942,27 @@ router.beforeEach(async (to, _from, next) => {
       query: { redirect: to.fullPath } // Save intended destination
     })
     return
+  }
+
+  // The online playground is a WebUI-only feature switch. Refresh the public
+  // settings when entering it so an administrator can disable an already-open
+  // feature without waiting for a full page reload. API gateway routes remain
+  // unaffected by this check.
+  if (to.meta.requiresOnlinePlayground === true) {
+    try {
+      await appStore.fetchPublicSettings(true)
+    } catch (error) {
+      // A transient public-settings failure must not lock existing users out;
+      // the playground itself still requires normal authentication and keys.
+      console.warn('Failed to refresh online playground setting', error)
+    }
+    if (
+      appStore.publicSettingsLoaded &&
+      appStore.cachedPublicSettings?.online_playground_enabled === false
+    ) {
+      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
   }
 
   // Check admin requirement

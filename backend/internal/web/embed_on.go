@@ -40,9 +40,14 @@ type webAccessPolicyProvider interface {
 	GetSiteName(ctx context.Context) string
 }
 
+type onlinePlaygroundPolicyProvider interface {
+	IsOnlinePlaygroundEnabled(ctx context.Context) (bool, error)
+}
+
 type frontendAccessPolicy struct {
-	blockMainlandChina bool
-	siteName           string
+	blockMainlandChina      bool
+	onlinePlaygroundEnabled bool
+	siteName                string
 }
 
 // FrontendServer serves the embedded frontend with settings injection
@@ -86,7 +91,10 @@ func NewFrontendServer(settingsProvider PublicSettingsProvider) (*FrontendServer
 		settings:    settingsProvider,
 		overrideDir: filepath.Join("data", "public"),
 	}
-	server.accessPolicy.Store(&frontendAccessPolicy{siteName: "Sub2API"})
+	server.accessPolicy.Store(&frontendAccessPolicy{
+		onlinePlaygroundEnabled: true,
+		siteName:                "Sub2API",
+	})
 	server.RefreshAccessPolicy()
 	return server, nil
 }
@@ -105,24 +113,43 @@ func (s *FrontendServer) RefreshAccessPolicy() {
 	if s == nil || s.settings == nil {
 		return
 	}
-	provider, ok := s.settings.(webAccessPolicyProvider)
-	if !ok {
-		return
+
+	next := frontendAccessPolicy{
+		onlinePlaygroundEnabled: true,
+		siteName:                "Sub2API",
 	}
+	if current := s.accessPolicy.Load(); current != nil {
+		next = *current
+	}
+	updated := false
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	blocked, err := provider.IsMainlandChinaWebAccessBlocked(ctx)
-	if err != nil {
-		return
+
+	if provider, ok := s.settings.(webAccessPolicyProvider); ok {
+		blocked, err := provider.IsMainlandChinaWebAccessBlocked(ctx)
+		if err == nil {
+			next.blockMainlandChina = blocked
+			siteName := strings.TrimSpace(provider.GetSiteName(ctx))
+			if siteName == "" {
+				siteName = "Sub2API"
+			}
+			next.siteName = siteName
+			updated = true
+		}
 	}
-	siteName := strings.TrimSpace(provider.GetSiteName(ctx))
-	if siteName == "" {
-		siteName = "Sub2API"
+
+	if provider, ok := s.settings.(onlinePlaygroundPolicyProvider); ok {
+		enabled, err := provider.IsOnlinePlaygroundEnabled(ctx)
+		if err == nil {
+			next.onlinePlaygroundEnabled = enabled
+			updated = true
+		}
 	}
-	s.accessPolicy.Store(&frontendAccessPolicy{
-		blockMainlandChina: blocked,
-		siteName:           siteName,
-	})
+
+	if updated {
+		s.accessPolicy.Store(&next)
+	}
 }
 
 // Middleware returns the Gin middleware handler
@@ -139,14 +166,34 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 			s.serveRegionUnavailable(c)
 			return
 		}
+		if isHostedPlaygroundAssetPath(path) && !s.isOnlinePlaygroundEnabled() {
+			c.Header("Cache-Control", "no-store")
+			c.Status(http.StatusNotFound)
+			c.Abort()
+			return
+		}
 
 		cleanPath := strings.TrimPrefix(path, "/")
 		if cleanPath == "" {
 			cleanPath = "index.html"
 		}
+		if cleanPath == "playground-app" {
+			redirectToHostedPlaygroundRoot(c)
+			return
+		}
+		if isHostedPlaygroundDocumentPath(cleanPath) {
+			serveHostedPlaygroundIndex(c, s.distFS)
+			return
+		}
+		fileExists := s.fileExists(cleanPath)
+		if isHostedPlaygroundAssetPath(cleanPath) && !fileExists {
+			c.Status(http.StatusNotFound)
+			c.Abort()
+			return
+		}
 
 		// For index.html or SPA routes, serve with injected settings
-		if cleanPath == "index.html" || !s.fileExists(cleanPath) {
+		if cleanPath == "index.html" || !fileExists {
 			s.serveIndexHTML(c)
 			return
 		}
@@ -161,6 +208,14 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		s.fileServer.ServeHTTP(c.Writer, c.Request)
 		c.Abort()
 	}
+}
+
+func (s *FrontendServer) isOnlinePlaygroundEnabled() bool {
+	if s == nil {
+		return true
+	}
+	policy := s.accessPolicy.Load()
+	return policy == nil || policy.onlinePlaygroundEnabled
 }
 
 func (s *FrontendServer) shouldBlockMainlandChina(c *gin.Context) bool {
@@ -218,6 +273,35 @@ func (s *FrontendServer) fileExists(path string) bool {
 	}
 	_ = file.Close()
 	return true
+}
+
+func isHostedPlaygroundDocumentPath(cleanPath string) bool {
+	cleanPath = strings.TrimPrefix(strings.TrimSpace(cleanPath), "/")
+	return cleanPath == "playground-app" ||
+		cleanPath == "playground-app/" ||
+		cleanPath == "playground-app/index.html"
+}
+
+func redirectToHostedPlaygroundRoot(c *gin.Context) {
+	target := "/playground-app/"
+	if c.Request.URL.RawQuery != "" {
+		target += "?" + c.Request.URL.RawQuery
+	}
+	c.Redirect(http.StatusMovedPermanently, target)
+	c.Abort()
+}
+
+func serveHostedPlaygroundIndex(c *gin.Context, fsys fs.FS) {
+	content, err := fs.ReadFile(fsys, "playground-app/index.html")
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		c.Abort()
+		return
+	}
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Data(http.StatusOK, "text/html; charset=utf-8", content)
+	c.Abort()
 }
 
 // tryServeOverride checks if a local override file exists and serves it.
@@ -414,6 +498,14 @@ func ServeEmbeddedFrontend() gin.HandlerFunc {
 		if cleanPath == "" {
 			cleanPath = "index.html"
 		}
+		if cleanPath == "playground-app" {
+			redirectToHostedPlaygroundRoot(c)
+			return
+		}
+		if isHostedPlaygroundDocumentPath(cleanPath) {
+			serveHostedPlaygroundIndex(c, distFS)
+			return
+		}
 
 		if file, err := distFS.Open(cleanPath); err == nil {
 			_ = file.Close()
@@ -423,6 +515,11 @@ func ServeEmbeddedFrontend() gin.HandlerFunc {
 			}
 			applyStaticAssetCacheHeaders(c.Writer.Header(), cleanPath)
 			fileServer.ServeHTTP(c.Writer, c.Request)
+			c.Abort()
+			return
+		}
+		if isHostedPlaygroundAssetPath(cleanPath) {
+			c.Status(http.StatusNotFound)
 			c.Abort()
 			return
 		}
