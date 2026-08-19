@@ -147,6 +147,32 @@ describe('callImageApi', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 
+  it('does not retry a prompt error that only mentions b64_json incidentally', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { message: 'invalid prompt content; b64_json appears in metadata' },
+    }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    await expect(callImageApi({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        apiKey: 'test-key',
+        profiles: DEFAULT_SETTINGS.profiles.map((profile) => ({
+          ...profile,
+          apiKey: 'test-key',
+          responseFormatB64Json: true,
+        })),
+      },
+      prompt: 'prompt',
+      params: { ...DEFAULT_PARAMS },
+      inputImageDataUrls: [],
+    })).rejects.toThrow('invalid prompt content')
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   it('rebuilds multipart edit requests when the provider rejects Base64', async () => {
     let apiRequestCount = 0
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {

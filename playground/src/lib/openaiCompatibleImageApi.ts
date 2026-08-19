@@ -113,21 +113,33 @@ function getErrorMessage(err: unknown): string {
 function isUnsupportedBase64ResponseFormat(status: number | undefined, message: string): boolean {
   if (status !== 400 && status !== 415 && status !== 422) return false
 
-  const marker = message.match(/response[\s_-]*format|b64[\s_-]*json|base64/i)
-  if (!marker) return false
+  // Require the error to identify the response-format field itself. A generic
+  // prompt/content error that merely contains the word "base64" (or mentions
+  // b64_json in metadata) must never cause a second billable request.
+  const format = '(?:response[\\s_-]*format|b64[\\s_-]*json)'
+  const unsupported = '(?:unsupported|not[\\s_-]+supported|does[\\s_-]+not[\\s_-]+support|not[\\s_-]+allowed|unknown|unrecognized|must[\\s_-]+be|only[\\s_-]+(?:return|support)|不支持|不被支持|不允许|未知|不识别)'
+  const qualifier = '(?:parameter|field|value|option|argument|format)?'
 
-  // Keep the match local to the format field. This avoids retrying a normal
-  // prompt/content error that happens to mention the word "base64" elsewhere.
-  const markerIndex = marker.index ?? 0
-  const relatedText = message.slice(
-    Math.max(0, markerIndex - 128),
-    Math.min(message.length, markerIndex + marker[0].length + 128),
+  // Match the field and the provider's rejection as one parameter phrase.
+  // Deliberately avoid an arbitrary text window: an unrelated prompt error
+  // may mention b64_json in metadata and must not trigger a second request.
+  const fieldRejected = new RegExp(
+    `${format}\\s*${qualifier}\\s*(?::|=)?\\s*(?:b64[\\s_-]*json\\s*)?(?:is|was)?\\s*${unsupported}`,
+    'i',
   )
-  const unsupported = /unsupported|not[\s_-]+supported|does[\s_-]+not[\s_-]+support|not[\s_-]+allowed|unknown|unrecognized|must[\s_-]+be|only[\s_-]+(?:return|support)|不支持|不被支持|不允许|未知|不识别/i
-  if (unsupported.test(relatedText)) return true
+  const rejectedField = new RegExp(
+    `${unsupported}\\s*${qualifier}\\s*(?::|=)\\s*${format}`,
+    'i',
+  )
+  if (fieldRejected.test(message) || rejectedField.test(message)) return true
 
-  return /response[\s_-]*format|b64[\s_-]*json/i.test(marker[0])
-    && /invalid|无效/i.test(relatedText)
+  // Providers commonly report "invalid response_format" or
+  // "Invalid value: b64_json". Keep the invalid token coupled to the field.
+  const invalidField = new RegExp(
+    `(?:invalid|无效)\\s*${qualifier}\\s*(?::|=)?\\s*['\"]?${format}['\"]?|${format}\\s*${qualifier}\\s*(?::|=|is|was)?\\s*(?:invalid|无效)`,
+    'i',
+  )
+  return invalidField.test(message)
 }
 
 function getNumberValue(source: Record<string, unknown>, key: string): number | undefined {
