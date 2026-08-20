@@ -176,14 +176,6 @@ describe('callImageApi', () => {
   it('rebuilds multipart edit requests when the provider rejects Base64', async () => {
     let apiRequestCount = 0
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
-      // dataUrlToBlob fetches the input data URL before the multipart request.
-      if (!init) {
-        return new Response(new Blob(['source']), {
-          status: 200,
-          headers: { 'Content-Type': 'image/png' },
-        })
-      }
-
       apiRequestCount += 1
       if (apiRequestCount === 1) {
         return new Response(JSON.stringify({

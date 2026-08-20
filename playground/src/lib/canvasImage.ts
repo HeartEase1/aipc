@@ -10,9 +10,31 @@ export async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 export async function dataUrlToBlob(dataUrl: string, fallbackType = 'image/png'): Promise<Blob> {
-  const response = await fetch(dataUrl)
-  const blob = await response.blob()
-  return blob.type ? blob : new Blob([await blob.arrayBuffer()], { type: fallbackType })
+  const commaIndex = dataUrl.indexOf(',')
+  if (!dataUrl.startsWith('data:') || commaIndex < 0) {
+    throw new Error('图片数据格式无效')
+  }
+
+  const metadata = dataUrl.slice(5, commaIndex)
+  const payload = dataUrl.slice(commaIndex + 1)
+  const metadataParts = metadata.split(';')
+  const mimeType = metadataParts[0]?.trim() || fallbackType
+  const isBase64 = metadataParts.slice(1).some((part) => part.trim().toLowerCase() === 'base64')
+
+  try {
+    if (!isBase64) {
+      return new Blob([decodeURIComponent(payload)], { type: mimeType })
+    }
+
+    const binary = atob(payload.replace(/\s/g, ''))
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i)
+    }
+    return new Blob([bytes], { type: mimeType })
+  } catch {
+    throw new Error('图片数据格式无效')
+  }
 }
 
 export async function imageDataUrlToPngBlob(dataUrl: string): Promise<Blob> {
