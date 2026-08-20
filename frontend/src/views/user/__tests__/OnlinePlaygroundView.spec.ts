@@ -85,6 +85,7 @@ function restoreProperty(target: object, key: PropertyKey, descriptor?: Property
 describe('OnlinePlaygroundView', () => {
   beforeEach(() => {
     vi.useRealTimers()
+    localStorage.clear()
     authStore.user = { id: 42, role: 'user' }
     listActiveKeys.mockReset()
     fetchModels.mockReset()
@@ -281,7 +282,10 @@ describe('OnlinePlaygroundView', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('onlinePlayground.connectionFailed')
-    await wrapper.get('button.btn-primary').trigger('click')
+    const reconnectButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('onlinePlayground.reconnect'))
+    expect(reconnectButton).toBeDefined()
+    await reconnectButton!.trigger('click')
     await nextTick()
 
     const nextSession = new URL((wrapper.get('iframe').element as HTMLIFrameElement).src).searchParams.get('session')
@@ -409,6 +413,71 @@ describe('OnlinePlaygroundView', () => {
     await nextTick()
 
     expect(wrapper.find('button[aria-label="onlinePlayground.enterFullscreen"]').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('saves non-secret preferences and restores them for the same user', async () => {
+    const secondKey = { ...activeKey, id: 8, key: 'sk-second-secret', name: 'Second key' }
+    listActiveKeys.mockResolvedValue([activeKey, secondKey])
+
+    const firstWrapper = mountView()
+    await flushPromises()
+
+    const selects = firstWrapper.findAllComponents(Select)
+    selects[0].vm.$emit('update:modelValue', 8)
+    await flushPromises()
+    selects[1].vm.$emit('update:modelValue', 'gpt-5-mini')
+    await firstWrapper.get('button[role="switch"]').trigger('click')
+    await flushPromises()
+
+    await firstWrapper.get('button[title="onlinePlayground.saveConfiguration"]').trigger('click')
+    const stored = localStorage.getItem('ipcai:online-playground:v1:42')
+    expect(stored).not.toBeNull()
+    expect(JSON.parse(stored!)).toEqual({
+      keyId: 8,
+      textModel: 'gpt-5-mini',
+      imageModel: 'gpt-image-1',
+      responseFormatB64Json: false,
+    })
+    expect(stored).not.toContain(activeKey.key)
+    expect(stored).not.toContain(secondKey.key)
+    expect(firstWrapper.get('button[title="onlinePlayground.configurationSaved"]').text())
+      .toContain('onlinePlayground.configurationSaved')
+    firstWrapper.unmount()
+
+    const restoredWrapper = mountView()
+    await flushPromises()
+
+    const restoredSelects = restoredWrapper.findAllComponents(Select)
+    expect(restoredSelects[0].props('modelValue')).toBe(8)
+    expect(restoredSelects[1].props('modelValue')).toBe('gpt-5-mini')
+    expect(restoredSelects[2].props('modelValue')).toBe('gpt-image-1')
+    expect(restoredWrapper.get('button[role="switch"]').attributes('aria-checked')).toBe('false')
+    expect(restoredWrapper.get('button[title="onlinePlayground.configurationSaved"]').attributes('disabled'))
+      .toBeDefined()
+
+    restoredWrapper.unmount()
+  })
+
+  it('falls back safely when a saved key or model is no longer available', async () => {
+    localStorage.setItem('ipcai:online-playground:v1:42', JSON.stringify({
+      keyId: 999,
+      textModel: 'retired-chat-model',
+      imageModel: 'retired-image-model',
+      responseFormatB64Json: false,
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const selects = wrapper.findAllComponents(Select)
+    expect(selects[0].props('modelValue')).toBe(activeKey.id)
+    expect(selects[1].props('modelValue')).toBe('gpt-5')
+    expect(selects[2].props('modelValue')).toBe('gpt-image-1')
+    expect(wrapper.get('button[role="switch"]').attributes('aria-checked')).toBe('false')
+    expect(wrapper.get('button[title="onlinePlayground.saveConfiguration"]').attributes('disabled'))
+      .toBeUndefined()
 
     wrapper.unmount()
   })

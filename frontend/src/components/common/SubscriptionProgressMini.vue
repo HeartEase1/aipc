@@ -93,10 +93,11 @@
                       }"
                     ></div>
                   </div>
-                  <span class="w-24 flex-shrink-0 text-right text-[10px] text-gray-500">
-                    {{
-                      formatUsage(subscription.daily_usage_usd, subscription.group?.daily_limit_usd)
-                    }}
+                  <span class="inline-flex min-w-12 flex-shrink-0 items-baseline justify-end gap-1 whitespace-nowrap text-[10px] text-gray-500 dark:text-dark-300">
+                    <span>{{ t('subscriptionProgress.used') }}</span>
+                    <span class="font-semibold tabular-nums text-gray-800 dark:text-gray-100">
+                      {{ formatQuotaUsagePercentage(subscription.daily_usage_usd, subscription.group?.daily_limit_usd) }}%
+                    </span>
                   </span>
                 </div>
 
@@ -121,10 +122,11 @@
                       }"
                     ></div>
                   </div>
-                  <span class="w-24 flex-shrink-0 text-right text-[10px] text-gray-500">
-                    {{
-                      formatUsage(subscription.weekly_usage_usd, subscription.group?.weekly_limit_usd)
-                    }}
+                  <span class="inline-flex min-w-12 flex-shrink-0 items-baseline justify-end gap-1 whitespace-nowrap text-[10px] text-gray-500 dark:text-dark-300">
+                    <span>{{ t('subscriptionProgress.used') }}</span>
+                    <span class="font-semibold tabular-nums text-gray-800 dark:text-gray-100">
+                      {{ formatQuotaUsagePercentage(subscription.weekly_usage_usd, subscription.group?.weekly_limit_usd) }}%
+                    </span>
                   </span>
                 </div>
 
@@ -149,13 +151,11 @@
                       }"
                     ></div>
                   </div>
-                  <span class="w-24 flex-shrink-0 text-right text-[10px] text-gray-500">
-                    {{
-                      formatUsage(
-                        subscription.monthly_usage_usd,
-                        subscription.group?.monthly_limit_usd
-                      )
-                    }}
+                  <span class="inline-flex min-w-12 flex-shrink-0 items-baseline justify-end gap-1 whitespace-nowrap text-[10px] text-gray-500 dark:text-dark-300">
+                    <span>{{ t('subscriptionProgress.used') }}</span>
+                    <span class="font-semibold tabular-nums text-gray-800 dark:text-gray-100">
+                      {{ formatQuotaUsagePercentage(subscription.monthly_usage_usd, subscription.group?.monthly_limit_usd) }}%
+                    </span>
                   </span>
                 </div>
               </template>
@@ -183,6 +183,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useSubscriptionStore } from '@/stores'
 import type { UserSubscription } from '@/types'
+import { formatQuotaUsagePercentage } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 
@@ -249,12 +250,6 @@ function getProgressWidth(used: number | undefined, limit: number | null | undef
   if (!limit || limit === 0) return '0%'
   const percentage = Math.min(((used || 0) / limit) * 100, 100)
   return `${percentage}%`
-}
-
-function formatUsage(used: number | undefined, limit: number | null | undefined): string {
-  const usedValue = (used || 0).toFixed(2)
-  const limitValue = limit?.toFixed(2) || '∞'
-  return `$${usedValue}/$${limitValue}`
 }
 
 function formatDaysRemaining(expiresAt: string): string {

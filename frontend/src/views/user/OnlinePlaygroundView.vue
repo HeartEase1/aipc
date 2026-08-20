@@ -53,17 +53,35 @@
             </p>
           </div>
 
-          <button
-            type="button"
-            class="btn btn-secondary w-full shrink-0 xl:w-auto"
-            :disabled="keysLoading || modelsLoading || activeKeys.length === 0"
-            :title="t('onlinePlayground.refreshModels')"
-            @click="refreshModels"
-          >
-            <Icon name="refresh" size="sm" class="mr-2" :class="keysLoading || modelsLoading ? 'animate-spin' : ''" />
-            {{ t('onlinePlayground.refreshModels') }}
-          </button>
+          <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              class="btn btn-primary w-full shrink-0 sm:w-auto"
+              :disabled="!canSaveConfiguration || !hasUnsavedConfiguration"
+              :title="configurationIsSaved ? t('onlinePlayground.configurationSaved') : t('onlinePlayground.saveConfiguration')"
+              @click="saveConfiguration"
+            >
+              <Icon :name="configurationIsSaved ? 'check' : 'save'" size="sm" class="mr-2" />
+              {{ configurationIsSaved ? t('onlinePlayground.configurationSaved') : t('onlinePlayground.saveConfiguration') }}
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-secondary w-full shrink-0 sm:w-auto"
+              :disabled="keysLoading || modelsLoading || activeKeys.length === 0"
+              :title="t('onlinePlayground.refreshModels')"
+              @click="refreshModels"
+            >
+              <Icon name="refresh" size="sm" class="mr-2" :class="keysLoading || modelsLoading ? 'animate-spin' : ''" />
+              {{ t('onlinePlayground.refreshModels') }}
+            </button>
+          </div>
         </div>
+
+        <p v-if="configurationSaveFailed" class="mt-3 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-300" role="alert">
+          <Icon name="exclamationCircle" size="xs" class="shrink-0" />
+          {{ t('onlinePlayground.saveConfigurationFailed') }}
+        </p>
 
         <div class="mt-4 grid gap-4 md:grid-cols-3">
           <label class="min-w-0">
@@ -284,12 +302,23 @@ import {
 const { t } = useI18n()
 const authStore = useAuthStore()
 
+interface PlaygroundPreferences {
+  keyId: number
+  textModel: string
+  imageModel: string
+  responseFormatB64Json: boolean
+}
+
+const PREFERENCES_STORAGE_PREFIX = 'ipcai:online-playground:v1:'
+
 const activeKeys = ref<ApiKey[]>([])
 const selectedKeyId = ref<number | null>(null)
 const models = ref<PlaygroundModels>({ all: [], text: [], image: [] })
 const selectedTextModel = ref<string | null>(null)
 const selectedImageModel = ref<string | null>(null)
 const useBase64Images = ref(true)
+const savedPreferences = ref<PlaygroundPreferences | null>(null)
+const configurationSaveFailed = ref(false)
 const keysLoading = ref(false)
 const modelsLoading = ref(false)
 const keysLoadFailed = ref(false)
@@ -346,6 +375,46 @@ const canMountPlayground = computed(() => Boolean(
   && !modelsLoadFailed.value,
 ))
 
+const currentPreferences = computed<PlaygroundPreferences | null>(() => {
+  if (
+    selectedKeyId.value === null
+    || !selectedTextModel.value
+    || !selectedImageModel.value
+  ) return null
+
+  return {
+    keyId: selectedKeyId.value,
+    textModel: selectedTextModel.value,
+    imageModel: selectedImageModel.value,
+    responseFormatB64Json: useBase64Images.value,
+  }
+})
+
+const canSaveConfiguration = computed(() => Boolean(
+  currentPreferences.value
+  && !keysLoading.value
+  && !modelsLoading.value
+  && !modelsLoadFailed.value,
+))
+
+const hasUnsavedConfiguration = computed(() => {
+  const current = currentPreferences.value
+  const saved = savedPreferences.value
+  if (!current) return false
+  if (!saved) return true
+
+  return current.keyId !== saved.keyId
+    || current.textModel !== saved.textModel
+    || current.imageModel !== saved.imageModel
+    || current.responseFormatB64Json !== saved.responseFormatB64Json
+})
+
+const configurationIsSaved = computed(() => Boolean(
+  currentPreferences.value
+  && savedPreferences.value
+  && !hasUnsavedConfiguration.value,
+))
+
 const fullscreenSupported = computed(() => Boolean(
   workspaceRef.value?.requestFullscreen && document.exitFullscreen,
 ))
@@ -388,6 +457,54 @@ function createSessionId(): string {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function readSavedPreferences(accountId: string): PlaygroundPreferences | null {
+  if (!accountId) return null
+
+  try {
+    const raw = localStorage.getItem(`${PREFERENCES_STORAGE_PREFIX}${accountId}`)
+    if (!raw) return null
+
+    const value = JSON.parse(raw) as Partial<PlaygroundPreferences>
+    if (
+      typeof value.keyId !== 'number'
+      || !Number.isSafeInteger(value.keyId)
+      || Number(value.keyId) <= 0
+      || typeof value.textModel !== 'string'
+      || !value.textModel.trim()
+      || value.textModel.length > 256
+      || typeof value.imageModel !== 'string'
+      || !value.imageModel.trim()
+      || value.imageModel.length > 256
+      || typeof value.responseFormatB64Json !== 'boolean'
+    ) return null
+
+    return {
+      keyId: Number(value.keyId),
+      textModel: value.textModel,
+      imageModel: value.imageModel,
+      responseFormatB64Json: value.responseFormatB64Json,
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveConfiguration() {
+  const preferences = currentPreferences.value
+  if (!preferences || !userId.value) return
+
+  try {
+    localStorage.setItem(
+      `${PREFERENCES_STORAGE_PREFIX}${userId.value}`,
+      JSON.stringify(preferences),
+    )
+    savedPreferences.value = { ...preferences }
+    configurationSaveFailed.value = false
+  } catch {
+    configurationSaveFailed.value = true
+  }
 }
 
 function resetModels() {
@@ -478,8 +595,16 @@ async function loadKeys() {
     const loadedKeys = await playgroundAPI.listActiveKeys(controller.signal)
     if (controller.signal.aborted || keysAbortController !== controller) return
     activeKeys.value = loadedKeys
-    const existingSelection = loadedKeys.some((key) => key.id === selectedKeyId.value)
-    selectedKeyId.value = existingSelection ? selectedKeyId.value : (loadedKeys[0]?.id ?? null)
+    const stored = readSavedPreferences(userId.value)
+    savedPreferences.value = stored
+    configurationSaveFailed.value = false
+    useBase64Images.value = stored?.responseFormatB64Json ?? true
+
+    const preferredKeyId = stored?.keyId ?? selectedKeyId.value
+    const existingSelection = loadedKeys.some((key) => key.id === preferredKeyId)
+    selectedKeyId.value = existingSelection ? preferredKeyId : (loadedKeys[0]?.id ?? null)
+    selectedTextModel.value = stored?.keyId === selectedKeyId.value ? stored.textModel : null
+    selectedImageModel.value = stored?.keyId === selectedKeyId.value ? stored.imageModel : null
     if (selectedKeyId.value !== null) await loadModels()
   } catch (error) {
     if ((error as { name?: string })?.name === 'CanceledError') return
@@ -584,7 +709,12 @@ watch(selectedKeyId, (next, previous) => {
 })
 
 watch([selectedTextModel, selectedImageModel, theme, useBase64Images], () => {
+  configurationSaveFailed.value = false
   sendHostedConfig()
+})
+
+watch(selectedKeyId, () => {
+  configurationSaveFailed.value = false
 })
 
 watch(userId, (next, previous) => {
@@ -594,6 +724,9 @@ watch(userId, (next, previous) => {
   modelsAbortController?.abort()
   activeKeys.value = []
   selectedKeyId.value = null
+  savedPreferences.value = null
+  configurationSaveFailed.value = false
+  useBase64Images.value = true
   resetModels()
   sessionId.value = createSessionId()
   if (next) void loadKeys()

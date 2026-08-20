@@ -212,11 +212,22 @@
           </template>
 
           <template #cell-usage="{ row }">
-            <div class="min-w-[280px] space-y-2">
+            <div class="w-full min-w-0 space-y-2 md:min-w-[360px]">
               <!-- Daily Usage -->
               <div v-if="row.group?.daily_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.daily') }}</span>
+                  <span
+                    class="usage-percentage"
+                    :aria-label="t('userSubscriptions.usedPercentage', {
+                      percentage: formatQuotaUsagePercentage(
+                        row.daily_usage_usd,
+                        row.group?.daily_limit_usd
+                      )
+                    })"
+                  >
+                    {{ formatQuotaUsagePercentage(row.daily_usage_usd, row.group?.daily_limit_usd) }}%
+                  </span>
                   <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
                       class="h-1.5 rounded-full transition-all"
@@ -254,6 +265,17 @@
               <div v-if="row.group?.weekly_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.weekly') }}</span>
+                  <span
+                    class="usage-percentage"
+                    :aria-label="t('userSubscriptions.usedPercentage', {
+                      percentage: formatQuotaUsagePercentage(
+                        row.weekly_usage_usd,
+                        row.group?.weekly_limit_usd
+                      )
+                    })"
+                  >
+                    {{ formatQuotaUsagePercentage(row.weekly_usage_usd, row.group?.weekly_limit_usd) }}%
+                  </span>
                   <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
                       class="h-1.5 rounded-full transition-all"
@@ -291,6 +313,17 @@
               <div v-if="row.group?.monthly_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.monthly') }}</span>
+                  <span
+                    class="usage-percentage"
+                    :aria-label="t('userSubscriptions.usedPercentage', {
+                      percentage: formatQuotaUsagePercentage(
+                        row.monthly_usage_usd,
+                        row.group?.monthly_limit_usd
+                      )
+                    })"
+                  >
+                    {{ formatQuotaUsagePercentage(row.monthly_usage_usd, row.group?.monthly_limit_usd) }}%
+                  </span>
                   <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
                       class="h-1.5 rounded-full transition-all"
@@ -783,6 +816,7 @@ import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
+  formatQuotaUsagePercentage,
   getRemainingDurationParts,
   getRemainingExpiryDuration,
   isOneTimeDailyQuota,
@@ -1474,14 +1508,32 @@ onUnmounted(() => {
 }
 
 .usage-label {
-  @apply w-10 flex-shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400;
+  @apply w-6 flex-shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400;
 }
 
 .usage-amount {
   @apply whitespace-nowrap text-xs tabular-nums text-gray-600 dark:text-gray-300;
 }
 
+.usage-percentage {
+  @apply w-10 flex-shrink-0 text-left text-xs font-semibold tabular-nums text-gray-800 dark:text-gray-100;
+}
+
 .reset-info {
-  @apply flex items-center gap-1 pl-12 text-[10px] text-blue-600 dark:text-blue-400;
+  @apply flex items-center gap-1 pl-20 text-[10px] text-blue-600 dark:text-blue-400;
+}
+
+@media (max-width: 767px) {
+  :deep([data-field='usage']) {
+    @apply block;
+  }
+
+  :deep([data-field='usage'] > span) {
+    @apply mb-2 block text-left;
+  }
+
+  :deep([data-field='usage'] > div) {
+    @apply w-full text-left;
+  }
 }
 </style>

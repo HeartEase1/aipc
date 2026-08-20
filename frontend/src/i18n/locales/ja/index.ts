@@ -22,6 +22,10 @@ export default {
     ...en.userSubscriptions,
     usedPercentage: '使用済み {percentage}%'
   },
+  subscriptionProgress: {
+    ...en.subscriptionProgress,
+    used: '使用済み'
+  },
   onlinePlayground: {
     ...en.onlinePlayground,
     title: 'オンライン利用',
@@ -39,7 +43,7 @@ export default {
     base64ImagesHint: '画像URLのクロスオリジン制限を避けるため、まず埋め込みデータを要求します。対応しないサービスではコピー用に元のURLを保持します。',
     base64ImagesOn: 'Base64画像データを有効にしています',
     base64ImagesOff: '無効、サービスが返した画像URLを使用します',
-    keyPrivacyNotice: 'キーはこのページのメモリ内だけで使用され、URL、チャット履歴、ローカル履歴には保存されません。すべてのリクエストはサイトのゲートウェイを経由して従来のルールで課金されます。Agent は1つの操作で複数の課金対象リクエストを行う場合があり、対話は最大6ラウンド、画像生成は最大6件です。',
+    keyPrivacyNotice: '設定を保存しても、このブラウザに記録されるのはキーID、モデル、画像設定だけで、キー本体は保存されません。キー本体はこのページのメモリ内だけで使用され、URL、チャット履歴、ローカル履歴には保存されません。すべてのリクエストはサイトのゲートウェイを経由して従来のルールで課金されます。Agent は1つの操作で複数の課金対象リクエストを行う場合があり、対話は最大6ラウンド、画像生成は最大6件です。',
     loadingKeys: '利用可能なキーを読み込んでいます…',
     loadingModels: 'モデル一覧を取得しています…',
     keysLoadFailed: 'APIキーを読み込めませんでした。ネットワークを確認して再試行してください。',
@@ -48,6 +52,9 @@ export default {
     noActiveKey: '利用可能なAPIキーがありません',
     createKeyHint: '先にAPIキーを作成して有効にしてください。',
     goToKeys: 'APIキーを作成',
+    saveConfiguration: '設定を保存',
+    configurationSaved: '設定を保存しました',
+    saveConfigurationFailed: 'ブラウザに設定を保存できませんでした。サイトストレージが無効になっていないか確認してください。',
     refreshModels: 'モデルを更新',
     retry: '再試行',
     workspace: 'オンライン制作ワークスペース',

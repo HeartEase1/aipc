@@ -8,6 +8,7 @@ export default {
     daily: '每日',
     weekly: '每周',
     monthly: '每月',
+    used: '已用',
     daysRemaining: '剩余 {days} 天',
     expired: '已过期',
     expiresToday: '今天到期',
