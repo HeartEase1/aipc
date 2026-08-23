@@ -45,7 +45,8 @@ describe('DateRangePicker', () => {
       },
       global: {
         stubs: {
-          Icon: true
+          Icon: true,
+          Teleport: true
         }
       }
     })
@@ -64,7 +65,8 @@ describe('DateRangePicker', () => {
       },
       global: {
         stubs: {
-          Icon: true
+          Icon: true,
+          Teleport: true
         }
       }
     })
@@ -92,5 +94,37 @@ describe('DateRangePicker', () => {
         preset: 'last24Hours'
       }
     ])
+  })
+
+  it('renders the dropdown as a fixed high-z-index portal surface', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 32,
+      y: 48,
+      top: 48,
+      left: 32,
+      right: 232,
+      bottom: 88,
+      width: 200,
+      height: 40,
+      toJSON: () => ({})
+    } as DOMRect)
+
+    const wrapper = mount(DateRangePicker, {
+      props: {
+        startDate: formatLocalDate(new Date()),
+        endDate: formatLocalDate(new Date())
+      },
+      global: {
+        stubs: {
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await wrapper.get('.date-picker-trigger').trigger('click')
+    const dropdown = wrapper.get('.date-picker-dropdown')
+    expect(dropdown.attributes('style')).toContain('position: fixed')
+    expect(dropdown.attributes('style')).toContain('z-index: 100000020')
   })
 })

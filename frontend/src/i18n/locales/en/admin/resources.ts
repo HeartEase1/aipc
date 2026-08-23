@@ -553,6 +553,10 @@ export default {
       clickToViewBalance: 'Click to view balance history',
       failedToLoadUser: 'Failed to load user info',
       userDeletedBadge: 'Deleted',
+      collapseUserDetails: 'Collapse user details',
+      expandUserDetails: 'Expand user details',
+      collapseResponseModelDetails: 'Collapse response model',
+      expandResponseModelDetails: 'Expand response model',
       tokenRanking: {
         subtitle: 'Per-user token usage for the current filters and time range',
         rowHint: "Click to view this user's usage details",

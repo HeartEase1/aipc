@@ -187,6 +187,13 @@ export default {
   admin: {
     ...en.admin,
     ...discountCampaigns,
+    usage: {
+      ...en.admin.usage,
+      collapseUserDetails: 'ユーザー情報を折りたたむ',
+      expandUserDetails: 'ユーザー情報を展開',
+      collapseResponseModelDetails: '応答モデルを折りたたむ',
+      expandResponseModelDetails: '応答モデルを展開'
+    },
     accounts: {
       ...en.admin.accounts,
       cnProviders: {

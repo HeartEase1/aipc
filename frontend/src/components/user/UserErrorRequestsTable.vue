@@ -1,6 +1,9 @@
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
-    <div class="card flex min-h-0 flex-1 flex-col overflow-hidden">
+  <div
+    class="user-error-requests-table flex min-h-0 flex-1 flex-col"
+    :class="{ 'user-error-requests-table--fixed-viewport': fixedViewport }"
+  >
+    <div class="user-error-requests-table__table-region card flex min-h-0 flex-1 flex-col overflow-hidden">
       <IpGeoBatchToolbar :ips="rows.map((r) => r.client_ip)" @failed="emit('ipGeoBatchFailed')" />
 
       <DataTable
@@ -108,6 +111,7 @@
     <div class="flex-shrink-0">
       <Pagination
         v-if="total > 0"
+        class="user-usage-pagination"
         :page="page"
         :page-size="pageSize"
         :total="total"
@@ -146,6 +150,7 @@ const props = defineProps<{
   loading: boolean
   page: number
   pageSize: number
+  fixedViewport?: boolean
   /** 列设置:仅显示这些 key 的列;不传则全显(key 须与 allColumns 一致) */
   visibleColumnKeys?: string[]
 }>()
@@ -202,3 +207,20 @@ function openDetail(id: number) {
 
 const statusClass = statusCodeBadgeClass
 </script>
+
+<style>
+@media (min-width: 768px) {
+  .modern-console-shell .user-error-requests-table--fixed-viewport {
+    height: calc(var(--console-usage-table-height, clamp(24rem, 48dvh, 30rem)) + 4rem);
+    min-height: 0;
+  }
+
+  .modern-console-shell .user-error-requests-table--fixed-viewport .user-error-requests-table__table-region {
+    min-height: 0;
+  }
+
+  .modern-console-shell .user-error-requests-table--fixed-viewport .data-table-desktop {
+    height: 100%;
+  }
+}
+</style>

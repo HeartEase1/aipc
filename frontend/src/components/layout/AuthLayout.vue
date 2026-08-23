@@ -283,13 +283,13 @@ onMounted(() => {
   }
 }
 
-:global(.dark) .auth-shell,
-:global(.dark) .auth-form-panel {
+:global(html.dark .auth-shell),
+:global(html.dark .auth-form-panel) {
   background: #080d15;
   color: #f8fafc;
 }
 
-:global(.dark) .auth-brand-panel {
+:global(html.dark .auth-brand-panel) {
   border-right-color: rgba(100, 116, 139, 0.22);
   background-color: #101722;
   background-image:
@@ -297,11 +297,11 @@ onMounted(() => {
     linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
 }
 
-:global(.dark) .auth-brand-panel::after {
+:global(html.dark .auth-brand-panel::after) {
   background: linear-gradient(to top, rgba(14, 116, 144, 0.18), transparent);
 }
 
-:global(.dark) .auth-logo-frame {
+:global(html.dark .auth-logo-frame) {
   border-color: rgba(100, 116, 139, 0.3);
   background: rgba(30, 41, 59, 0.88);
   box-shadow:
@@ -309,16 +309,16 @@ onMounted(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-:global(.dark) .auth-brand-name-compact,
-:global(.dark) .auth-brand-copy p {
+:global(html.dark .auth-brand-name-compact),
+:global(html.dark .auth-brand-copy p) {
   color: #94a3b8;
 }
 
-:global(.dark) .auth-brand-copy h1 {
+:global(html.dark .auth-brand-copy h1) {
   color: #f8fafc;
 }
 
-:global(.dark) .auth-card {
+:global(html.dark .auth-card) {
   border-color: rgba(100, 116, 139, 0.3);
   background: rgba(15, 23, 42, 0.9);
   box-shadow:
@@ -327,19 +327,19 @@ onMounted(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-:global(.dark) .auth-card :deep(.btn-primary) {
+:global(html.dark .auth-card .btn-primary) {
   background: #3b82f6;
   color: #ffffff;
   box-shadow: 0 12px 26px -13px rgba(59, 130, 246, 0.68);
 }
 
-:global(.dark) .auth-card :deep(.btn-primary:hover:not(:disabled)) {
+:global(html.dark .auth-card .btn-primary:hover:not(:disabled)) {
   background: #60a5fa;
   color: #0b1f45;
 }
 
-:global(.dark) .auth-shell :deep(.dark\:text-primary-400),
-:global(.dark) .auth-footer :deep(.dark\:text-primary-400) {
+:global(html.dark .auth-shell .dark\:text-primary-400),
+:global(html.dark .auth-footer .dark\:text-primary-400) {
   color: #60a5fa !important;
 }
 
@@ -400,18 +400,18 @@ onMounted(() => {
     text-align: center;
   }
 
-  :global(.dark) .auth-shell {
+  :global(html.dark .auth-shell) {
     background-color: #0b111a;
     background-image:
       linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
       linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
   }
 
-  :global(.dark) .auth-mobile-brand h1 {
+  :global(html.dark .auth-mobile-brand h1) {
     color: #f8fafc;
   }
 
-  :global(.dark) .auth-mobile-brand p {
+  :global(html.dark .auth-mobile-brand p) {
     color: #94a3b8;
   }
 }

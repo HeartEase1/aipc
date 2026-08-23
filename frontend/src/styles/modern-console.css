@@ -374,11 +374,6 @@ html.dark[data-console-ui-mode='modern'] {
     0 12px 28px -14px rgb(37 99 235 / 0.58) !important;
 }
 
-.modern-console-shell .profile-overview-hero {
-  border-color: color-mix(in srgb, var(--console-accent) 18%, var(--console-border));
-  background: var(--console-surface-raised);
-}
-
 .modern-console-shell .key-action-use:hover {
   background: var(--console-accent-soft) !important;
   color: var(--console-accent-strong) !important;
@@ -391,6 +386,74 @@ html.dark[data-console-ui-mode='modern'] {
 
 .modern-console-shell .leaderboard-share-fill {
   background: var(--console-accent) !important;
+}
+
+.modern-console-shell :is(
+  .leaderboard-heading-card,
+  .leaderboard-toolbar,
+  .leaderboard-loading,
+  .leaderboard-summary-heading,
+  .leaderboard-tabs,
+  .leaderboard-table-card,
+  .leaderboard-stat-card
+) {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-raised);
+  box-shadow: var(--console-shadow-md);
+}
+
+.modern-console-shell .leaderboard-toolbar {
+  align-items: stretch;
+}
+
+.modern-console-shell :is(.leaderboard-period-switch, .leaderboard-tabs) {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-md);
+  background: var(--console-surface-muted);
+  box-shadow: inset 0 1px 2px rgb(31 50 81 / 0.06);
+}
+
+.modern-console-shell :is(.leaderboard-period-button, .leaderboard-tab) {
+  border: 1px solid transparent;
+  border-radius: calc(var(--console-radius-md) - 0.2rem);
+  transition:
+    transform var(--console-motion-jelly) var(--console-ease-jelly),
+    box-shadow var(--console-motion-normal) var(--console-ease-standard),
+    background-color var(--console-motion-normal) var(--console-ease-standard);
+}
+
+.modern-console-shell :is(.leaderboard-period-button-active, .leaderboard-tab-active) {
+  border-color: var(--console-border-strong);
+  box-shadow: var(--console-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.modern-console-shell .leaderboard-table-card {
+  overflow: hidden;
+}
+
+.modern-console-shell .leaderboard-desktop-table th,
+.modern-console-shell .leaderboard-desktop-table td {
+  min-width: 0;
+  vertical-align: middle;
+}
+
+.modern-console-shell .leaderboard-desktop-table :is(th, td):first-child {
+  width: 11%;
+}
+
+.modern-console-shell .leaderboard-desktop-table :is(th, td):nth-child(2) {
+  width: 29%;
+}
+
+.modern-console-shell .leaderboard-desktop-table :is(th, td):nth-child(n + 3) {
+  width: 15%;
+}
+
+.modern-console-shell .leaderboard-mobile-row {
+  border-radius: var(--console-radius-md);
+  box-shadow: var(--console-shadow-sm);
 }
 
 .modern-console-shell :is(.redeem-form-card, .redeem-info-card, .redeem-activity-card) {
@@ -463,10 +526,6 @@ html.dark[data-console-ui-mode='modern'] {
   margin-top: 0 !important;
 }
 
-.modern-console-shell .profile-card-stack > :is(.profile-overview-hero, div) {
-  margin-top: 0;
-}
-
 .modern-console-shell .profile-overview-hero {
   animation: console-jelly-settle 560ms 45ms var(--console-ease-jelly) both;
 }
@@ -524,6 +583,54 @@ html.dark[data-console-ui-mode='modern'] {
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65);
 }
 
+.modern-console-shell .payment-tab-switcher {
+  border: 1px solid var(--console-border-strong);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-muted) !important;
+  box-shadow:
+    inset 0 1px 3px rgb(31 50 81 / 0.08),
+    var(--console-shadow-sm);
+}
+
+.modern-console-shell .payment-tab {
+  min-height: 2.875rem;
+  border: 1px solid transparent;
+  color: var(--console-text-muted) !important;
+}
+
+.modern-console-shell .payment-tab[aria-selected='true'] {
+  border-color: var(--console-border-strong);
+  background: var(--console-surface-solid) !important;
+  color: var(--console-accent-strong) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 7px 18px -10px rgb(31 50 81 / 0.44);
+  transform: translateY(-1px);
+}
+
+.modern-console-shell .user-usage-pagination.pagination-shell {
+  margin-top: 1rem;
+  overflow: visible;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-raised);
+  box-shadow: var(--console-shadow-md);
+}
+
+.modern-console-shell .audit-log-page {
+  height: auto;
+  min-height: var(--console-viewport-available-height);
+  grid-template-rows: auto auto minmax(28rem, 1fr) auto;
+}
+
+.modern-console-shell .audit-log-page .layout-section-table {
+  min-height: 28rem;
+}
+
+.modern-console-shell .audit-log-filter-card {
+  box-shadow: var(--console-shadow-sm);
+}
+
 .modern-console-shell :is(h1, h2, h3, h4, th, [class*='tracking-']) {
   letter-spacing: 0;
 }
@@ -532,9 +639,14 @@ html.dark[data-console-ui-mode='modern'] {
 .modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card) {
   border-color: var(--console-border);
   border-radius: var(--console-radius-lg);
-  background: var(--console-surface-raised);
   box-shadow: var(--console-shadow-md);
   backdrop-filter: blur(18px) saturate(1.04);
+}
+
+.modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card):not(
+    .profile-overview-hero
+  ) {
+  background: var(--console-surface-raised);
 }
 
 .modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card) {
@@ -1076,6 +1188,15 @@ html[data-console-ui-mode='modern'] [role='tooltip'] > div:last-child {
 }
 
 @media (max-width: 1023px) {
+  .modern-console-shell .audit-log-page {
+    min-height: 0;
+    grid-template-rows: auto auto auto auto;
+  }
+
+  .modern-console-shell .audit-log-page .layout-section-table {
+    min-height: 0;
+  }
+
   .modern-console-shell.modern-sidebar-collapsed > .sidebar {
     width: var(--console-sidebar-width);
   }

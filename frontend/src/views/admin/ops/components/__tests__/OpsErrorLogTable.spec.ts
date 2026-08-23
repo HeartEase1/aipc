@@ -16,7 +16,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 const TooltipStub = { template: '<div><slot /></div>' }
 const PaginationStub = { template: '<div class="pagination-stub" />' }
 
-function mountTable(row: Partial<OpsErrorLog>) {
+function mountTable(row: Partial<OpsErrorLog>, extraProps: Record<string, unknown> = {}) {
   const base = {
     id: 1,
     created_at: '2026-06-05T23:59:50Z',
@@ -39,12 +39,20 @@ function mountTable(row: Partial<OpsErrorLog>) {
   } as OpsErrorLog
 
   return mount(OpsErrorLogTable, {
-    props: { rows: [base], total: 1, loading: false, page: 1, pageSize: 20 },
+    props: { rows: [base], total: 1, loading: false, page: 1, pageSize: 20, ...extraProps },
     global: { stubs: { 'el-tooltip': TooltipStub, Pagination: PaginationStub } },
   })
 }
 
 describe('OpsErrorLogTable user/api-key/account columns', () => {
+  it('enables the bounded error viewport only when requested', () => {
+    const natural = mountTable({})
+    expect(natural.get('.ops-error-log-table').classes()).not.toContain('ops-error-log-table--fixed-viewport')
+
+    const bounded = mountTable({}, { fixedViewport: true })
+    expect(bounded.get('.ops-error-log-table').classes()).toContain('ops-error-log-table--fixed-viewport')
+  })
+
   // 回归:上游错误行(phase=upstream, owner=provider)以前在单一「用户」列里只显示账号、
   // 丢失用户;现在用户/API Key/账号各占独立列,三者同时可见。
   it('renders user, api key and account in separate columns for an upstream row', () => {

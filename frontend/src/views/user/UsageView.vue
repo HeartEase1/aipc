@@ -192,6 +192,7 @@
 
         <Pagination
           v-if="pagination.total > 0"
+          class="user-usage-pagination"
           :page="pagination.page"
           :total="pagination.total"
           :page-size="pagination.page_size"
@@ -202,6 +203,7 @@
 
       <UserErrorRequestsTable
         v-else-if="errorViewEnabled"
+        fixed-viewport
         :rows="errorRows"
         :total="errorTotal"
         :loading="errorLoading"

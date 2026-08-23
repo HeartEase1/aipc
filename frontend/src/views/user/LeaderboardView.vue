@@ -85,7 +85,7 @@
             </div>
           </div>
 
-          <div class="grid gap-4 sm:grid-cols-3">
+          <div class="leaderboard-summary-grid grid gap-4 lg:grid-cols-3">
             <div
               v-for="item in summaryItems"
               :key="item.label"
@@ -145,7 +145,7 @@
           </div>
 
           <section v-if="activeTab === 'usage'" class="overflow-x-auto">
-            <div class="space-y-3 p-3 sm:hidden">
+            <div class="space-y-3 p-3 xl:hidden">
               <MobileUsageRow
                 v-if="data.usage.current"
                 :entry="data.usage.current"
@@ -165,7 +165,7 @@
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="leaderboard-desktop-table hidden w-full min-w-[800px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[760px] table-fixed text-left text-sm xl:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -200,7 +200,7 @@
           </section>
 
           <section v-else-if="activeTab === 'consumption'" class="overflow-x-auto">
-            <div class="space-y-3 p-3 sm:hidden">
+            <div class="space-y-3 p-3 xl:hidden">
               <MobileUsageRow
                 v-if="data.consumption.current"
                 :entry="data.consumption.current"
@@ -220,7 +220,7 @@
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="leaderboard-desktop-table hidden w-full min-w-[800px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[760px] table-fixed text-left text-sm xl:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>
@@ -255,7 +255,7 @@
           </section>
 
           <section v-else class="overflow-x-auto">
-            <div class="space-y-3 p-3 sm:hidden">
+            <div class="space-y-3 p-3 xl:hidden">
               <MobileRebateRow
                 v-if="data.rebate.current"
                 :entry="data.rebate.current"
@@ -275,7 +275,7 @@
                 {{ t('leaderboard.empty') }}
               </div>
             </div>
-            <table class="leaderboard-desktop-table hidden w-full min-w-[800px] text-left text-sm sm:table">
+            <table class="leaderboard-desktop-table hidden w-full min-w-[760px] table-fixed text-left text-sm xl:table">
               <thead class="border-b border-gray-200 bg-gray-50/70 text-xs text-gray-500 dark:border-dark-700 dark:bg-dark-900/40 dark:text-dark-400">
                 <tr>
                   <th scope="col" class="px-4 py-3 font-medium">{{ t('leaderboard.rank') }}</th>

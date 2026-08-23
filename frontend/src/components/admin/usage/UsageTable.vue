@@ -33,7 +33,18 @@
         @sort="(key, order) => $emit('sort', key, order)"
       >
         <template #cell-user="{ row }">
-          <div class="text-sm">
+          <div v-if="compactUser" class="text-sm">
+            <button
+              v-if="row.user_id"
+              class="font-medium tabular-nums text-primary-600 underline decoration-dashed underline-offset-2 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+              :title="row.user?.email || t('admin.usage.clickToViewBalance')"
+              @click="$emit('userClick', row.user_id, row.user?.email)"
+            >
+              #{{ row.user_id }}
+            </button>
+            <span v-else class="text-gray-400 dark:text-gray-500">-</span>
+          </div>
+          <div v-else class="text-sm">
             <button
               v-if="row.user?.email"
               class="font-medium text-primary-600 underline decoration-dashed underline-offset-2 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
@@ -79,13 +90,13 @@
             <span v-else class="font-medium text-gray-900 dark:text-white">{{ row.model }}</span>
             <div
               v-if="row.upstream_model_mismatch === true && row.upstream_response_model"
-              class="break-all pl-3 text-[11px]"
+              class="flex flex-wrap items-center gap-1 break-all pl-3 text-[11px]"
               :class="isLikelyModelVariant(row) ? 'text-amber-600 dark:text-amber-400' : 'text-orange-600 dark:text-orange-400'"
               :title="modelAuditTitle(row)"
             >
-              <span class="mr-1">↳ {{ t('usage.upstreamResponseModel') }}:</span>{{ row.upstream_response_model }}
+              <span v-if="!compactResponseModel">↳ {{ t('usage.upstreamResponseModel') }}: {{ row.upstream_response_model }}</span>
               <span
-                class="ml-1 inline-flex rounded px-1 py-px text-[10px] font-medium ring-1 ring-inset"
+                class="inline-flex rounded px-1 py-px text-[10px] font-medium ring-1 ring-inset"
                 :class="isLikelyModelVariant(row)
                   ? 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30'
                   : 'bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-500/30'"
@@ -579,6 +590,10 @@ interface Props {
   flat?: boolean
   /** 现代控制台表格布局：限制为约 4–5 行高，并让表体独立滚动 */
   fixedViewport?: boolean
+  /** 管理端紧凑模式：用户列只显示平台 ID，邮箱保留在悬停提示中 */
+  compactUser?: boolean
+  /** 管理端紧凑模式：隐藏上游响应的具体型号，仅保留审计结论 */
+  compactResponseModel?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -590,6 +605,8 @@ const props = withDefaults(defineProps<Props>(), {
   showUpstreamEndpoint: true,
   flat: false,
   fixedViewport: false,
+  compactUser: false,
+  compactResponseModel: false,
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]
