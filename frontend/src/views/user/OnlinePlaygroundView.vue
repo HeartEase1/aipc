@@ -765,7 +765,7 @@ onBeforeUnmount(() => {
 }
 
 .playground-frame {
-  height: max(42rem, calc(100dvh - 19rem));
+  height: max(42rem, calc(var(--console-viewport-available-height, 100dvh) - 15rem));
   max-height: 72rem;
 }
 
@@ -778,7 +778,7 @@ onBeforeUnmount(() => {
 
 @media (min-width: 1024px) {
   .playground-frame {
-    height: max(44rem, calc(100dvh - 15rem));
+    height: max(44rem, calc(var(--console-viewport-available-height, 100dvh) - 11rem));
   }
 }
 </style>

@@ -1,5 +1,11 @@
 <template>
-  <div :class="flat ? '' : 'card overflow-hidden'">
+  <div
+    class="usage-table"
+    :class="[
+      flat ? '' : 'card overflow-hidden',
+      { 'usage-table--fixed-viewport': fixedViewport },
+    ]"
+  >
     <div
       v-if="showIpGeoToolbar"
       class="flex items-center justify-end gap-2 border-b border-gray-200 px-4 py-2 dark:border-dark-700"
@@ -16,7 +22,7 @@
         {{ ipGeoBatchLoading ? t('usage.ipGeo.batchFetching') : t('usage.ipGeo.batchFetch') }}
       </button>
     </div>
-    <div class="overflow-auto">
+    <div class="usage-table__scroll-region overflow-auto">
       <DataTable
         :columns="columns"
         :data="data"
@@ -571,6 +577,8 @@ interface Props {
   showUpstreamEndpoint?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
+  /** 现代控制台表格布局：限制为约 4–5 行高，并让表体独立滚动 */
+  fixedViewport?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -580,7 +588,8 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortOrder: 'asc',
   showAccountBilling: true,
   showUpstreamEndpoint: true,
-  flat: false
+  flat: false,
+  fixedViewport: false,
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]
@@ -732,3 +741,24 @@ const hideTokenTooltip = () => {
   tokenTooltipData.value = null
 }
 </script>
+
+<style>
+@media (min-width: 768px) {
+  .modern-console-shell .usage-table--fixed-viewport {
+    display: flex;
+    height: var(--console-usage-table-height, clamp(24rem, 48dvh, 30rem));
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .modern-console-shell .usage-table--fixed-viewport > .usage-table__scroll-region {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .modern-console-shell .usage-table--fixed-viewport .data-table-desktop {
+    height: 100%;
+  }
+}
+</style>

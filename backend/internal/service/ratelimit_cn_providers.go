@@ -24,7 +24,11 @@ const cnBalanceExtraSuffixLow = "balance_low"
 // cnBalanceLowReasonPrefix 是余额不足临时停调 reason 的稳定前缀。
 // 周期余额检测任务据此识别「是我们停调的」并在余额恢复后安全清除——不会误清
 // 其他子系统（阈值/限流/401）写入的临时停调。
-const cnBalanceLowReasonPrefix = "cn_balance_low"
+// CNBalanceLowReasonPrefix identifies temporary scheduling blocks owned by the
+// CN balance subsystem. It is exported for repository-side ownership checks.
+const CNBalanceLowReasonPrefix = "cn_balance_low"
+
+const cnBalanceLowReasonPrefix = CNBalanceLowReasonPrefix
 
 // cnBalanceLowReason 构造余额不足临时停调的 reason（带稳定前缀）。
 func cnBalanceLowReason(upstreamMsg string) string {
@@ -56,6 +60,9 @@ func (s *RateLimitService) handleCNProviderInsufficientBalance(
 	account *Account,
 	upstreamMsg string,
 ) {
+	if account == nil || !account.CNBalanceAutoPauseEnabled() {
+		return
+	}
 	msg := cnBalanceLowReason(upstreamMsg)
 
 	if err := s.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{
@@ -65,11 +72,20 @@ func (s *RateLimitService) handleCNProviderInsufficientBalance(
 	}
 
 	until := time.Now().Add(s.cnBalanceCooldownDuration())
-	s.notifyAccountSchedulingBlocked(account, until, "cn_insufficient_balance")
-	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, msg); err != nil {
+	cnRepo, err := cnBalanceSchedulingRepository(s.accountRepo)
+	if err != nil {
+		slog.Warn("cn_balance_repository_unsupported", "account_id", account.ID, "error", err)
+		return
+	}
+	applied, err := cnRepo.SetCNBalanceLowTempUnschedulable(ctx, account.ID, until, msg)
+	if err != nil {
 		slog.Warn("cn_balance_set_temp_unschedulable_failed", "account_id", account.ID, "error", err)
 		return
 	}
+	if !applied {
+		return
+	}
+	s.notifyAccountSchedulingBlocked(account, until, "cn_insufficient_balance")
 	slog.Info("cn_provider_insufficient_balance",
 		"account_id", account.ID,
 		"platform", account.Platform,

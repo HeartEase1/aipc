@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
@@ -15,12 +17,21 @@ import (
 //   - 非激活账号完全跳过。
 
 type fakeCNQuotaProber struct {
+	mu     sync.Mutex
 	probed []int64
 }
 
 func (f *fakeCNQuotaProber) QueryUsage(ctx context.Context, accountID int64) (*CNProviderQuotaProbeResult, error) {
+	f.mu.Lock()
 	f.probed = append(f.probed, accountID)
+	f.mu.Unlock()
 	return &CNProviderQuotaProbeResult{Success: true, Persisted: true}, nil
+}
+
+func (f *fakeCNQuotaProber) probedIDs() []int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int64(nil), f.probed...)
 }
 
 type fakeCNCheckRepo struct {
@@ -57,7 +68,7 @@ func TestCNProviderBalanceCheckRunOnceProbesCodingPlanQuota(t *testing.T) {
 
 	svc.runOnce()
 
-	require.ElementsMatch(t, []int64{1, 2, 4}, prober.probed)
+	require.ElementsMatch(t, []int64{1, 2, 4}, prober.probedIDs())
 }
 
 // runOnceZhipuQuota 在 quotaService 缺失时安全跳过（Start 门控不启动的老部署路径）。
@@ -68,6 +79,107 @@ func TestCNProviderBalanceCheckRunOnceWithoutQuotaService(t *testing.T) {
 	}}
 	svc := &CNProviderBalanceCheckService{accountRepo: repo, cfg: &config.Config{}}
 	require.NotPanics(t, func() { svc.runOnce() })
+}
+
+func TestCNProviderBalanceCheckSkipsPayGWhenAutoPauseDisabled(t *testing.T) {
+	account := &Account{
+		ID: 7, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true,
+		Credentials: map[string]any{cnBalanceAutoPauseEnabledCredentialKey: false},
+	}
+	svc := &CNProviderBalanceCheckService{}
+	require.Equal(t, cnBalanceNoChange, svc.checkOne(context.Background(), account, 0.5))
+}
+
+func TestCNProviderReactiveBalancePauseSkipsOptedOutAccount(t *testing.T) {
+	account := &Account{
+		ID: 8, Platform: PlatformZhipu, Type: AccountTypeAPIKey,
+		Credentials: map[string]any{cnBalanceAutoPauseEnabledCredentialKey: false},
+	}
+	require.NotPanics(t, func() {
+		(&RateLimitService{}).handleCNProviderInsufficientBalance(context.Background(), account, "余额不足")
+	})
+}
+
+type cnBalanceClearRepoStub struct {
+	AccountRepository
+	clearAttempts []int64
+	owned         map[int64]bool
+}
+
+func (r *cnBalanceClearRepoStub) ClearCNBalanceLowTempUnschedulable(_ context.Context, id int64) (bool, error) {
+	r.clearAttempts = append(r.clearAttempts, id)
+	return r.owned[id], nil
+}
+
+func (r *cnBalanceClearRepoStub) SetCNBalanceLowTempUnschedulable(context.Context, int64, time.Time, string) (bool, error) {
+	panic("unexpected SetCNBalanceLowTempUnschedulable call")
+}
+
+func TestAdminDisablingCNBalanceAutoPauseDefersOwnershipCheckToRepository(t *testing.T) {
+	repo := &cnBalanceClearRepoStub{owned: map[int64]bool{11: true}}
+	svc := &adminServiceImpl{accountRepo: repo}
+	disabledCredentials := map[string]any{cnBalanceAutoPauseEnabledCredentialKey: false}
+
+	owned := &Account{ID: 11, Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: disabledCredentials, TempUnschedulableReason: "cn_balance_low: 0 CNY"}
+	require.NoError(t, svc.clearCNBalanceLowBlockIfDisabled(context.Background(), owned))
+
+	other := &Account{ID: 12, Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: disabledCredentials, TempUnschedulableReason: "transport timeout"}
+	require.NoError(t, svc.clearCNBalanceLowBlockIfDisabled(context.Background(), other))
+	require.Equal(t, []int64{11, 12}, repo.clearAttempts,
+		"the database mutation owns the final reason check so stale service snapshots cannot clear another subsystem's block")
+}
+
+type cnBalanceReactiveRepoStub struct {
+	AccountRepository
+	applied  bool
+	setCalls int
+}
+
+func (r *cnBalanceReactiveRepoStub) UpdateExtra(context.Context, int64, map[string]any) error {
+	return nil
+}
+
+func (r *cnBalanceReactiveRepoStub) SetCNBalanceLowTempUnschedulable(_ context.Context, _ int64, _ time.Time, _ string) (bool, error) {
+	r.setCalls++
+	return r.applied, nil
+}
+
+func (r *cnBalanceReactiveRepoStub) ClearCNBalanceLowTempUnschedulable(context.Context, int64) (bool, error) {
+	panic("unexpected ClearCNBalanceLowTempUnschedulable call")
+}
+
+type cnBalanceRuntimeBlocker struct {
+	blockCalls int
+}
+
+func (b *cnBalanceRuntimeBlocker) BlockAccountScheduling(*Account, time.Time, string) {
+	b.blockCalls++
+}
+
+func (b *cnBalanceRuntimeBlocker) ClearAccountSchedulingBlock(int64) {}
+
+func TestCNProviderReactiveBalancePauseNotifiesOnlyAfterAtomicMutation(t *testing.T) {
+	account := &Account{ID: 21, Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{}}
+
+	for _, tt := range []struct {
+		name       string
+		applied    bool
+		wantBlocks int
+	}{
+		{name: "rejected by concurrent state", applied: false, wantBlocks: 0},
+		{name: "applied", applied: true, wantBlocks: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &cnBalanceReactiveRepoStub{applied: tt.applied}
+			blocker := &cnBalanceRuntimeBlocker{}
+			svc := &RateLimitService{accountRepo: repo, runtimeBlocker: blocker}
+
+			svc.handleCNProviderInsufficientBalance(context.Background(), account, "余额不足")
+
+			require.Equal(t, 1, repo.setCalls)
+			require.Equal(t, tt.wantBlocks, blocker.blockCalls)
+		})
+	}
 }
 
 // 双币种（deepseek CNY+USD）停调判定：任一币种达标即不停调，全部低于阈值才停；

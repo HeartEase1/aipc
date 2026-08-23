@@ -641,6 +641,10 @@ export default {
           '⚠️ iframe 模式提示：部分网站设置了 X-Frame-Options 或 CSP 安全策略，禁止被嵌入到 iframe 中。如果页面显示空白或报错，请确认目标网站允许被嵌入，或考虑使用 HTML 模式自行构建页面内容。',
         compactHome: '简洁首页',
         compactHomeHint: '未设置自定义首页内容时，展示简洁的站点信息页面。',
+        consoleUiMode: '控制台界面',
+        consoleUiModeHint: '选择所有用户登录后使用的控制台样式，着陆页不会改变。',
+        consoleUiModeModern: '现代控制台',
+        consoleUiModeLegacy: '经典控制台',
         hideCcsImportButton: '隐藏 CCS 导入按钮',
         hideCcsImportButtonHint: '启用后将在 API Keys 页面隐藏"导入 CCS"按钮'
       },

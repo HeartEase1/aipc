@@ -101,6 +101,33 @@ func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T
 	require.False(t, missingSettings.CompactHomeEnabled)
 }
 
+func TestSettingService_GetPublicSettings_NormalizesConsoleUIMode(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "missing old install uses legacy", want: ConsoleUIModeLegacy},
+		{name: "modern", raw: ConsoleUIModeModern, want: ConsoleUIModeModern},
+		{name: "legacy", raw: ConsoleUIModeLegacy, want: ConsoleUIModeLegacy},
+		{name: "invalid uses legacy", raw: "unknown", want: ConsoleUIModeLegacy},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &settingPublicRepoStub{values: map[string]string{}}
+			if tt.raw != "" {
+				repo.values[SettingKeyConsoleUIMode] = tt.raw
+			}
+
+			settings, err := NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, settings.ConsoleUIMode)
+		})
+	}
+}
+
 func TestSettingService_GetPublicSettings_OnlinePlaygroundDefaultsEnabled(t *testing.T) {
 	missing, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).
 		GetPublicSettings(context.Background())

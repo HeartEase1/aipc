@@ -87,6 +87,13 @@ type OpenAIEndpointCapability string
 
 const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
+// CNBalanceAutoPauseEnabledCredentialKey is persisted in account credentials.
+// Repository-side conditional updates use the same key to make the admin
+// switch and background balance probes race-safe.
+const CNBalanceAutoPauseEnabledCredentialKey = "cn_balance_auto_pause_enabled"
+
+const cnBalanceAutoPauseEnabledCredentialKey = CNBalanceAutoPauseEnabledCredentialKey
+
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
@@ -287,6 +294,20 @@ func (a *Account) IsDeepseek() bool {
 // IsCNProvider 报告是否为国产 OpenAI 兼容供应商（kimi/zhipu/deepseek）。
 func (a *Account) IsCNProvider() bool {
 	return a != nil && IsCNProvider(a.Platform)
+}
+
+// CNBalanceAutoPauseEnabled reports whether provider balance checks may
+// temporarily remove this account from scheduling. Missing or malformed
+// values preserve the historical default (enabled).
+func (a *Account) CNBalanceAutoPauseEnabled() bool {
+	if a == nil || !a.IsCNProvider() || a.Type != AccountTypeAPIKey {
+		return true
+	}
+	enabled, ok := a.Credentials[cnBalanceAutoPauseEnabledCredentialKey].(bool)
+	if !ok {
+		return true
+	}
+	return enabled
 }
 
 // IsOpenAICompatible 报告账号是否走 OpenAI 网关（OpenAI 协议族）。

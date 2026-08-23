@@ -312,6 +312,8 @@ export default {
         deepseek: 'DeepSeek',
       },
       cnProviders: {
+        balanceAutoPause: '余额不足自动停调',
+        balanceAutoPauseHint: '关闭后不再根据余额查询结果或上游余额不足提示自动停调。适合无法正确查询余额的非官方上游；鉴权失败、普通限流和手动停用仍然生效。',
         accountMode: {
           title: '账号类型',
           payg: '按量付费',

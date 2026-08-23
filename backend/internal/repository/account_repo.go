@@ -51,6 +51,8 @@ type accountRepository struct {
 	schedulerCache service.SchedulerCache
 }
 
+var _ service.CNBalanceSchedulingRepository = (*accountRepository)(nil)
+
 var schedulerNeutralExtraKeyPrefixes = []string{
 	"codex_primary_",
 	"codex_secondary_",
@@ -2327,6 +2329,57 @@ func (r *accountRepository) SetTempUnschedulable(ctx context.Context, id int64, 
 	return nil
 }
 
+func (r *accountRepository) SetCNBalanceLowTempUnschedulable(
+	ctx context.Context,
+	id int64,
+	until time.Time,
+	reason string,
+) (bool, error) {
+	reason = strings.TrimSpace(reason)
+	if !strings.HasPrefix(reason, service.CNBalanceLowReasonPrefix+":") {
+		return false, errors.New("CN balance temporary block requires an owned reason")
+	}
+	result, err := r.sql.ExecContext(ctx, `
+		WITH updated AS (
+			UPDATE accounts AS a
+			SET temp_unschedulable_until = $1,
+				temp_unschedulable_reason = $2,
+				updated_at = NOW()
+			WHERE a.id = $3
+				AND a.deleted_at IS NULL
+				AND CASE
+					WHEN jsonb_typeof(COALESCE(a.credentials, '{}'::jsonb) -> $4) = 'boolean'
+					THEN (a.credentials ->> $4)::boolean
+					ELSE TRUE
+				END
+				AND (
+					a.temp_unschedulable_until IS NULL
+					OR a.temp_unschedulable_until <= NOW()
+					OR LEFT(a.temp_unschedulable_reason, LENGTH($5) + 1) = $5 || ':'
+				)
+				AND a.status = $6
+				AND a.schedulable IS TRUE
+				AND a.type = $7
+				AND a.platform = ANY($8)
+			RETURNING a.id
+		)
+		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
+		SELECT $9, updated.id, NULL, NULL FROM updated
+	`, until, reason, id, service.CNBalanceAutoPauseEnabledCredentialKey,
+		service.CNBalanceLowReasonPrefix, service.StatusActive, service.AccountTypeAPIKey,
+		pq.Array([]string{service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek}),
+		service.SchedulerOutboxEventAccountChanged)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil || affected == 0 {
+		return false, err
+	}
+	r.syncSchedulerAccountSnapshotDetached(ctx, id)
+	return true, nil
+}
+
 func (r *accountRepository) SetGrokCredentialTempUnschedulableIfMatch(
 	ctx context.Context,
 	id int64,
@@ -2389,6 +2442,32 @@ func (r *accountRepository) ClearTempUnschedulable(ctx context.Context, id int64
 	}
 	r.syncSchedulerAccountSnapshot(ctx, id)
 	return nil
+}
+
+func (r *accountRepository) ClearCNBalanceLowTempUnschedulable(ctx context.Context, id int64) (bool, error) {
+	result, err := r.sql.ExecContext(ctx, `
+		WITH updated AS (
+			UPDATE accounts AS a
+			SET temp_unschedulable_until = NULL,
+				temp_unschedulable_reason = NULL,
+				updated_at = NOW()
+			WHERE a.id = $1
+				AND a.deleted_at IS NULL
+				AND LEFT(a.temp_unschedulable_reason, LENGTH($2) + 1) = $2 || ':'
+			RETURNING a.id
+		)
+		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
+		SELECT $3, updated.id, NULL, NULL FROM updated
+	`, id, service.CNBalanceLowReasonPrefix, service.SchedulerOutboxEventAccountChanged)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil || affected == 0 {
+		return false, err
+	}
+	r.syncSchedulerAccountSnapshotDetached(ctx, id)
+	return true, nil
 }
 
 func (r *accountRepository) ClearRateLimit(ctx context.Context, id int64) error {

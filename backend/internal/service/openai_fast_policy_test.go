@@ -196,6 +196,70 @@ func TestApplyOpenAIFastPolicyToBody_DefaultPassesPriorityAndFast(t *testing.T) 
 	require.Equal(t, string(body), string(updated))
 }
 
+func TestApplyOpenAIFastPolicyToBody_APIKeyFastModeInjectsPriority(t *testing.T) {
+	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	ctx := WithAPIKeyFastMode(context.Background(), true)
+
+	updated, err := svc.applyOpenAIFastPolicyToBody(ctx, account, "gpt-5.5", []byte(`{"model":"gpt-5.5"}`))
+	require.NoError(t, err)
+	require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(updated, "service_tier").String())
+
+	updated, err = svc.applyOpenAIFastPolicyToBody(ctx, account, "gpt-5.5", []byte(`{"model":"gpt-5.5","service_tier":"flex"}`))
+	require.NoError(t, err)
+	require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(updated, "service_tier").String())
+
+	// API key Fast is OpenAI-only; compatible non-OpenAI providers keep their body unchanged.
+	nonOpenAI := &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey}
+	body := []byte(`{"model":"deepseek-chat"}`)
+	updated, err = svc.applyOpenAIFastPolicyToBody(ctx, nonOpenAI, "deepseek-chat", body)
+	require.NoError(t, err)
+	require.Equal(t, string(body), string(updated))
+}
+
+func TestApplyOpenAIFastPolicyToBody_APIKeyFastModeStillHonorsFilter(t *testing.T) {
+	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	ctx := WithAPIKeyFastMode(context.Background(), true)
+
+	updated, err := svc.applyOpenAIFastPolicyToBody(ctx, account, "gpt-5.5", []byte(`{"model":"gpt-5.5"}`))
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(updated, "service_tier").Exists())
+}
+
+func TestApplyOpenAIFastPolicyAndResolveTier_UsesFinalFastBody(t *testing.T) {
+	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	ctx := WithAPIKeyFastMode(context.Background(), true)
+
+	updated, tier, err := svc.applyOpenAIFastPolicyAndResolveTier(
+		ctx,
+		account,
+		"gpt-5.5",
+		[]byte(`{"model":"gpt-5.5","service_tier":"flex"}`),
+	)
+	require.NoError(t, err)
+	require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(updated, "service_tier").String())
+	require.NotNil(t, tier)
+	require.Equal(t, OpenAIFastTierPriority, *tier)
+}
+
+func TestApplyOpenAIFastPolicyAndResolveTier_FilterReturnsNoBillableTier(t *testing.T) {
+	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	ctx := WithAPIKeyFastMode(context.Background(), true)
+
+	updated, tier, err := svc.applyOpenAIFastPolicyAndResolveTier(
+		ctx,
+		account,
+		"gpt-5.5",
+		[]byte(`{"model":"gpt-5.5","service_tier":"flex"}`),
+	)
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(updated, "service_tier").Exists())
+	require.Nil(t, tier)
+}
+
 func TestApplyOpenAIFastPolicyToBody_ExplicitFilterRemovesField(t *testing.T) {
 	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}

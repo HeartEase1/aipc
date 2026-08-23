@@ -6660,6 +6660,64 @@
                 </p>
               </div>
 
+              <!-- Console UI -->
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">
+                    {{ t("admin.settings.site.consoleUiMode") }}
+                  </label>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.site.consoleUiModeHint") }}
+                  </p>
+                </div>
+                <div
+                  class="console-mode-control mt-3 grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1 dark:bg-dark-800"
+                  role="radiogroup"
+                  :aria-label="t('admin.settings.site.consoleUiMode')"
+                >
+                  <label
+                    :class="[
+                      'console-mode-option flex min-w-0 cursor-pointer items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-dark-900',
+                      form.console_ui_mode === 'modern'
+                        ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-600 dark:text-white'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+                    ]"
+                    :data-selected="form.console_ui_mode === 'modern'"
+                  >
+                    <input
+                      v-model="form.console_ui_mode"
+                      class="sr-only"
+                      type="radio"
+                      name="console-ui-mode"
+                      value="modern"
+                      data-testid="console-ui-mode-modern"
+                      :aria-checked="form.console_ui_mode === 'modern'"
+                    />
+                    <span>{{ t("admin.settings.site.consoleUiModeModern") }}</span>
+                  </label>
+                  <label
+                    :class="[
+                      'console-mode-option flex min-w-0 cursor-pointer items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-dark-900',
+                      form.console_ui_mode === 'legacy'
+                        ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-600 dark:text-white'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200',
+                    ]"
+                    :data-selected="form.console_ui_mode === 'legacy'"
+                  >
+                    <input
+                      v-model="form.console_ui_mode"
+                      class="sr-only"
+                      type="radio"
+                      name="console-ui-mode"
+                      value="legacy"
+                      data-testid="console-ui-mode-legacy"
+                      :aria-checked="form.console_ui_mode === 'legacy'"
+                    />
+                    <span>{{ t("admin.settings.site.consoleUiModeLegacy") }}</span>
+                  </label>
+                </div>
+              </div>
+
               <!-- Compact Home Page -->
               <div class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700">
                 <div>
@@ -9018,6 +9076,7 @@ const { copyToClipboard } = useClipboard();
 const loading = ref(true);
 const loadFailed = ref(false);
 const saving = ref(false);
+const loadedConsoleUiMode = ref<"legacy" | "modern">("legacy");
 const testingSmtp = ref(false);
 const sendingTestEmail = ref(false);
 const smtpPasswordManuallyEdited = ref(false);
@@ -9651,6 +9710,7 @@ const form = reactive<SettingsForm>({
   doc_url: "",
   home_content: "",
   compact_home_enabled: false,
+  console_ui_mode: "modern",
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
@@ -10858,6 +10918,8 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    loadedConsoleUiMode.value =
+      settings.console_ui_mode === "modern" ? "modern" : "legacy";
     syncCaptchaProviderSelection();
     if (!form.claude_oauth_system_prompt_blocks?.trim()) {
       form.claude_oauth_system_prompt_blocks =
@@ -11282,6 +11344,7 @@ async function saveSettings() {
       doc_url: form.doc_url,
       home_content: form.home_content,
       compact_home_enabled: form.compact_home_enabled,
+      console_ui_mode: form.console_ui_mode,
       backend_mode_enabled: form.backend_mode_enabled,
       hide_ccs_import_button: form.hide_ccs_import_button,
       table_default_page_size: form.table_default_page_size,
@@ -11593,6 +11656,9 @@ async function saveSettings() {
     const updated = await settingsStepUp.run(() =>
       adminAPI.settings.updateSettings(payload),
     );
+    const consoleUiModeChanged =
+      updated.console_ui_mode !== loadedConsoleUiMode.value;
+    loadedConsoleUiMode.value = updated.console_ui_mode;
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;
       if (value !== null && value !== undefined) {
@@ -11667,12 +11733,20 @@ async function saveSettings() {
     }
     // Save web search emulation config separately (errors handled internally)
     const wsOk = await saveWebSearchConfig();
-    // Refresh cached settings so sidebar/header update immediately
-    await appStore.fetchPublicSettings(true);
     await adminSettingsStore.fetch(true);
     if (wsOk) {
       appStore.showSuccess(t("admin.settings.settingsSaved"));
     }
+    if (consoleUiModeChanged) {
+      // Avoid replacing the active shell while this large form and any
+      // step-up dialogs are still completing their save lifecycle.
+      if (import.meta.env.MODE !== "test") {
+        window.setTimeout(() => window.location.reload(), 350);
+      }
+      return;
+    }
+    // Non-layout settings can continue updating navigation/header in place.
+    await appStore.fetchPublicSettings(true);
   } catch (error: unknown) {
     // 用户取消 step-up 验证：静默返回，不弹错误
     if (isStepUpCancelled(error)) {

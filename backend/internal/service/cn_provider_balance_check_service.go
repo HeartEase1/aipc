@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -121,7 +120,7 @@ func (s *CNProviderBalanceCheckService) runOnce() {
 			}
 			// payg 余额探测仅 kimi/deepseek（智谱无公开余额端点，payg 账号
 			// 依赖响应式 402/429 处理）。
-			if platform != PlatformZhipu && account.Schedulable {
+			if platform != PlatformZhipu && account.Schedulable && account.CNBalanceAutoPauseEnabled() {
 				paygTargets = append(paygTargets, account)
 			}
 		}
@@ -211,6 +210,9 @@ const (
 // checkOne 探测单账号余额并决定停调/恢复。探测失败时不动现状（避免瞬时网络抖动
 // 误解除或误停调）。
 func (s *CNProviderBalanceCheckService) checkOne(ctx context.Context, account *Account, threshold float64) cnBalanceCheckOutcome {
+	if account == nil || !account.CNBalanceAutoPauseEnabled() {
+		return cnBalanceNoChange
+	}
 	result, err := s.balanceService.QueryBalance(ctx, account.ID)
 	if err != nil || result == nil || !result.Success {
 		return cnBalanceNoChange
@@ -219,26 +221,33 @@ func (s *CNProviderBalanceCheckService) checkOne(ctx context.Context, account *A
 	// 双币种（deepseek CNY+USD）任一币种余额达标即可继续调度；仅当全部低于
 	// 阈值（或不可用）才停调。
 	low := !result.Available || allCNBalancesBelowThreshold(result, threshold)
+	cnRepo, err := cnBalanceSchedulingRepository(s.accountRepo)
+	if err != nil {
+		log.Printf("[CNBalance] repository unavailable for account %d: %v", account.ID, err)
+		return cnBalanceNoChange
+	}
 	if low {
-		// 已被（任何来源）停调时不覆盖其 reason。
-		if !account.IsSchedulable() {
+		reason := cnBalanceLowReason(fmt.Sprintf("余额 %.4g %s 低于阈值 %.2f", result.Balance, result.Currency, threshold))
+		applied, err := cnRepo.SetCNBalanceLowTempUnschedulable(ctx, account.ID, time.Now().Add(s.cooldown()), reason)
+		if err != nil {
+			log.Printf("[CNBalance] pause account %d failed: %v", account.ID, err)
 			return cnBalanceNoChange
 		}
-		reason := cnBalanceLowReason(fmt.Sprintf("余额 %.4g %s 低于阈值 %.2f", result.Balance, result.Currency, threshold))
-		if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, time.Now().Add(s.cooldown()), reason); err != nil {
-			log.Printf("[CNBalance] pause account %d failed: %v", account.ID, err)
+		if !applied {
 			return cnBalanceNoChange
 		}
 		log.Printf("[CNBalance] paused account %d (%s): balance=%.4g %s", account.ID, account.Platform, result.Balance, result.Currency)
 		return cnBalancePaused
 	}
 
-	// 余额健康：仅清除「本服务写入」的临时停调（reason 前缀匹配），不触碰其他子系统。
-	if account.TempUnschedulableUntil != nil && strings.HasPrefix(account.TempUnschedulableReason, cnBalanceLowReasonPrefix) {
-		if err := s.accountRepo.ClearTempUnschedulable(ctx, account.ID); err != nil {
-			log.Printf("[CNBalance] clear account %d failed: %v", account.ID, err)
-			return cnBalanceNoChange
-		}
+	// Ownership is checked in the UPDATE itself so a concurrent auth/transport
+	// block cannot be cleared after this probe read a stale account snapshot.
+	cleared, err := cnRepo.ClearCNBalanceLowTempUnschedulable(ctx, account.ID)
+	if err != nil {
+		log.Printf("[CNBalance] clear account %d failed: %v", account.ID, err)
+		return cnBalanceNoChange
+	}
+	if cleared {
 		log.Printf("[CNBalance] reactivated account %d (%s): balance=%.4g %s", account.ID, account.Platform, result.Balance, result.Currency)
 		return cnBalanceCleared
 	}

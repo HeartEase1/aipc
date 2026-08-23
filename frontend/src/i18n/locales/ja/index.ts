@@ -70,6 +70,8 @@ export default {
   },
   keys: {
     ...en.keys,
+    fastMode: 'Fastモード',
+    fastModeHint: '有効にすると、このキーのOpenAIリクエストはPriorityサービス層を使用します。通常は標準料金の2倍で課金されますが、実際のチャネル設定が優先されます。OpenAI以外のグループには影響しません。',
     discountCampaign: {
       currentDiscount: '現在の割引',
       remaining: '残り {time}',
@@ -185,8 +187,23 @@ export default {
   admin: {
     ...en.admin,
     ...discountCampaigns,
+    accounts: {
+      ...en.admin.accounts,
+      cnProviders: {
+        ...en.admin.accounts.cnProviders,
+        balanceAutoPause: '残高不足時の自動停止',
+        balanceAutoPauseHint: '残高を正しく取得できない非公式アップストリームでは無効にできます。認証失敗、通常のレート制限、手動停止は引き続き有効です。'
+      }
+    },
     settings: {
       ...en.admin.settings,
+      site: {
+        ...en.admin.settings.site,
+        consoleUiMode: 'コンソール画面',
+        consoleUiModeHint: 'すべてのログインユーザーに表示する画面を選択します。ランディングページは変更されません。',
+        consoleUiModeModern: 'モダンコンソール',
+        consoleUiModeLegacy: '従来のコンソール'
+      },
       features: {
         ...en.admin.settings.features,
         onlinePlayground: {

@@ -125,6 +125,22 @@ type AccountRepository interface {
 	ListShadowsByParent(ctx context.Context, parentID int64) ([]*Account, error)
 }
 
+// CNBalanceSchedulingRepository isolates the two ownership-aware mutations
+// from the broad account repository contract. Production repositories must
+// implement it; unrelated test repositories do not need CN-specific methods.
+type CNBalanceSchedulingRepository interface {
+	SetCNBalanceLowTempUnschedulable(ctx context.Context, id int64, until time.Time, reason string) (bool, error)
+	ClearCNBalanceLowTempUnschedulable(ctx context.Context, id int64) (bool, error)
+}
+
+func cnBalanceSchedulingRepository(repo AccountRepository) (CNBalanceSchedulingRepository, error) {
+	cnRepo, ok := repo.(CNBalanceSchedulingRepository)
+	if !ok {
+		return nil, fmt.Errorf("account repository does not support CN balance scheduling mutations")
+	}
+	return cnRepo, nil
+}
+
 type AccountDuplicateRepository interface {
 	// CreateWithAccountGroups atomically persists an account, its exact group priorities,
 	// and the scheduler outbox event for the new routing snapshot.

@@ -394,6 +394,7 @@ const baseSettingsResponse = {
   doc_url: "",
   home_content: "",
   compact_home_enabled: false,
+  console_ui_mode: "modern",
   hide_ccs_import_button: false,
   table_default_page_size: 20,
   table_page_size_options: [10, 20, 50, 100],
@@ -745,6 +746,29 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ compact_home_enabled: true }),
     );
+    expect(adminSettingsFetch).toHaveBeenCalledWith(true);
+    expect(fetchPublicSettings).toHaveBeenCalledWith(true);
+  });
+
+  it("loads and submits the selected console interface", async () => {
+    const wrapper = mountView();
+    await flushPromises();
+
+    const modern = wrapper.get('[data-testid="console-ui-mode-modern"]');
+    const legacy = wrapper.get('[data-testid="console-ui-mode-legacy"]');
+    expect(modern.attributes("aria-checked")).toBe("true");
+    expect(legacy.attributes("aria-checked")).toBe("false");
+
+    await legacy.setValue(true);
+    expect(legacy.attributes("aria-checked")).toBe("true");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ console_ui_mode: "legacy" }),
+    );
+    expect(adminSettingsFetch).toHaveBeenCalledWith(true);
+    expect(fetchPublicSettings).not.toHaveBeenCalled();
   });
 
   it("renders panel rate limit card and saves settings", async () => {

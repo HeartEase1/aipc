@@ -236,6 +236,7 @@ export interface PublicSettings {
   doc_url: string
   home_content: string
   compact_home_enabled: boolean
+  console_ui_mode: 'legacy' | 'modern'
   hide_ccs_import_button: boolean
   payment_enabled: boolean
   payment_balance_recharge_multiplier: number
@@ -716,6 +717,7 @@ export interface ApiKey {
   name: string
   group_id: number | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
+  fast_mode: boolean
   ip_whitelist: string[]
   ip_blacklist: string[]
   last_used_at: string | null
@@ -744,6 +746,7 @@ export interface ApiKey {
 export interface CreateApiKeyRequest {
   name: string
   group_id?: number | null
+  fast_mode?: boolean
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -758,6 +761,7 @@ export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
   status?: 'active' | 'inactive'
+  fast_mode?: boolean
   ip_whitelist?: string[]
   ip_blacklist?: string[]
   quota?: number // Quota limit in USD (null = no change, 0 = unlimited)

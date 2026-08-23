@@ -213,6 +213,8 @@ export default {
     customKeyTooShort: '自定义密钥至少需要16个字符',
     customKeyInvalidChars: '自定义密钥只能包含字母、数字、下划线和连字符',
     customKeyRequired: '请输入自定义密钥',
+    fastMode: 'Fast 模式',
+    fastModeHint: '开启后，此密钥的 OpenAI 请求会优先使用 Priority 服务层。通常按标准模式的 2 倍计费，实际以渠道配置为准；非 OpenAI 分组不生效。',
     ipRestriction: 'IP 限制',
     ipWhitelist: 'IP 白名单',
     ipWhitelistPlaceholder: '192.168.1.100\n10.0.0.0/8',

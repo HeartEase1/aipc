@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -70,8 +71,6 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 	convertedEffort := chatReq.ReasoningEffort
 	reasoningEffort := &convertedEffort
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
-	serviceTier := extractOpenAIServiceTierFromBody(body)
-
 	chatBody, err := json.Marshal(chatReq)
 	if err != nil {
 		return nil, fmt.Errorf("marshal chat completions request: %w", err)
@@ -87,10 +86,14 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 			}
 		}
 	}
-	// Unlike forwardResponsesViaRawChatCompletions, applyOpenAIFastPolicyToBody
-	// is intentionally skipped: Anthropic Messages bodies carry no service_tier,
-	// so the converted Chat Completions body never contains one and the policy
-	// would always be a no-op on this path.
+	chatBody, serviceTier, err := s.applyOpenAIFastPolicyAndResolveTier(ctx, account, upstreamModel, chatBody)
+	if err != nil {
+		var blocked *OpenAIFastBlockedError
+		if errors.As(err, &blocked) {
+			writeOpenAIFastPolicyBlockedResponse(c, blocked)
+		}
+		return nil, err
+	}
 
 	logger.L().Debug("openai messages: forwarding via raw chat completions",
 		zap.Int64("account_id", account.ID),

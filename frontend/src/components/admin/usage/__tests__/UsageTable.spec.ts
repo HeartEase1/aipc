@@ -137,6 +137,34 @@ describe('admin UsageTable tooltip', () => {
     } as DOMRect)
   })
 
+  it('enables the bounded request viewport only when requested', () => {
+    const baseMountOptions = {
+      props: {
+        data: [],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    }
+
+    const natural = mount(UsageTable, baseMountOptions)
+    expect(natural.get('.usage-table').classes()).not.toContain('usage-table--fixed-viewport')
+
+    const bounded = mount(UsageTable, {
+      ...baseMountOptions,
+      props: { ...baseMountOptions.props, fixedViewport: true },
+    })
+    expect(bounded.get('.usage-table').classes()).toContain('usage-table--fixed-viewport')
+    expect(bounded.get('.usage-table__scroll-region').exists()).toBe(true)
+  })
+
   it('marks only usage rows that actually applied long-context billing', () => {
     const wrapper = mount(UsageTable, {
       props: {

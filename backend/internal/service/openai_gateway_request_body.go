@@ -1060,6 +1060,14 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToBody(ctx context.Context, 
 		return body, nil
 	}
 	rawTier := gjson.GetBytes(body, "service_tier").String()
+	if apiKeyFastModeApplies(ctx, account) && gjson.ValidBytes(body) {
+		updated, err := sjson.SetBytes(body, "service_tier", OpenAIFastTierPriority)
+		if err != nil {
+			return body, fmt.Errorf("apply api key fast mode to body: %w", err)
+		}
+		body = updated
+		rawTier = OpenAIFastTierPriority
+	}
 	if rawTier == "" {
 		return body, nil
 	}
@@ -1098,6 +1106,22 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToBody(ctx context.Context, 
 		}
 		return updated, nil
 	}
+}
+
+// applyOpenAIFastPolicyAndResolveTier keeps the billable tier coupled to the
+// exact body sent upstream. Callers must not reuse a tier parsed before the
+// policy, because filter and API-key Fast mode can both rewrite the field.
+func (s *OpenAIGatewayService) applyOpenAIFastPolicyAndResolveTier(
+	ctx context.Context,
+	account *Account,
+	model string,
+	body []byte,
+) ([]byte, *string, error) {
+	updated, err := s.applyOpenAIFastPolicyToBody(ctx, account, model, body)
+	if err != nil {
+		return body, nil, err
+	}
+	return updated, extractOpenAIServiceTierFromBody(updated), nil
 }
 
 // writeOpenAIFastPolicyBlockedResponse writes a 403 JSON response for a
@@ -1171,6 +1195,14 @@ func (s *OpenAIGatewayService) applyOpenAIFastPolicyToWSResponseCreate(
 		return frame, nil, nil
 	}
 	rawTier := gjson.GetBytes(frame, "service_tier").String()
+	if apiKeyFastModeApplies(ctx, account) {
+		updated, err := sjson.SetBytes(frame, "service_tier", OpenAIFastTierPriority)
+		if err != nil {
+			return frame, nil, fmt.Errorf("apply api key fast mode to ws frame: %w", err)
+		}
+		frame = updated
+		rawTier = OpenAIFastTierPriority
+	}
 	if rawTier == "" {
 		return frame, nil, nil
 	}

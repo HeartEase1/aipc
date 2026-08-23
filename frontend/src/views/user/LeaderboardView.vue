@@ -561,7 +561,7 @@ function rankBadge(rank: number) {
 
 function currentRankCell(rank: number) {
   return h('div', { class: 'flex items-center gap-2' }, [
-    h('span', { class: 'inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-primary-600 px-1.5 font-semibold text-white shadow-[0_3px_0_#0f766e] dark:shadow-[0_3px_0_#134e4a]' }, '0'),
+    h('span', { class: 'leaderboard-current-rank inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-primary-600 px-1.5 font-semibold text-white' }, '0'),
     h('span', { class: 'text-xs font-medium text-primary-700 dark:text-primary-300' }, t('leaderboard.currentRank', { rank }))
   ])
 }
@@ -583,7 +583,7 @@ function shareCell(share: number) {
     h('span', { class: 'block text-right text-xs font-bold tabular-nums text-gray-900 dark:text-white' }, formatSharePercentage(share)),
     h('span', { class: 'mt-1.5 block h-1.5 overflow-hidden rounded-full bg-gray-100 shadow-inner dark:bg-dark-900' }, [
       h('span', {
-        class: 'block h-full rounded-full bg-primary-500',
+        class: 'leaderboard-share-fill block h-full rounded-full bg-primary-500',
         style: { width: `${share}%` }
       })
     ])

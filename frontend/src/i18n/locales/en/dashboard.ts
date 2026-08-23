@@ -209,6 +209,8 @@ export default {
     customKeyTooShort: 'Custom key must be at least 16 characters',
     customKeyInvalidChars: 'Custom key can only contain letters, numbers, underscores, and hyphens',
     customKeyRequired: 'Please enter a custom key',
+    fastMode: 'Fast mode',
+    fastModeHint: 'When enabled, this key requests the Priority service tier for OpenAI traffic. It is typically billed at 2x the standard rate; actual channel pricing applies. Non-OpenAI groups are unaffected.',
     ipRestriction: 'IP Restriction',
     ipWhitelist: 'IP Whitelist',
     ipWhitelistPlaceholder: '192.168.1.100\n10.0.0.0/8',

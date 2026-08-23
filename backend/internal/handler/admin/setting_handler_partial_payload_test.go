@@ -53,6 +53,26 @@ func TestUpdateSettingsFullPayloadStillClearsSentEmptyFields(t *testing.T) {
 		"an explicitly sent empty value is a deliberate clear, not an omission")
 }
 
+func TestUpdateSettingsPartialPayloadPreservesConsoleUIMode(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyConsoleUIMode: service.ConsoleUIModeModern,
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, service.ConsoleUIModeModern, repo.values[service.SettingKeyConsoleUIMode])
+}
+
+func TestUpdateSettingsConsoleUIModeRejectsInvalidValue(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyConsoleUIMode: service.ConsoleUIModeModern,
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{"console_ui_mode": "unexpected"}, nil)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, service.ConsoleUIModeModern, repo.values[service.SettingKeyConsoleUIMode])
+}
+
 // smtp_from_email is the one request field whose JSON name differs from its
 // setting key; the alias keeps it from being treated as always-omitted.
 func TestUpdateSettingsSMTPFromAliasIsWritable(t *testing.T) {

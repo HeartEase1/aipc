@@ -210,6 +210,18 @@ func TestCNBalanceLowReason(t *testing.T) {
 	require.True(t, len(cnBalanceLowReason("")) > len(cnBalanceLowReasonPrefix))
 }
 
+func TestCNBalanceAutoPauseEnabledDefaultsOnAndAllowsOptOut(t *testing.T) {
+	t.Parallel()
+	account := &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Credentials: map[string]any{}}
+	require.True(t, account.CNBalanceAutoPauseEnabled())
+
+	account.Credentials[cnBalanceAutoPauseEnabledCredentialKey] = false
+	require.False(t, account.CNBalanceAutoPauseEnabled())
+
+	account.Credentials[cnBalanceAutoPauseEnabledCredentialKey] = "false"
+	require.True(t, account.CNBalanceAutoPauseEnabled(), "malformed values must retain the safe historical default")
+}
+
 // TestZhipuQuotaHost 按域名路由智谱额度端点主机（bigmodel.cn / z.ai / 默认国内站）。
 func TestZhipuQuotaHost(t *testing.T) {
 	t.Parallel()

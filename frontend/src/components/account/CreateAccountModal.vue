@@ -513,6 +513,24 @@
         </div>
       </div>
 
+      <div
+        v-if="isCNPlatform && accountMode === 'payg'"
+        class="mt-4 flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-600 dark:bg-dark-800/60"
+      >
+        <div>
+          <label class="input-label mb-0">{{ t('admin.accounts.cnProviders.balanceAutoPause') }}</label>
+          <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.cnProviders.balanceAutoPauseHint') }}
+          </p>
+        </div>
+        <Toggle
+          v-model="cnBalanceAutoPauseEnabled"
+          class="mt-0.5 shrink-0"
+          data-testid="cn-balance-auto-pause"
+          :aria-label="t('admin.accounts.cnProviders.balanceAutoPause')"
+        />
+      </div>
+
       <!-- API Protocol Selection (Kimi / Zhipu / DeepSeek) -->
       <div v-if="isCNPlatform" class="mt-4">
         <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
@@ -3951,6 +3969,7 @@ const upstreamBillingAutoProbeEnabled = ref(true)
 
 // ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型、API 协议与端点 ──
 const accountMode = ref<CnAccountMode>('payg')
+const cnBalanceAutoPauseEnabled = ref(true)
 // API 协议决定转发端点与格式：cc=现有转换链，anthropic=原生直通（Claude Code），
 // responses=deepseek 原生 Responses 端点（Codex）。与账号类型正交。
 const apiProtocol = ref<CnApiProtocol>('adaptive')
@@ -5018,6 +5037,7 @@ const resetForm = () => {
   accountCategory.value = 'oauth-based'
   addMethod.value = 'oauth'
   accountMode.value = 'payg'
+  cnBalanceAutoPauseEnabled.value = true
   apiProtocol.value = 'adaptive'
   adaptiveBaseUrls.value = { chat_completions: '', anthropic: '', responses: '' }
   apiKeyBaseUrl.value = 'https://api.anthropic.com'
@@ -5487,6 +5507,7 @@ const handleSubmit = async () => {
   // 的通用路径（直接 doCreateAccount），不经过 createAccountAndFinish。
   if (form.platform === 'kimi' || form.platform === 'zhipu' || form.platform === 'deepseek') {
     credentials.account_mode = accountMode.value
+    credentials.cn_balance_auto_pause_enabled = cnBalanceAutoPauseEnabled.value
     credentials.api_protocol = apiProtocol.value
     if (apiProtocol.value === 'adaptive') {
       const defaults = defaultCNAdaptiveBaseUrls(form.platform, accountMode.value)

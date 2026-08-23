@@ -436,7 +436,7 @@ onUnmounted(() => {
 <style scoped>
 .custom-page-layout {
   @apply flex flex-col;
-  height: calc(100vh - 64px - 4rem);
+  height: var(--console-viewport-available-height, calc(100dvh - 8rem));
 }
 
 .toc-sidebar {

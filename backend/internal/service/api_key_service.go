@@ -63,6 +63,7 @@ const (
 type APIKeyUpdateFields struct {
 	Name      bool
 	Status    bool
+	FastMode  bool
 	Quota     bool
 	GroupID   bool
 	ExpiresAt bool
@@ -211,6 +212,7 @@ type APIKeyAuthCacheInvalidator interface {
 type CreateAPIKeyRequest struct {
 	Name        string   `json:"name"`
 	GroupID     *int64   `json:"group_id"`
+	FastMode    bool     `json:"fast_mode"`
 	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
@@ -230,6 +232,7 @@ type UpdateAPIKeyRequest struct {
 	Name        *string   `json:"name"`
 	GroupID     *int64    `json:"group_id"`
 	Status      *string   `json:"status"`
+	FastMode    *bool     `json:"fast_mode"`
 	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
 	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
 
@@ -537,6 +540,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		Name:        html.EscapeString(req.Name),
 		GroupID:     req.GroupID,
 		Status:      StatusActive,
+		FastMode:    req.FastMode,
 		IPWhitelist: req.IPWhitelist,
 		IPBlacklist: req.IPBlacklist,
 		Quota:       req.Quota,
@@ -824,6 +828,11 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		if s.cache != nil {
 			_ = s.cache.DeleteCreateAttemptCount(ctx, apiKey.UserID)
 		}
+	}
+
+	if req.FastMode != nil {
+		apiKey.FastMode = *req.FastMode
+		fields.FastMode = true
 	}
 
 	// Update quota fields

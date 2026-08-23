@@ -148,13 +148,18 @@ func TestForwardAsAnthropic_ForceChatCompletionsNonStreaming(t *testing.T) {
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(
+		WithAPIKeyFastMode(context.Background(), true), c, forceChatMessagesFallbackAccount(), body, "", "",
+	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "http://upstream.example/v1/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "hello", gjson.GetBytes(upstream.lastBody, "messages.0.content").String())
 	require.False(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
 	require.True(t, gjson.GetBytes(upstream.lastBody, "stream_options").Exists() == false)
+	require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(upstream.lastBody, "service_tier").String())
+	require.NotNil(t, result.ServiceTier)
+	require.Equal(t, OpenAIFastTierPriority, *result.ServiceTier)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "assistant", gjson.Get(rec.Body.String(), "role").String())

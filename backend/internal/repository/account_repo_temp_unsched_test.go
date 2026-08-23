@@ -26,6 +26,68 @@ func TestAccountRepository_SetTempUnschedulable_NoRowsAffectedDoesNotWriteOutbox
 	require.NotContains(t, strings.Join(exec.execQueries, "\n"), "scheduler_outbox")
 }
 
+func TestAccountRepository_SetCNBalanceLowTempUnschedulable_IsConditionalAndAtomic(t *testing.T) {
+	exec := &recordingSQLExecutor{result: rowsAffectedResult(0)}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+
+	applied, err := repo.SetCNBalanceLowTempUnschedulable(
+		context.Background(),
+		42,
+		time.Now().Add(10*time.Minute),
+		service.CNBalanceLowReasonPrefix+": below threshold",
+	)
+
+	require.NoError(t, err)
+	require.False(t, applied)
+	require.Len(t, exec.execQueries, 1)
+	normalized := normalizeSQLWhitespace(exec.execQueries[0])
+	require.Contains(t, normalized, "WITH updated AS ( UPDATE accounts AS a")
+	require.Contains(t, normalized, "jsonb_typeof(COALESCE(a.credentials, '{}'::jsonb) -> $4) = 'boolean'")
+	require.Contains(t, normalized, "THEN (a.credentials ->> $4)::boolean ELSE TRUE")
+	require.Contains(t, normalized, "a.temp_unschedulable_until <= NOW()")
+	require.Contains(t, normalized, "LEFT(a.temp_unschedulable_reason, LENGTH($5) + 1) = $5 || ':'")
+	require.Contains(t, normalized, "a.status = $6")
+	require.Contains(t, normalized, "a.schedulable IS TRUE")
+	require.Contains(t, normalized, "a.type = $7")
+	require.Contains(t, normalized, "a.platform = ANY($8)")
+	require.Contains(t, normalized, "INSERT INTO scheduler_outbox")
+	require.Len(t, exec.execArgs[0], 9)
+	require.Equal(t, service.CNBalanceAutoPauseEnabledCredentialKey, exec.execArgs[0][3])
+	require.Equal(t, service.CNBalanceLowReasonPrefix, exec.execArgs[0][4])
+	require.Equal(t, service.SchedulerOutboxEventAccountChanged, exec.execArgs[0][8])
+}
+
+func TestAccountRepository_SetCNBalanceLowTempUnschedulable_RejectsUnownedReason(t *testing.T) {
+	exec := &recordingSQLExecutor{result: rowsAffectedResult(1)}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+
+	applied, err := repo.SetCNBalanceLowTempUnschedulable(
+		context.Background(), 42, time.Now().Add(time.Minute), "transport timeout",
+	)
+
+	require.Error(t, err)
+	require.False(t, applied)
+	require.Empty(t, exec.execQueries)
+}
+
+func TestAccountRepository_ClearCNBalanceLowTempUnschedulable_IsOwnedAndAtomic(t *testing.T) {
+	exec := &recordingSQLExecutor{result: rowsAffectedResult(0)}
+	repo := newAccountRepositoryWithSQL(nil, exec, nil)
+
+	cleared, err := repo.ClearCNBalanceLowTempUnschedulable(context.Background(), 42)
+
+	require.NoError(t, err)
+	require.False(t, cleared)
+	require.Len(t, exec.execQueries, 1)
+	normalized := normalizeSQLWhitespace(exec.execQueries[0])
+	require.Contains(t, normalized, "WITH updated AS ( UPDATE accounts AS a")
+	require.Contains(t, normalized, "LEFT(a.temp_unschedulable_reason, LENGTH($2) + 1) = $2 || ':'")
+	require.Contains(t, normalized, "INSERT INTO scheduler_outbox")
+	require.Len(t, exec.execArgs[0], 3)
+	require.Equal(t, service.CNBalanceLowReasonPrefix, exec.execArgs[0][1])
+	require.Equal(t, service.SchedulerOutboxEventAccountChanged, exec.execArgs[0][2])
+}
+
 func TestAccountRepository_GrokCredentialConditionalMutationsAreEligibleAndAtomicallyPropagated(t *testing.T) {
 	proxyID := int64(77)
 	snapshot := service.GrokCredentialMutationSnapshot{

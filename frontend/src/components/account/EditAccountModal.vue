@@ -97,6 +97,23 @@
           </div>
           <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${editAccountMode}Desc`) }}</p>
         </div>
+        <div
+          v-if="isCNApiKeyAccount && editAccountMode === 'payg'"
+          class="flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-600 dark:bg-dark-800/60"
+        >
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.cnProviders.balanceAutoPause') }}</label>
+            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.cnProviders.balanceAutoPauseHint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="editCNBalanceAutoPauseEnabled"
+            class="mt-0.5 shrink-0"
+            data-testid="cn-balance-auto-pause"
+            :aria-label="t('admin.accounts.cnProviders.balanceAutoPause')"
+          />
+        </div>
         <!-- API Protocol Selection (CN providers) -->
         <div v-if="isCNApiKeyAccount">
           <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
@@ -2927,6 +2944,7 @@ const cnPresetPlatform = computed<'kimi' | 'zhipu' | 'deepseek'>(() => {
 })
 const editApiProtocol = ref<CnApiProtocol>('adaptive')
 const editAccountMode = ref<CnAccountMode>('payg')
+const editCNBalanceAutoPauseEnabled = ref(true)
 const editAdaptiveBaseUrls = ref<Record<CnNativeApiProtocol, string>>({
   chat_completions: '',
   anthropic: '',
@@ -3829,6 +3847,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     // （编辑弹窗允许修正两者，用于修复早期存错默认值的账号）。
     if (newAccount.platform === 'kimi' || newAccount.platform === 'zhipu' || newAccount.platform === 'deepseek') {
       editAccountMode.value = credentials.account_mode === 'coding' ? 'coding' : 'payg'
+      editCNBalanceAutoPauseEnabled.value = credentials.cn_balance_auto_pause_enabled !== false
       const storedProtocol = credentials.api_protocol
       editApiProtocol.value =
         storedProtocol === 'adaptive' ||
@@ -4557,6 +4576,7 @@ const handleSubmit = async () => {
       // 国产供应商：模式与协议写入凭据（决定额度/余额探测与转发端点/格式）。
       if (isCNApiKeyAccount.value) {
         newCredentials.account_mode = editAccountMode.value
+        newCredentials.cn_balance_auto_pause_enabled = editCNBalanceAutoPauseEnabled.value
         newCredentials.api_protocol = editApiProtocol.value
         if (editApiProtocol.value === 'adaptive') {
           const defaults = defaultCNAdaptiveBaseUrls(cnPresetPlatform.value, editAccountMode.value)

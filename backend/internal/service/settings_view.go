@@ -157,6 +157,7 @@ type SystemSettings struct {
 	DocURL                      string
 	HomeContent                 string
 	CompactHomeEnabled          bool
+	ConsoleUIMode               string
 	HideCcsImportButton         bool
 	PurchaseSubscriptionEnabled bool
 	PurchaseSubscriptionURL     string
@@ -349,6 +350,7 @@ type PublicSettings struct {
 	DocURL                              string
 	HomeContent                         string
 	CompactHomeEnabled                  bool
+	ConsoleUIMode                       string
 	HideCcsImportButton                 bool
 
 	PurchaseSubscriptionEnabled bool

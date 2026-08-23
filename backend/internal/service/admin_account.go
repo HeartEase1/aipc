@@ -848,12 +848,31 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 	}
 
+	// Disabling CN balance auto-pause takes effect immediately, but only clears
+	// the temporary block owned by the CN balance subsystem. Authentication,
+	// rate-limit, transport and manually configured scheduling blocks remain.
+	if err := s.clearCNBalanceLowBlockIfDisabled(ctx, account); err != nil {
+		return nil, err
+	}
+
 	// 重新查询以确保返回完整数据（包括正确的 Proxy 关联对象）
 	updated, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	return updated, nil
+}
+
+func (s *adminServiceImpl) clearCNBalanceLowBlockIfDisabled(ctx context.Context, account *Account) error {
+	if account == nil || account.CNBalanceAutoPauseEnabled() {
+		return nil
+	}
+	cnRepo, err := cnBalanceSchedulingRepository(s.accountRepo)
+	if err != nil {
+		return err
+	}
+	_, err = cnRepo.ClearCNBalanceLowTempUnschedulable(ctx, account.ID)
+	return err
 }
 
 // UpdateAccountExtra 仅对 Extra JSONB 做 key 级合并，避免覆盖其它运行态键

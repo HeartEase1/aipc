@@ -22,7 +22,7 @@ import (
 func TestForwardResponses_ForceChatCompletionsRoutesNonStreamingToChatCompletions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	body := []byte(`{"model":"gpt-5.4","input":"hello","stream":false}`)
+	body := []byte(`{"model":"gpt-5.4","input":"hello","service_tier":"flex","stream":false}`)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
@@ -40,13 +40,16 @@ func TestForwardResponses_ForceChatCompletionsRoutesNonStreamingToChatCompletion
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.Forward(context.Background(), c, forceChatResponsesFallbackAccount(), body)
+	result, err := svc.Forward(WithAPIKeyFastMode(context.Background(), true), c, forceChatResponsesFallbackAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "http://upstream.example/v1/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
 	require.Equal(t, "hello", gjson.GetBytes(upstream.lastBody, "messages.0.content").String())
 	require.False(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
+	require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(upstream.lastBody, "service_tier").String())
+	require.NotNil(t, result.ServiceTier)
+	require.Equal(t, OpenAIFastTierPriority, *result.ServiceTier)
 	require.Equal(t, "response", gjson.Get(rec.Body.String(), "object").String())
 	require.Equal(t, "ok", gjson.Get(rec.Body.String(), "output.0.content.0.text").String())
 	require.Equal(t, 3, result.Usage.InputTokens)

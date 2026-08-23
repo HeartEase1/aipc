@@ -1,50 +1,64 @@
 <template>
   <AppLayout>
-    <div
-      data-testid="profile-shell"
-      class="mx-auto max-w-[950px] space-y-6"
-    >
-      <ProfileInfoCard
-        :user="user"
-        :linuxdo-enabled="linuxdoOAuthEnabled"
-        :dingtalk-enabled="dingtalkOAuthEnabled"
-        :oidc-enabled="oidcOAuthEnabled"
-        :oidc-provider-name="oidcOAuthProviderName"
-        :wechat-enabled="wechatOAuthEnabled"
-        :wechat-open-enabled="wechatOAuthOpenEnabled"
-        :wechat-mp-enabled="wechatOAuthMPEnabled"
-      />
+    <div class="profile-page mx-auto max-w-[950px] space-y-6">
+      <header class="profile-page-heading hidden" data-testid="profile-page-heading">
+        <p class="profile-page-eyebrow">{{ t('nav.profile') }}</p>
+        <h1 class="profile-page-title">{{ t('profile.title') }}</h1>
+        <p class="profile-page-description">{{ t('profile.description') }}</p>
+      </header>
 
       <div
-        v-if="contactInfo"
-        class="card border-primary-200 bg-primary-50 p-6 dark:bg-primary-900/20"
+        data-testid="profile-shell"
+        class="profile-shell flex flex-col gap-6"
       >
-        <div class="flex items-center gap-4">
-          <div class="rounded-xl bg-primary-100 p-3 text-primary-600">
-            <Icon name="chat" size="lg" />
+        <main class="profile-primary-column min-w-0">
+          <ProfileInfoCard
+            class="profile-section profile-overview-section"
+            :user="user"
+            :linuxdo-enabled="linuxdoOAuthEnabled"
+            :dingtalk-enabled="dingtalkOAuthEnabled"
+            :oidc-enabled="oidcOAuthEnabled"
+            :oidc-provider-name="oidcOAuthProviderName"
+            :wechat-enabled="wechatOAuthEnabled"
+            :wechat-open-enabled="wechatOAuthOpenEnabled"
+            :wechat-mp-enabled="wechatOAuthMPEnabled"
+          />
+        </main>
+
+        <aside class="profile-security-column min-w-0 space-y-6">
+          <div
+            v-if="contactInfo"
+            class="profile-section profile-support-section card border-primary-200 bg-primary-50 p-6 dark:bg-primary-900/20"
+          >
+            <div class="flex items-center gap-4">
+              <div class="profile-support-icon rounded-xl bg-primary-100 p-3 text-primary-600">
+                <Icon name="chat" size="lg" />
+              </div>
+              <div class="min-w-0">
+                <h3 class="font-semibold text-primary-800 dark:text-primary-200">
+                  {{ t('common.contactSupport') }}
+                </h3>
+                <p class="break-words text-sm font-medium">{{ contactInfo }}</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <h3 class="font-semibold text-primary-800 dark:text-primary-200">
-              {{ t('common.contactSupport') }}
-            </h3>
-            <p class="text-sm font-medium">{{ contactInfo }}</p>
-          </div>
-        </div>
+
+          <ProfilePasswordForm class="profile-section profile-password-section" />
+
+          <ProfileBalanceNotifyCard
+            v-if="user && balanceLowNotifyEnabled"
+            class="profile-section profile-notification-section"
+            :enabled="user.balance_notify_enabled ?? true"
+            :threshold="user.balance_notify_threshold"
+            :extra-emails="user.balance_notify_extra_emails ?? []"
+            :system-default-threshold="systemDefaultThreshold"
+            :user-email="user.email"
+          />
+
+          <ProfileTotpCard class="profile-section profile-totp-section" />
+          <ProfilePasskeyCard class="profile-section profile-passkey-section" :enabled="passkeyEnabled" />
+        </aside>
       </div>
-
-      <ProfilePasswordForm />
-
-      <ProfileBalanceNotifyCard
-        v-if="user && balanceLowNotifyEnabled"
-        :enabled="user.balance_notify_enabled ?? true"
-        :threshold="user.balance_notify_threshold"
-        :extra-emails="user.balance_notify_extra_emails ?? []"
-        :system-default-threshold="systemDefaultThreshold"
-        :user-email="user.email"
-      />
-
-      <ProfileTotpCard />
-      <ProfilePasskeyCard :enabled="passkeyEnabled" />
     </div>
   </AppLayout>
 </template>

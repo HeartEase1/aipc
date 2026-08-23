@@ -11,6 +11,10 @@ const sidebarSource = readFileSync(
   'utf8'
 )
 const redeemViewSource = readFileSync(resolve(testDirectory, '../../views/user/RedeemView.vue'), 'utf8')
+const modernConsoleSource = readFileSync(
+  resolve(testDirectory, '../../styles/modern-console.css'),
+  'utf8'
+)
 
 describe('benefit grant history navigation', () => {
   it('merges grant history into redeem and preserves the old URL as a redirect', () => {
@@ -19,5 +23,18 @@ describe('benefit grant history navigation', () => {
     expect(redeemViewSource).toContain('@refresh-redeem-history="fetchHistory"')
     expect(sidebarSource).not.toContain("{ path: '/benefits'")
     expect(routerSource).toMatch(/path: '\/benefits',[\s\S]*?redirect: '\/redeem'/)
+  })
+
+  it('keeps the classic redeem flow while scoping the two-column layout to modern mode', () => {
+    expect(redeemViewSource).toContain(
+      'class="redeem-page mx-auto flex max-w-2xl flex-col gap-6"'
+    )
+    expect(redeemViewSource).toContain('class="redeem-primary-column"')
+    expect(redeemViewSource).toContain('class="redeem-secondary-column"')
+    expect(redeemViewSource).not.toContain(':global(.modern-console-shell)')
+    expect(modernConsoleSource).toContain('.modern-console-shell .redeem-page')
+    expect(modernConsoleSource).toContain(
+      'grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr)'
+    )
   })
 })

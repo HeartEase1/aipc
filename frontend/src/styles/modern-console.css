@@ -1,0 +1,1154 @@
+/*
+ * Modern console visual system.
+ *
+ * The selectors are deliberately scoped to the modern shell (and to the
+ * document marker for Teleported overlays). Legacy mode keeps the original
+ * Tailwind component layer untouched.
+ */
+
+.modern-console-shell,
+html[data-console-ui-mode='modern'] {
+  --color-primary-50: 239 246 255;
+  --color-primary-100: 219 234 254;
+  --color-primary-200: 191 219 254;
+  --color-primary-300: 147 197 253;
+  --color-primary-400: 96 165 250;
+  --color-primary-500: 59 130 246;
+  --color-primary-600: 37 99 235;
+  --color-primary-700: 29 78 216;
+  --color-primary-800: 30 64 175;
+  --color-primary-900: 30 58 138;
+  --color-primary-950: 23 37 84;
+
+  --console-shell-gap: 0.75rem;
+  --console-header-height: 4.5rem;
+  --console-sidebar-width: 17.5rem;
+  --console-sidebar-collapsed-width: 5.25rem;
+  --console-content-max-width: 112rem;
+  --console-page-inline-padding: clamp(1rem, 2.2vw, 2.25rem);
+  --console-page-block-padding: clamp(1rem, 1.8vw, 2rem);
+  --console-page-vertical-padding: calc(var(--console-page-block-padding) * 2);
+  --console-sidebar-effective-width: calc(var(--console-sidebar-width) + (var(--console-shell-gap) * 2));
+  --console-viewport-available-height: calc(
+    100dvh - var(--console-shell-gap) - var(--console-header-height) - var(--console-page-vertical-padding)
+  );
+  --console-usage-table-height: clamp(24rem, 48dvh, 30rem);
+
+  --console-surface-canvas: #edf3fa;
+  --console-surface-raised: rgb(255 255 255 / 0.96);
+  --console-surface-solid: #ffffff;
+  --console-surface-muted: rgb(246 249 253 / 0.9);
+  --console-surface-subtle: rgb(234 241 251 / 0.76);
+  --console-text-strong: #14233b;
+  --console-text-default: #40516d;
+  --console-text-muted: #62718b;
+  --console-border: rgb(91 122 168 / 0.22);
+  --console-border-strong: rgb(65 103 159 / 0.34);
+  --console-accent: #2563eb;
+  --console-accent-strong: #1d4ed8;
+  --console-accent-soft: rgb(219 234 254 / 0.76);
+  --console-accent-contrast: #ffffff;
+  --console-success: #16845b;
+  --console-success-soft: #e7f7f0;
+  --console-warning: #b65c12;
+  --console-warning-soft: #fff4e5;
+  --console-danger: #c43d4b;
+  --console-danger-soft: #fff0f1;
+
+  --console-radius-sm: 0.625rem;
+  --console-radius-md: 0.875rem;
+  --console-radius-lg: 1.125rem;
+  --console-radius-xl: 1.5rem;
+  --console-shadow-sm:
+    inset 0 1px 0 rgb(255 255 255 / 0.74),
+    0 2px 5px rgb(32 55 91 / 0.045),
+    0 10px 24px -12px rgb(32 55 91 / 0.18);
+  --console-shadow-md:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    0 5px 12px -5px rgb(32 55 91 / 0.12),
+    0 18px 42px -18px rgb(32 55 91 / 0.28);
+  --console-shadow-lg:
+    inset 0 1px 0 rgb(255 255 255 / 0.82),
+    0 12px 28px -14px rgb(32 55 91 / 0.22),
+    0 30px 72px -30px rgb(32 55 91 / 0.36);
+  --console-ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --console-ease-jelly: cubic-bezier(0.22, 1.42, 0.36, 1);
+  --console-motion-fast: 150ms;
+  --console-motion-normal: 240ms;
+  --console-motion-jelly: 420ms;
+}
+
+.dark .modern-console-shell,
+html.dark[data-console-ui-mode='modern'] {
+  --console-surface-canvas: #0b1220;
+  --console-surface-raised: rgb(18 29 48 / 0.97);
+  --console-surface-solid: #121d30;
+  --console-surface-muted: rgb(24 38 61 / 0.94);
+  --console-surface-subtle: rgb(29 46 74 / 0.8);
+  --console-text-strong: #f4f7fc;
+  --console-text-default: #cbd5e5;
+  --console-text-muted: #91a0b8;
+  --console-border: rgb(145 168 204 / 0.16);
+  --console-border-strong: rgb(145 168 204 / 0.28);
+  --console-accent: #60a5fa;
+  --console-accent-strong: #93c5fd;
+  --console-accent-soft: rgb(30 64 175 / 0.36);
+  --console-accent-contrast: #0b1f45;
+  --console-success: #59d3a2;
+  --console-success-soft: rgb(16 100 72 / 0.3);
+  --console-warning: #f4b56a;
+  --console-warning-soft: rgb(130 72 18 / 0.3);
+  --console-danger: #fb8992;
+  --console-danger-soft: rgb(133 35 47 / 0.3);
+  --console-shadow-sm:
+    inset 0 1px 0 rgb(255 255 255 / 0.055),
+    0 3px 8px rgb(0 0 0 / 0.2),
+    0 12px 28px -14px rgb(0 0 0 / 0.52);
+  --console-shadow-md:
+    inset 0 1px 0 rgb(255 255 255 / 0.065),
+    0 7px 16px -6px rgb(0 0 0 / 0.38),
+    0 22px 48px -20px rgb(0 0 0 / 0.68);
+  --console-shadow-lg:
+    inset 0 1px 0 rgb(255 255 255 / 0.075),
+    0 16px 34px -16px rgb(0 0 0 / 0.52),
+    0 34px 78px -30px rgb(0 0 0 / 0.78);
+}
+
+.modern-console-shell {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--console-surface-canvas);
+  color: var(--console-text-default);
+}
+
+.modern-console-backdrop {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(rgb(255 255 255 / 0.35), rgb(255 255 255 / 0.08)),
+    linear-gradient(90deg, rgb(74 115 180 / 0.045) 1px, transparent 1px),
+    linear-gradient(rgb(74 115 180 / 0.045) 1px, transparent 1px);
+  background-size: auto, 4.5rem 4.5rem, 4.5rem 4.5rem;
+  mask-image: linear-gradient(to bottom, black, transparent 68%);
+}
+
+.dark .modern-console-backdrop {
+  background:
+    linear-gradient(rgb(9 17 31 / 0.2), rgb(9 17 31 / 0.72)),
+    linear-gradient(90deg, rgb(133 166 218 / 0.035) 1px, transparent 1px),
+    linear-gradient(rgb(133 166 218 / 0.035) 1px, transparent 1px);
+  background-size: auto, 4.5rem 4.5rem, 4.5rem 4.5rem;
+}
+
+.modern-console-content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  transition: margin-left var(--console-motion-normal) var(--console-ease-standard);
+}
+
+.modern-console-main {
+  width: 100%;
+  max-width: var(--console-content-max-width);
+  min-width: 0;
+  margin-inline: auto;
+  padding: var(--console-page-block-padding) var(--console-page-inline-padding);
+}
+
+.modern-console-main > * {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .modern-console-shell {
+    --console-header-height: 4.125rem;
+    --console-sidebar-width: 16rem;
+  }
+
+  .modern-console-content {
+    margin-left: calc(var(--console-sidebar-width) + (var(--console-shell-gap) * 2));
+    padding-top: var(--console-shell-gap);
+    padding-right: var(--console-shell-gap);
+  }
+
+  .modern-console-shell.modern-sidebar-collapsed .modern-console-content {
+    margin-left: calc(var(--console-sidebar-collapsed-width) + (var(--console-shell-gap) * 2));
+  }
+
+}
+
+/* Shared shell pieces retain their behavior and receive the modern treatment. */
+.modern-console-shell > .sidebar {
+  width: var(--console-sidebar-width);
+  border-color: var(--console-border);
+  background: var(--console-surface-raised);
+  box-shadow: 14px 0 40px rgb(35 67 117 / 0.05);
+  backdrop-filter: blur(24px) saturate(1.08);
+  transition:
+    width var(--console-motion-normal) var(--console-ease-standard),
+    transform var(--console-motion-normal) var(--console-ease-standard);
+}
+
+.modern-console-shell.modern-sidebar-collapsed > .sidebar {
+  width: var(--console-sidebar-collapsed-width);
+}
+
+.modern-console-shell.modern-sidebar-collapsed {
+  --console-sidebar-effective-width: calc(var(--console-sidebar-collapsed-width) + (var(--console-shell-gap) * 2));
+}
+
+.modern-console-shell > .sidebar .sidebar-header {
+  height: var(--console-header-height);
+  border-color: var(--console-border);
+  padding-inline: 1.25rem;
+}
+
+.modern-console-shell > .sidebar .sidebar-logo {
+  border-radius: var(--console-radius-md);
+  box-shadow: 0 8px 22px rgb(37 99 235 / 0.17);
+}
+
+.modern-console-shell > .sidebar .sidebar-nav {
+  padding: 1.125rem 0.875rem;
+}
+
+.modern-console-shell > .sidebar .sidebar-section {
+  margin-bottom: 1.25rem;
+}
+
+.modern-console-shell > .sidebar .sidebar-link {
+  position: relative;
+  min-height: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--console-radius-md);
+  color: var(--console-text-muted);
+  transition:
+    color var(--console-motion-normal) var(--console-ease-standard),
+    background-color var(--console-motion-normal) var(--console-ease-standard),
+    border-color var(--console-motion-normal) var(--console-ease-standard),
+    box-shadow var(--console-motion-jelly) var(--console-ease-jelly),
+    transform var(--console-motion-jelly) var(--console-ease-jelly);
+}
+
+.modern-console-shell > .sidebar .sidebar-link:hover {
+  border-color: var(--console-border);
+  background: var(--console-surface-muted);
+  color: var(--console-text-strong);
+  transform: translateX(3px) scale(1.012);
+}
+
+.modern-console-shell > .sidebar .sidebar-link-active {
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--console-accent) 24%, var(--console-border));
+  background: linear-gradient(
+    135deg,
+    var(--console-surface-solid),
+    color-mix(in srgb, var(--console-accent-soft) 52%, var(--console-surface-solid))
+  );
+  color: var(--console-accent-strong);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.86),
+    0 5px 12px -6px rgb(37 99 235 / 0.3),
+    0 16px 30px -16px rgb(37 99 235 / 0.52);
+  animation: console-sidebar-jelly var(--console-motion-jelly) var(--console-ease-jelly);
+}
+
+.modern-console-shell > .sidebar .sidebar-link:active {
+  transform: translateX(2px) scale(0.965);
+  transition-duration: 90ms;
+}
+
+.modern-console-shell > .sidebar .sidebar-link > :is(svg, .sidebar-svg-icon) {
+  transition: transform var(--console-motion-jelly) var(--console-ease-jelly);
+}
+
+.modern-console-shell > .sidebar .sidebar-link:hover > :is(svg, .sidebar-svg-icon),
+.modern-console-shell > .sidebar .sidebar-link-active > :is(svg, .sidebar-svg-icon) {
+  transform: scale(1.1) rotate(-3deg);
+}
+
+.modern-console-shell > .sidebar .sidebar-section-title {
+  color: var(--console-text-muted);
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+}
+
+.modern-console-content > header {
+  height: var(--console-header-height);
+  border-color: var(--console-border) !important;
+  background: var(--console-surface-raised) !important;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.55), 0 10px 28px rgb(35 67 117 / 0.04);
+  backdrop-filter: blur(22px) saturate(1.08);
+}
+
+.modern-console-content > header > div {
+  height: 100%;
+  padding-inline: var(--console-page-inline-padding);
+}
+
+.modern-console-content > header h1 {
+  color: var(--console-text-strong);
+  font-size: 1.0625rem;
+  line-height: 1.35;
+}
+
+.modern-console-content > header p {
+  color: var(--console-text-muted);
+}
+
+.modern-console-content > header :is(a, button) {
+  transition:
+    color var(--console-motion-fast) ease,
+    background-color var(--console-motion-fast) ease,
+    border-color var(--console-motion-fast) ease,
+    box-shadow var(--console-motion-fast) ease;
+}
+
+/* Page semantics remain the same components; modern mode supplies their
+   visual variant from the shell so page business logic stays single-source. */
+.modern-console-shell .page-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.modern-console-shell .page-title {
+  color: var(--console-text-strong);
+  font-size: 1.625rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.modern-console-shell .page-description {
+  max-width: 52rem;
+  color: var(--console-text-muted);
+  line-height: 1.65;
+}
+
+/* Responsive page compositions live in the shared modern layer. Keeping
+   these selectors out of scoped SFC styles prevents Vue's :global transform
+   from accidentally applying a page grid to the shell itself. */
+.modern-console-shell .redeem-page {
+  width: 100%;
+  max-width: 76rem;
+}
+
+.modern-console-shell .redeem-primary-column,
+.modern-console-shell .redeem-secondary-column {
+  align-self: start;
+  width: 100%;
+}
+
+.modern-console-shell .redeem-balance-card {
+  border-color: color-mix(in srgb, var(--console-accent) 24%, var(--console-border));
+  box-shadow: var(--console-shadow-md);
+}
+
+.modern-console-shell .redeem-balance-hero {
+  display: flex;
+  min-height: 13rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, var(--console-accent), var(--console-accent-strong)) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.modern-console-shell .redeem-balance-hero .text-primary-100 {
+  color: rgb(239 246 255 / 0.9) !important;
+}
+
+.modern-console-shell .profile-default-avatar {
+  background: linear-gradient(145deg, var(--console-accent), var(--console-accent-strong)) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 12px 28px -14px rgb(37 99 235 / 0.58) !important;
+}
+
+.modern-console-shell .profile-overview-hero {
+  border-color: color-mix(in srgb, var(--console-accent) 18%, var(--console-border));
+  background: var(--console-surface-raised);
+}
+
+.modern-console-shell .key-action-use:hover {
+  background: var(--console-accent-soft) !important;
+  color: var(--console-accent-strong) !important;
+}
+
+.modern-console-shell .leaderboard-current-rank {
+  background: var(--console-accent) !important;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--console-accent-strong) 84%, #14233b);
+}
+
+.modern-console-shell .leaderboard-share-fill {
+  background: var(--console-accent) !important;
+}
+
+.modern-console-shell :is(.redeem-form-card, .redeem-info-card, .redeem-activity-card) {
+  box-shadow: var(--console-shadow-md);
+}
+
+.modern-console-shell .redeem-card-body {
+  padding: clamp(1.25rem, 2.2vw, 1.75rem);
+}
+
+.modern-console-shell .redeem-info-card {
+  border-color: color-mix(in srgb, var(--console-accent) 22%, var(--console-border));
+  background: color-mix(in srgb, var(--console-accent-soft) 38%, var(--console-surface-raised));
+}
+
+.modern-console-shell .redeem-info-card ul {
+  line-height: 1.65;
+}
+
+.modern-console-shell .redeem-status-card {
+  box-shadow: var(--console-shadow-sm);
+}
+
+.modern-console-shell .profile-page {
+  width: 100%;
+  max-width: 82rem;
+}
+
+.modern-console-shell .profile-page-heading {
+  display: block !important;
+  margin-bottom: 1.75rem;
+  animation: console-jelly-settle 540ms var(--console-ease-jelly) both;
+}
+
+.modern-console-shell .profile-page-eyebrow {
+  margin-bottom: 0.35rem;
+  color: var(--console-accent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.modern-console-shell .profile-page-title {
+  color: var(--console-text-strong);
+  font-size: clamp(1.75rem, 2.2vw, 2.25rem);
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.modern-console-shell .profile-page-description {
+  margin-top: 0.5rem;
+  color: var(--console-text-muted);
+  font-size: 0.9375rem;
+}
+
+.modern-console-shell .profile-shell {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  grid-template-columns: minmax(0, 1.85fr) minmax(19.5rem, 0.9fr);
+  align-items: start;
+  gap: 1.5rem;
+}
+
+.modern-console-shell :is(.profile-primary-column, .profile-security-column) {
+  min-width: 0;
+  align-self: start;
+}
+
+.modern-console-shell .profile-security-column {
+  margin-top: 0 !important;
+}
+
+.modern-console-shell .profile-card-stack > :is(.profile-overview-hero, div) {
+  margin-top: 0;
+}
+
+.modern-console-shell .profile-overview-hero {
+  animation: console-jelly-settle 560ms 45ms var(--console-ease-jelly) both;
+}
+
+.modern-console-shell .profile-basics-card {
+  animation: console-jelly-settle 560ms 90ms var(--console-ease-jelly) both;
+}
+
+.modern-console-shell .profile-bindings-card {
+  animation: console-jelly-settle 560ms 135ms var(--console-ease-jelly) both;
+}
+
+.modern-console-shell .profile-source-card {
+  animation: console-jelly-settle 560ms 180ms var(--console-ease-jelly) both;
+}
+
+.modern-console-shell .profile-security-column > * {
+  animation: console-jelly-settle 560ms var(--profile-card-delay, 80ms) var(--console-ease-jelly) both;
+}
+
+.modern-console-shell .profile-security-column > :nth-child(2) {
+  --profile-card-delay: 125ms;
+}
+
+.modern-console-shell .profile-security-column > :nth-child(3) {
+  --profile-card-delay: 170ms;
+}
+
+.modern-console-shell .profile-security-column > :nth-child(4) {
+  --profile-card-delay: 215ms;
+}
+
+.modern-console-shell .profile-security-column > :nth-child(5) {
+  --profile-card-delay: 260ms;
+}
+
+.modern-console-shell .profile-support-section {
+  border-color: color-mix(in srgb, var(--console-accent) 20%, var(--console-border));
+  background: color-mix(in srgb, var(--console-accent-soft) 28%, var(--console-surface-raised));
+}
+
+.modern-console-shell .profile-support-icon {
+  color: var(--console-accent);
+  background: color-mix(in srgb, var(--console-accent-soft) 76%, var(--console-surface-solid));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.68);
+}
+
+.modern-console-shell .profile-support-section h3 {
+  color: var(--console-text-strong) !important;
+}
+
+.modern-console-shell .profile-detail-panel {
+  border-color: var(--console-border);
+  background: var(--console-surface-muted);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65);
+}
+
+.modern-console-shell :is(h1, h2, h3, h4, th, [class*='tracking-']) {
+  letter-spacing: 0;
+}
+
+/* Page surfaces and controls. The descendant scope keeps classic untouched. */
+.modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card) {
+  border-color: var(--console-border);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-raised);
+  box-shadow: var(--console-shadow-md);
+  backdrop-filter: blur(18px) saturate(1.04);
+}
+
+.modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card) {
+  transition:
+    border-color var(--console-motion-normal) var(--console-ease-standard),
+    box-shadow var(--console-motion-normal) var(--console-ease-standard),
+    transform var(--console-motion-jelly) var(--console-ease-jelly),
+    background-color var(--console-motion-normal) var(--console-ease-standard);
+}
+
+.modern-console-shell .stat-card {
+  position: relative;
+  min-height: 7.25rem;
+  overflow: hidden;
+  padding: 1.25rem;
+}
+
+.modern-console-shell .stat-card::after {
+  content: '';
+  position: absolute;
+  inset: auto 1.25rem 0;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--console-accent) 24%, transparent);
+}
+
+.modern-console-shell .stat-icon {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-md);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45);
+}
+
+.modern-console-shell .stat-label {
+  color: var(--console-text-muted);
+}
+
+.modern-console-shell .stat-value {
+  color: var(--console-text-strong);
+  letter-spacing: 0;
+}
+
+.modern-console-shell .card-hover:hover {
+  border-color: var(--console-border-strong);
+  box-shadow: var(--console-shadow-lg);
+  transform: translateY(-3px) scale(1.006);
+}
+
+.modern-console-shell :is(.card-header, .card-footer) {
+  border-color: var(--console-border);
+}
+
+.modern-console-shell :is(.btn, .input, .select-trigger, .dropdown, .tabs) {
+  border-radius: var(--console-radius-md);
+}
+
+.modern-console-shell :is(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--console-accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+.modern-console-shell .btn {
+  min-height: 2.5rem;
+  transition:
+    transform var(--console-motion-jelly) var(--console-ease-jelly),
+    box-shadow var(--console-motion-fast) ease,
+    border-color var(--console-motion-fast) ease,
+    background-color var(--console-motion-fast) ease;
+}
+
+.modern-console-shell .btn:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.012);
+}
+
+.modern-console-shell .btn:not(:disabled):active {
+  transform: translateY(1px) scale(0.96);
+  transition-duration: 90ms;
+}
+
+.modern-console-shell .btn-primary {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--console-accent);
+  color: var(--console-accent-contrast);
+  box-shadow: 0 8px 20px rgb(37 99 235 / 0.2);
+}
+
+.modern-console-shell .btn-primary:hover {
+  background: var(--console-accent-strong);
+  box-shadow: 0 11px 25px rgb(37 99 235 / 0.27);
+}
+
+.modern-console-shell .btn-secondary {
+  border-color: var(--console-border);
+  background: var(--console-surface-solid);
+  color: var(--console-text-default);
+  box-shadow: var(--console-shadow-sm);
+}
+
+.modern-console-shell .btn-secondary:hover {
+  border-color: var(--console-border-strong);
+  background: var(--console-surface-muted);
+  color: var(--console-text-strong);
+}
+
+.modern-console-shell :is(.input, .select-trigger) {
+  border-color: var(--console-border-strong);
+  background: var(--console-surface-solid);
+  color: var(--console-text-strong);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.42);
+}
+
+.modern-console-shell :is(textarea.input, input.input) {
+  min-width: 0;
+}
+
+.modern-console-shell .input-label {
+  color: var(--console-text-default);
+}
+
+.modern-console-shell :is(.input-hint, .page-description) {
+  color: var(--console-text-muted);
+}
+
+.modern-console-shell :is(.input, .select-trigger):hover {
+  border-color: rgb(37 99 235 / 0.42);
+}
+
+.modern-console-shell :is(.input, .select-trigger):focus,
+.modern-console-shell .select-trigger-open {
+  border-color: var(--console-accent);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
+}
+
+.modern-console-shell .table-container,
+.modern-console-shell .table-scroll-container,
+.modern-console-shell .table-wrapper {
+  border-color: var(--console-border);
+  border-radius: var(--console-radius-lg);
+}
+
+.modern-console-shell .data-table-mobile-card {
+  border-color: var(--console-border) !important;
+  border-radius: var(--console-radius-md) !important;
+  background: var(--console-surface-solid) !important;
+  box-shadow: var(--console-shadow-sm);
+}
+
+.modern-console-shell .data-table-mobile-card [data-field] > span:first-child {
+  color: var(--console-text-muted);
+  letter-spacing: 0;
+}
+
+.modern-console-shell .table-scroll-container {
+  background: var(--console-surface-raised) !important;
+  box-shadow: var(--console-shadow-sm) !important;
+}
+
+.modern-console-shell :is(.table th, .table-header, .table-wrapper thead) {
+  background: var(--console-surface-muted) !important;
+}
+
+.modern-console-shell :is(.table th, .table-header th, .table-wrapper th) {
+  color: var(--console-text-muted) !important;
+  font-weight: 600;
+  letter-spacing: 0 !important;
+}
+
+.modern-console-shell :is(.table th, .table td, .table-wrapper th, .table-wrapper td) {
+  border-color: var(--console-border) !important;
+}
+
+.modern-console-shell :is(.table tbody tr, .table-wrapper tbody tr) {
+  transition: background-color var(--console-motion-fast) ease;
+}
+
+.modern-console-shell :is(.table tbody tr, .table-wrapper tbody tr):hover {
+  background: var(--console-surface-muted) !important;
+}
+
+.modern-console-shell .tabs {
+  border: 1px solid var(--console-border);
+  background: var(--console-surface-subtle);
+}
+
+.modern-console-shell :is(.badge, [class*='rounded-full']) {
+  letter-spacing: 0;
+}
+
+.modern-console-shell .empty-state {
+  min-height: 17rem;
+}
+
+.modern-console-shell .empty-state > :first-child {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-solid);
+  box-shadow: var(--console-shadow-sm);
+}
+
+.modern-console-shell .empty-state-title {
+  color: var(--console-text-strong);
+}
+
+.modern-console-shell .empty-state-description {
+  color: var(--console-text-muted);
+  line-height: 1.65;
+}
+
+.modern-console-shell :is(.progress, [role='progressbar']) {
+  background: var(--console-surface-subtle);
+}
+
+.modern-console-shell :is(.divider, hr) {
+  border-color: var(--console-border);
+}
+
+.modern-console-shell .tab-active {
+  background: var(--console-surface-solid);
+  box-shadow: var(--console-shadow-sm);
+}
+
+.modern-console-shell .console-mode-control {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-md);
+  background: var(--console-surface-subtle) !important;
+}
+
+.modern-console-shell .console-mode-option {
+  min-height: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--console-radius-md) - 0.2rem);
+  color: var(--console-text-muted) !important;
+}
+
+.modern-console-shell .console-mode-option[data-selected='true'] {
+  border-color: var(--console-border);
+  background: var(--console-surface-solid) !important;
+  color: var(--console-text-strong) !important;
+  box-shadow: var(--console-shadow-sm);
+}
+
+/* Header menus stay in the shell rather than teleporting to body. */
+.modern-console-shell .dropdown {
+  border-color: var(--console-border);
+  background: var(--console-surface-solid);
+  color: var(--console-text-default);
+  box-shadow: var(--console-shadow-md);
+}
+
+.modern-console-shell .dropdown > :is(div, a, button) {
+  border-color: var(--console-border);
+}
+
+.modern-console-shell .dropdown-item:not(.text-red-600) {
+  color: var(--console-text-default);
+}
+
+.modern-console-shell .dropdown-item:not(.text-red-600):hover,
+.modern-console-shell .dropdown-item:not(.text-red-600):focus-visible {
+  background: var(--console-surface-muted);
+  color: var(--console-text-strong);
+}
+
+.modern-console-shell .dropdown-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--console-accent) 45%, transparent);
+  outline-offset: -2px;
+}
+
+/* Teleported controls use the document marker installed by ModernAppShell. */
+html[data-console-ui-mode='modern'] :is(.modal-content, .dialog-container, .select-dropdown-portal) {
+  border-color: var(--console-border);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-solid);
+  color: var(--console-text-default);
+  box-shadow: var(--console-shadow-lg);
+}
+
+html[data-console-ui-mode='modern'] .modal-overlay {
+  background: rgb(14 25 43 / 0.48);
+  backdrop-filter: blur(7px);
+}
+
+html.dark[data-console-ui-mode='modern'] .modal-overlay {
+  background: rgb(2 7 15 / 0.7);
+}
+
+html[data-console-ui-mode='modern'] :is(.modal-header, .modal-footer, .dialog-header, .dialog-footer) {
+  border-color: var(--console-border);
+}
+
+html[data-console-ui-mode='modern'] :is(.modal-title, .dialog-title) {
+  color: var(--console-text-strong);
+}
+
+html[data-console-ui-mode='modern'] :is(.modal-footer, .dialog-footer) {
+  background: var(--console-surface-muted);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  :is(.btn, .input, .select-trigger) {
+  border-radius: var(--console-radius-md);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  :is(.btn-primary, .btn-success) {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: var(--console-accent);
+  color: var(--console-accent-contrast);
+  box-shadow: 0 8px 20px rgb(37 99 235 / 0.2);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  :is(.btn-primary, .btn-success):hover {
+  background: var(--console-accent-strong);
+  box-shadow: 0 11px 25px rgb(37 99 235 / 0.27);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  .btn-secondary {
+  border-color: var(--console-border);
+  background: var(--console-surface-solid);
+  color: var(--console-text-default);
+  box-shadow: var(--console-shadow-sm);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  :is(.input, .select-trigger) {
+  border-color: var(--console-border-strong);
+  background: var(--console-surface-solid);
+  color: var(--console-text-strong);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  :is(.input, .select-trigger):focus {
+  border-color: var(--console-accent);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
+}
+
+.modern-console-shell [role='switch'][aria-checked='true'],
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  [role='switch'][aria-checked='true'] {
+  background: var(--console-accent);
+}
+
+html[data-console-ui-mode='modern']
+  :is(.modal-content, .dialog-container)
+  :is(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--console-accent) 60%, transparent);
+  outline-offset: 2px;
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-search {
+  border-color: var(--console-border);
+  background: var(--console-surface-muted);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-search-input,
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-option {
+  color: var(--console-text-default);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-search-input::placeholder {
+  color: var(--console-text-muted);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-option-group {
+  background: var(--console-surface-muted);
+  color: var(--console-text-muted);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-empty {
+  color: var(--console-text-muted);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-option:hover,
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-option-focused {
+  background: var(--console-surface-muted);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-option-selected {
+  background: var(--console-accent-soft);
+  color: var(--console-accent-strong);
+}
+
+html[data-console-ui-mode='modern'] .select-dropdown-portal .select-option-selected svg {
+  color: var(--console-accent);
+}
+
+/* Toast uses ARIA attributes as its stable root contract. */
+html[data-console-ui-mode='modern'] [aria-live='polite'][aria-atomic='true'] > div {
+  border-radius: var(--console-radius-md);
+  background: var(--console-surface-solid);
+  color: var(--console-text-default);
+  outline: 1px solid var(--console-border);
+  outline-offset: -1px;
+  box-shadow: var(--console-shadow-md);
+}
+
+html[data-console-ui-mode='modern'] [aria-live='polite'][aria-atomic='true'] > div p {
+  color: var(--console-text-default);
+}
+
+html[data-console-ui-mode='modern'] [aria-live='polite'][aria-atomic='true'] > div p:first-child {
+  color: var(--console-text-strong);
+}
+
+/* AnnouncementPopup has semantic classes; AnnouncementBell panels are the
+   direct max-width surfaces inside their teleported full-screen overlays. */
+html[data-console-ui-mode='modern'] .announcement-popup-panel,
+html[data-console-ui-mode='modern'] body > .fixed.inset-0 > [class*='max-w-[620px]'],
+html[data-console-ui-mode='modern'] body > .fixed.inset-0 > [class*='max-w-[780px]'] {
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-xl);
+  background: var(--console-surface-solid);
+  color: var(--console-text-default);
+  box-shadow: var(--console-shadow-lg);
+}
+
+html[data-console-ui-mode='modern'] .announcement-popup-body {
+  background: var(--console-surface-solid);
+}
+
+html[data-console-ui-mode='modern'] body > .fixed.inset-0 > [class*='max-w-[620px]'] > [class*='overflow-y-auto'],
+html[data-console-ui-mode='modern'] body > .fixed.inset-0 > [class*='max-w-[780px]'] > [class*='overflow-y-auto'] {
+  background: var(--console-surface-solid);
+}
+
+/* HelpTooltip intentionally remains a high-contrast surface in both themes. */
+html[data-console-ui-mode='modern'] [role='tooltip'] {
+  border: 1px solid var(--console-border-strong);
+  border-radius: var(--console-radius-sm);
+  background: var(--console-text-strong);
+  color: var(--console-surface-solid);
+  box-shadow: var(--console-shadow-md);
+}
+
+html[data-console-ui-mode='modern'] [role='tooltip'] > div:last-child {
+  background: var(--console-text-strong);
+}
+
+@keyframes console-jelly-settle {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.975);
+  }
+
+  58% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.006);
+  }
+
+  78% {
+    transform: translateY(1px) scale(0.998);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes console-sidebar-jelly {
+  0% {
+    transform: translateX(-4px) scale(0.94);
+  }
+
+  56% {
+    transform: translateX(2px) scale(1.028);
+  }
+
+  78% {
+    transform: translateX(-1px) scale(0.992);
+  }
+
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@media (min-width: 1280px) {
+  .modern-console-shell .redeem-page {
+    display: grid;
+    grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+    align-items: start;
+    gap: clamp(1.5rem, 2vw, 2rem);
+  }
+}
+
+@media (max-width: 1199px) {
+  .modern-console-shell .profile-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .modern-console-shell > .sidebar {
+    top: var(--console-shell-gap);
+    bottom: var(--console-shell-gap);
+    left: var(--console-shell-gap);
+    overflow: hidden;
+    border: 1px solid var(--console-border);
+    border-radius: 1.375rem;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.72),
+      0 24px 50px -24px rgb(32 55 91 / 0.34),
+      0 8px 24px -18px rgb(32 55 91 / 0.2);
+  }
+
+  .dark .modern-console-shell > .sidebar {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 26px 54px -24px rgb(0 0 0 / 0.7),
+      0 10px 28px -20px rgb(0 0 0 / 0.62);
+  }
+
+  .modern-console-content > header {
+    top: var(--console-shell-gap);
+    overflow: visible;
+    border: 1px solid var(--console-border) !important;
+    border-radius: 1rem;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.7),
+      0 16px 40px -24px rgb(32 55 91 / 0.42),
+      0 7px 20px -18px rgb(32 55 91 / 0.24);
+  }
+
+  .dark .modern-console-content > header {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.07),
+      0 18px 44px -24px rgb(0 0 0 / 0.72),
+      0 8px 22px -18px rgb(0 0 0 / 0.66);
+  }
+}
+
+@media (max-width: 1023px) {
+  .modern-console-shell.modern-sidebar-collapsed > .sidebar {
+    width: var(--console-sidebar-width);
+  }
+
+  .modern-console-shell > .sidebar {
+    box-shadow: var(--console-shadow-lg);
+  }
+
+  .modern-console-main {
+    padding-inline: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+}
+
+@media (max-width: 639px) {
+  .modern-console-shell,
+  html[data-console-ui-mode='modern'] {
+    --console-header-height: 4rem;
+    --console-page-block-padding: 0.875rem;
+    --console-page-vertical-padding: 1.75rem;
+  }
+
+  .modern-console-main {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+
+  .modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card) {
+    border-radius: var(--console-radius-md);
+  }
+
+  .modern-console-shell .page-header {
+    flex-direction: column;
+    margin-bottom: 1.125rem;
+  }
+
+  .modern-console-shell .page-title {
+    font-size: 1.375rem;
+  }
+
+  .modern-console-shell .stat-card {
+    min-height: 6.75rem;
+    padding: 1rem;
+  }
+
+  html[data-console-ui-mode='modern'] .modal-content {
+    border-radius: var(--console-radius-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modern-console-shell *,
+  .modern-console-shell *::before,
+  .modern-console-shell *::after,
+  html[data-console-ui-mode='modern'] .modal-content,
+  html[data-console-ui-mode='modern'] .modal-overlay *,
+  html[data-console-ui-mode='modern'] .dialog-overlay *,
+  html[data-console-ui-mode='modern'] .select-dropdown-portal,
+  html[data-console-ui-mode='modern'] .select-dropdown-portal *,
+  html[data-console-ui-mode='modern'] .announcement-popup-panel,
+  html[data-console-ui-mode='modern'] .announcement-popup-panel *,
+  html[data-console-ui-mode='modern'] [aria-live='polite'][aria-atomic='true'] *,
+  html[data-console-ui-mode='modern'] [role='tooltip'] {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+
+  .modern-console-shell > .sidebar .sidebar-link:hover,
+  .modern-console-shell .card-hover:hover,
+  .modern-console-shell .btn:not(:disabled):hover,
+  .modern-console-shell .btn:not(:disabled):active {
+    transform: none;
+  }
+}

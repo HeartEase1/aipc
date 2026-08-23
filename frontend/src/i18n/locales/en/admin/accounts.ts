@@ -109,6 +109,8 @@ export default {
         deepseek: 'DeepSeek',
       },
       cnProviders: {
+        balanceAutoPause: 'Auto-pause on low balance',
+        balanceAutoPauseHint: 'Disable this for unofficial upstreams whose balance cannot be queried correctly. Authentication failures, normal rate limits, and manual disabling still apply.',
         accountMode: {
           title: 'Account Type',
           payg: 'Pay-as-you-go',

@@ -580,6 +580,30 @@ func TestSettingService_InitializeDefaultSettingsPersistsConfiguredForwardedClie
 
 	require.NoError(t, svc.InitializeDefaultSettings(context.Background()))
 	require.JSONEq(t, `["X-Cdn-Ip","True-Client-Ip"]`, repo.values[SettingKeyForwardedClientIPHeaders])
+	require.Equal(t, ConsoleUIModeModern, repo.values[SettingKeyConsoleUIMode])
+}
+
+func TestSettingService_UpdateSettings_NormalizesConsoleUIMode(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "modern", raw: ConsoleUIModeModern, want: ConsoleUIModeModern},
+		{name: "legacy", raw: ConsoleUIModeLegacy, want: ConsoleUIModeLegacy},
+		{name: "invalid", raw: "classic", want: ConsoleUIModeLegacy},
+		{name: "empty", raw: "", want: ConsoleUIModeLegacy},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &settingUpdateRepoStub{}
+			svc := NewSettingService(repo, &config.Config{})
+
+			err := svc.UpdateSettings(context.Background(), &SystemSettings{ConsoleUIMode: tt.raw})
+
+			require.NoError(t, err)
+			require.Equal(t, tt.want, repo.updates[SettingKeyConsoleUIMode])
+		})
+	}
 }
 
 func TestSettingService_UpdateSettings_APIKeyACLTrustForwardedIPRefreshesConfig(t *testing.T) {

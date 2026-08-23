@@ -408,7 +408,7 @@
               <!-- Use Key Button -->
               <button
                 @click="openUseKeyModal(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
+                class="key-action-use flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
               >
                 <Icon name="terminal" size="sm" />
                 <span class="text-xs">{{ t('keys.useKey') }}</span>
@@ -549,6 +549,21 @@
               />
             </template>
           </Select>
+        </div>
+
+        <div class="flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+          <div class="min-w-0">
+            <label class="input-label mb-0">{{ t('keys.fastMode') }}</label>
+            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+              {{ t('keys.fastModeHint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="formData.fast_mode"
+            class="mt-0.5 shrink-0"
+            data-testid="api-key-fast-mode"
+            :aria-label="t('keys.fastMode')"
+          />
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1184,6 +1199,7 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 	import EmptyState from '@/components/common/EmptyState.vue'
 	import Select from '@/components/common/Select.vue'
 	import SearchInput from '@/components/common/SearchInput.vue'
+	import Toggle from '@/components/common/Toggle.vue'
 	import Icon from '@/components/icons/Icon.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
@@ -1386,6 +1402,7 @@ const formData = ref({
   name: '',
   group_id: null as number | null,
   status: 'active' as 'active' | 'inactive',
+  fast_mode: false,
   use_custom_key: false,
   custom_key: '',
   enable_ip_restriction: false,
@@ -1688,6 +1705,7 @@ const editKey = (key: ApiKey) => {
     name: key.name,
     group_id: key.group_id,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
+    fast_mode: key.fast_mode === true,
     use_custom_key: false,
     custom_key: '',
     enable_ip_restriction: hasIPRestriction,
@@ -1844,6 +1862,7 @@ const handleSubmit = async () => {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
         group_id: formData.value.group_id,
+        fast_mode: formData.value.fast_mode,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
@@ -1867,7 +1886,8 @@ const handleSubmit = async () => {
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        formData.value.fast_mode
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1914,6 +1934,7 @@ const closeModals = () => {
     name: '',
     group_id: null,
     status: 'active',
+    fast_mode: false,
     use_custom_key: false,
     custom_key: '',
     enable_ip_restriction: false,

@@ -113,6 +113,20 @@ func (_c *APIKeyCreate) SetNillableStatus(v *string) *APIKeyCreate {
 	return _c
 }
 
+// SetFastMode sets the "fast_mode" field.
+func (_c *APIKeyCreate) SetFastMode(v bool) *APIKeyCreate {
+	_c.mutation.SetFastMode(v)
+	return _c
+}
+
+// SetNillableFastMode sets the "fast_mode" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableFastMode(v *bool) *APIKeyCreate {
+	if v != nil {
+		_c.SetFastMode(*v)
+	}
+	return _c
+}
+
 // SetLastUsedAt sets the "last_used_at" field.
 func (_c *APIKeyCreate) SetLastUsedAt(v time.Time) *APIKeyCreate {
 	_c.mutation.SetLastUsedAt(v)
@@ -387,6 +401,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.FastMode(); !ok {
+		v := apikey.DefaultFastMode
+		_c.mutation.SetFastMode(v)
+	}
 	if _, ok := _c.mutation.Quota(); !ok {
 		v := apikey.DefaultQuota
 		_c.mutation.SetQuota(v)
@@ -456,6 +474,9 @@ func (_c *APIKeyCreate) check() error {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.FastMode(); !ok {
+		return &ValidationError{Name: "fast_mode", err: errors.New(`ent: missing required field "APIKey.fast_mode"`)}
 	}
 	if _, ok := _c.mutation.Quota(); !ok {
 		return &ValidationError{Name: "quota", err: errors.New(`ent: missing required field "APIKey.quota"`)}
@@ -534,6 +555,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.FastMode(); ok {
+		_spec.SetField(apikey.FieldFastMode, field.TypeBool, value)
+		_node.FastMode = value
 	}
 	if value, ok := _c.mutation.LastUsedAt(); ok {
 		_spec.SetField(apikey.FieldLastUsedAt, field.TypeTime, value)
@@ -790,6 +815,18 @@ func (u *APIKeyUpsert) SetStatus(v string) *APIKeyUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *APIKeyUpsert) UpdateStatus() *APIKeyUpsert {
 	u.SetExcluded(apikey.FieldStatus)
+	return u
+}
+
+// SetFastMode sets the "fast_mode" field.
+func (u *APIKeyUpsert) SetFastMode(v bool) *APIKeyUpsert {
+	u.Set(apikey.FieldFastMode, v)
+	return u
+}
+
+// UpdateFastMode sets the "fast_mode" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateFastMode() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldFastMode)
 	return u
 }
 
@@ -1217,6 +1254,20 @@ func (u *APIKeyUpsertOne) SetStatus(v string) *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) UpdateStatus() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetFastMode sets the "fast_mode" field.
+func (u *APIKeyUpsertOne) SetFastMode(v bool) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetFastMode(v)
+	})
+}
+
+// UpdateFastMode sets the "fast_mode" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateFastMode() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateFastMode()
 	})
 }
 
@@ -1855,6 +1906,20 @@ func (u *APIKeyUpsertBulk) SetStatus(v string) *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) UpdateStatus() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetFastMode sets the "fast_mode" field.
+func (u *APIKeyUpsertBulk) SetFastMode(v bool) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetFastMode(v)
+	})
+}
+
+// UpdateFastMode sets the "fast_mode" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateFastMode() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateFastMode()
 	})
 }
 

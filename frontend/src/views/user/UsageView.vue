@@ -177,6 +177,7 @@
 
       <template v-if="activeTab === 'usage'">
         <UsageTable
+          fixed-viewport
           :data="usageLogs"
           :loading="loading"
           :columns="visibleColumns"
