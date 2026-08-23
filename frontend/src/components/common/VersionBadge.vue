@@ -1,8 +1,10 @@
 <template>
-  <div class="relative">
+  <div ref="containerRef" class="relative">
     <!-- Admin: Full version badge with dropdown -->
     <template v-if="isAdmin">
       <button
+        ref="triggerRef"
+        data-testid="version-badge-trigger"
         @click="toggleDropdown"
         class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-colors"
         :class="[
@@ -27,13 +29,15 @@
       </button>
 
       <!-- Dropdown -->
-      <transition name="dropdown">
-        <div
-          v-if="dropdownOpen"
-          ref="dropdownRef"
-          class="absolute left-0 z-50 mt-2 overflow-hidden whitespace-normal rounded-xl border border-gray-200 bg-white shadow-lg transition-all duration-200 dark:border-dark-700 dark:bg-dark-800"
-          :class="rollbackPanelOpen && isReleaseBuild ? 'w-80' : 'w-64'"
-        >
+      <Teleport to="body">
+        <transition name="dropdown">
+          <div
+            v-if="dropdownOpen"
+            ref="dropdownRef"
+            data-testid="version-badge-dropdown"
+            class="fixed z-[100000020] max-w-[calc(100vw-16px)] overflow-y-auto whitespace-normal rounded-xl border border-gray-200 bg-white shadow-lg transition-all duration-200 dark:border-dark-700 dark:bg-dark-800"
+            :style="dropdownStyle"
+          >
           <!-- Header with refresh button -->
           <div
             class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-dark-700"
@@ -626,8 +630,9 @@
               </div>
             </template>
           </div>
-        </div>
-      </transition>
+          </div>
+        </transition>
+      </Teleport>
     </template>
 
     <!-- Non-admin: Simple static version text -->
@@ -638,7 +643,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import {
@@ -667,7 +672,10 @@ const appStore = useAppStore()
 const isAdmin = computed(() => authStore.isAdmin)
 
 const dropdownOpen = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
+const triggerRef = ref<HTMLButtonElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
+const triggerRect = ref<DOMRect | null>(null)
 
 // Use store's cached version state
 const loading = computed(() => appStore.versionLoading)
@@ -707,6 +715,28 @@ const manualTabs = computed(() => [
   { key: 'docker' as const, label: t('version.deployDocker') }
 ])
 
+const dropdownWidth = computed(() => (rollbackPanelOpen.value && isReleaseBuild.value ? 320 : 256))
+
+const dropdownStyle = computed<CSSProperties>(() => {
+  const rect = triggerRect.value
+  if (!rect || typeof window === 'undefined') return {}
+
+  const viewportPadding = 8
+  const width = Math.min(dropdownWidth.value, Math.max(0, window.innerWidth - viewportPadding * 2))
+  const left = Math.min(
+    Math.max(viewportPadding, rect.left),
+    Math.max(viewportPadding, window.innerWidth - width - viewportPadding)
+  )
+  const top = Math.min(rect.bottom + 8, window.innerHeight - viewportPadding)
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    maxHeight: `calc(100dvh - ${top + viewportPadding}px)`
+  }
+})
+
 const scriptRollbackCommand = computed(() => {
   if (!selectedRollbackVersion.value) return ''
   const tag = `v${selectedRollbackVersion.value}`
@@ -731,8 +761,17 @@ const activeManualCommand = computed(() =>
 // Only show update check for release builds (binary/docker deployment)
 const isReleaseBuild = computed(() => buildType.value === 'release')
 
-function toggleDropdown() {
+function updateDropdownPosition() {
+  if (!dropdownOpen.value || !triggerRef.value) return
+  triggerRect.value = triggerRef.value.getBoundingClientRect()
+}
+
+async function toggleDropdown() {
   dropdownOpen.value = !dropdownOpen.value
+  if (dropdownOpen.value) {
+    await nextTick()
+    updateDropdownPosition()
+  }
 }
 
 function closeDropdown() {
@@ -903,10 +942,8 @@ async function checkServiceAndReload() {
 
 function handleClickOutside(event: MouseEvent) {
   const target = event.target as Node
-  const button = (event.target as Element).closest('button')
-  if (dropdownRef.value && !dropdownRef.value.contains(target) && !button?.contains(target)) {
-    closeDropdown()
-  }
+  if (containerRef.value?.contains(target) || dropdownRef.value?.contains(target)) return
+  closeDropdown()
 }
 
 onMounted(() => {
@@ -915,10 +952,14 @@ onMounted(() => {
     appStore.fetchVersion(false)
   }
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('resize', updateDropdownPosition)
+  window.addEventListener('scroll', updateDropdownPosition, true)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', updateDropdownPosition)
+  window.removeEventListener('scroll', updateDropdownPosition, true)
 })
 </script>
 
