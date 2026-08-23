@@ -620,11 +620,19 @@ html.dark[data-console-ui-mode='modern'] {
 .modern-console-shell .audit-log-page {
   height: auto;
   min-height: var(--console-viewport-available-height);
-  grid-template-rows: auto auto minmax(28rem, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
 }
 
 .modern-console-shell .audit-log-page .layout-section-table {
-  min-height: 28rem;
+  min-height: 0;
+}
+
+.modern-console-shell .audit-log-page .pagination-shell {
+  overflow: visible;
+  border: 1px solid var(--console-border);
+  border-radius: var(--console-radius-lg);
+  background: var(--console-surface-raised);
+  box-shadow: var(--console-shadow-md);
 }
 
 .modern-console-shell .audit-log-filter-card {

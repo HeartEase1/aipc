@@ -1,9 +1,8 @@
 <template>
   <div :class="flat ? 'p-4 sm:p-6' : 'card p-6'">
-    <!-- Toolbar: left filters (multi-line) + right actions -->
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <!-- Left: filters (allowed to wrap to multiple rows) -->
-      <div class="flex flex-1 flex-wrap items-end gap-4">
+    <div class="usage-filters-layout space-y-4">
+      <!-- Filters use the complete row so the action group cannot squeeze them into one column. -->
+      <div class="usage-filters-fields flex w-full flex-wrap items-end gap-4">
         <!-- User Search -->
         <div ref="userSearchRef" class="usage-filter-dropdown relative w-full sm:w-auto sm:min-w-[240px]">
           <label class="input-label">{{ t('admin.usage.userFilter') }}</label>
@@ -170,8 +169,10 @@
 
       </div>
 
-      <!-- Right: actions -->
-      <div v-if="showActions" class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
+      <div
+        v-if="showActions"
+        class="usage-filters-actions flex w-full flex-wrap items-center justify-end gap-3"
+      >
         <button type="button" @click="$emit('refresh')" class="btn btn-secondary">
           {{ t('common.refresh') }}
         </button>

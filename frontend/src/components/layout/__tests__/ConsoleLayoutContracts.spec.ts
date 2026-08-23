@@ -65,6 +65,23 @@ describe('console layout contracts', () => {
     expect(redeemSource).not.toContain(':global(.modern-console-shell)')
   })
 
+  it('keeps the audit table inside its grid track so pagination cannot overlap it', () => {
+    const modernConsoleSource = readSource('../../../styles/modern-console.css')
+
+    expect(modernConsoleSource).toMatch(
+      /\.modern-console-shell \.audit-log-page \{[\s\S]*?grid-template-rows: auto auto minmax\(0, 1fr\) auto;/,
+    )
+    expect(modernConsoleSource).toMatch(
+      /\.modern-console-shell \.audit-log-page \.layout-section-table \{[\s\S]*?min-height: 0;/,
+    )
+    expect(modernConsoleSource).toMatch(
+      /\.modern-console-shell \.audit-log-page \.pagination-shell \{[\s\S]*?border-radius: var\(--console-radius-lg\);/,
+    )
+    expect(modernConsoleSource).not.toMatch(
+      /\.modern-console-shell \.audit-log-page[\s\S]{0,240}minmax\(28rem, 1fr\)/,
+    )
+  })
+
   it('keeps the modern profile hierarchy and jelly motion scoped and accessible', () => {
     const modernConsoleSource = readSource('../../../styles/modern-console.css')
     const profileSource = readSource('../../../views/user/ProfileView.vue')

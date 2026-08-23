@@ -104,6 +104,31 @@ function mountFilters(filters = defaultFilters()) {
   })
 }
 
+describe('UsageFilters layout', () => {
+  it('keeps filters and actions in independent full-width rows', () => {
+    const wrapper = mount(UsageFilters, {
+      props: {
+        modelValue: defaultFilters(),
+        exporting: false,
+        startDate: '2026-05-01',
+        endDate: '2026-05-28',
+        showActions: true,
+        modelOptions: [],
+      },
+      global: { stubs: { Select: true, Teleport: true } },
+    })
+
+    const layout = wrapper.get('.usage-filters-layout')
+    const fields = wrapper.get('.usage-filters-fields')
+    const actions = wrapper.get('.usage-filters-actions')
+
+    expect(layout.classes()).toContain('space-y-4')
+    expect(fields.classes()).toContain('w-full')
+    expect(fields.classes()).not.toContain('flex-1')
+    expect(actions.classes()).toContain('w-full')
+  })
+})
+
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
   let reject!: (reason?: unknown) => void
