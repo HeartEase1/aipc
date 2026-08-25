@@ -325,6 +325,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 				}
 			}
 		}
+		line = sanitizeRawChatToolCallIdentityForAccount(account, line)
 
 		writeLine(line)
 		if line == "" {
