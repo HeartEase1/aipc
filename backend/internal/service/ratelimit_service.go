@@ -1083,6 +1083,18 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 			return
 		}
 	}
+	// A bare OpenAI OAuth 429 is a request-scoped throttle, not evidence that
+	// the subscription quota is exhausted. Keep the account schedulable so the
+	// gateway can continue its bounded failover path. API-key accounts and
+	// quota-bearing OAuth responses retain the existing cooldown behavior.
+	if isOpenAIOAuthAccount(account) {
+		disposition, _ := classifyOpenAIOAuth429(headers, responseBody)
+		if disposition == openAIOAuth429Transient {
+			persistOpenAI429PlanType(ctx, s.accountRepo, account, responseBody)
+			s.persistOpenAICodexSnapshot(ctx, account, headers)
+			return
+		}
+	}
 	// 1. OpenAI 平台：优先尝试解析 x-codex-* 响应头（用于 rate_limit_exceeded）
 	if account.Platform == PlatformOpenAI {
 		persistOpenAI429PlanType(ctx, s.accountRepo, account, responseBody)

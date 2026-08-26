@@ -71,7 +71,7 @@ func TestHandle429_FallbackUsesDBSeconds(t *testing.T) {
 	svc := NewRateLimitService(accountRepo, nil, &config.Config{}, nil, nil)
 	svc.SetSettingService(settingSvc)
 
-	account := &Account{ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	account := &Account{ID: 42, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	before := time.Now()
 	svc.handle429(context.Background(), account, http.Header{}, []byte(`{"error":{"type":"rate_limit_error","message":"slow down"}}`))
 	after := time.Now()
@@ -79,6 +79,22 @@ func TestHandle429_FallbackUsesDBSeconds(t *testing.T) {
 	require.Equal(t, 1, accountRepo.rateLimitCalls)
 	require.Equal(t, int64(42), accountRepo.lastRateLimitID)
 	require.True(t, !accountRepo.lastRateLimitReset.Before(before.Add(12*time.Second)) && !accountRepo.lastRateLimitReset.After(after.Add(12*time.Second)))
+}
+
+func TestHandle429_TransientOpenAIOAuthSkipsPersistentCooldown(t *testing.T) {
+	accountRepo := &rateLimit429AccountRepoStub{}
+	settingRepo := newMockSettingRepo()
+	data, _ := json.Marshal(RateLimit429CooldownSettings{Enabled: true, CooldownSeconds: 12})
+	settingRepo.data[SettingKeyRateLimit429CooldownSettings] = string(data)
+
+	settingSvc := NewSettingService(settingRepo, &config.Config{})
+	svc := NewRateLimitService(accountRepo, nil, &config.Config{}, nil, nil)
+	svc.SetSettingService(settingSvc)
+	account := &Account{ID: 46, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	svc.handle429(context.Background(), account, http.Header{"Retry-After": []string{"1"}}, []byte(`{"error":{"type":"rate_limit_error","message":"slow down"}}`))
+
+	require.Zero(t, accountRepo.rateLimitCalls)
 }
 
 func TestHandle429_FallbackDisabledSkipsLocalMark(t *testing.T) {
