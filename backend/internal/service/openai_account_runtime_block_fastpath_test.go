@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOpenAI429FastPath_KeepsTransientOAuthAccountSchedulable(t *testing.T) {
+func TestOpenAI429FastPath_AppliesOnlyInMemoryTransientCooldown(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	account := &Account{ID: 42, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	apiKeyAccount := &Account{ID: 43, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
@@ -23,6 +23,8 @@ func TestOpenAI429FastPath_KeepsTransientOAuthAccountSchedulable(t *testing.T) {
 
 	require.False(t, shouldDisable)
 	require.False(t, apiKeyShouldDisable)
+	require.True(t, svc.isOpenAIOAuth429TransientBlocked(account.ID))
+	require.True(t, svc.isOpenAIAccountRequestRuntimeBlocked(account, "gpt-5.6-sol"))
 	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
 	require.False(t, svc.isOpenAIAccountRuntimeBlocked(apiKeyAccount))
 }
@@ -43,6 +45,22 @@ func TestOpenAI429FastPath_BlocksExhaustedOAuthQuotaUntilReset(t *testing.T) {
 	blockedUntil, ok := value.(time.Time)
 	require.True(t, ok)
 	require.Greater(t, time.Until(blockedUntil), 6*24*time.Hour)
+}
+
+func TestOpenAI429FastPath_ExplicitQuotaClearsTransientStreak(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	account := &Account{ID: 48, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+
+	svc.markOpenAIOAuth429RateLimited(context.Background(), account, http.Header{}, nil)
+	require.True(t, svc.isOpenAIOAuth429TransientBlocked(account.ID))
+
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "100")
+	headers.Set("x-codex-primary-reset-after-seconds", "3600")
+	svc.markOpenAIOAuth429RateLimited(context.Background(), account, headers, nil)
+
+	require.False(t, svc.isOpenAIOAuth429TransientBlocked(account.ID))
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
 }
 
 func TestOpenAI429FastPath_OpenCodeGoUsageLimitUsesMessageResetDuration(t *testing.T) {
@@ -367,7 +385,7 @@ func TestOpenAIOAuth429_MatchingModelTempRuleAvoidsAccountRuntimeBlock(t *testin
 	require.Equal(t, "gpt-5.4", repo.modelRateLimitCalls[0].scope)
 }
 
-func TestOpenAIOAuth429_NonmatchingModelTempRuleKeepsAccountRuntimeBlock(t *testing.T) {
+func TestOpenAIOAuth429_NonmatchingModelTempRuleUsesTransientRuntimeBlock(t *testing.T) {
 	repo := &modelNotFoundAccountRepoStub{}
 	svc := &OpenAIGatewayService{
 		rateLimitService: &RateLimitService{accountRepo: repo},
@@ -392,7 +410,9 @@ func TestOpenAIOAuth429_NonmatchingModelTempRuleKeepsAccountRuntimeBlock(t *test
 	)
 
 	require.False(t, shouldDisable)
-	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
+	require.True(t, svc.isOpenAIOAuth429TransientBlocked(account.ID))
+	require.True(t, svc.isOpenAIAccountRequestRuntimeBlocked(account, "gpt-5.4"))
 	require.Empty(t, repo.modelRateLimitCalls)
 }
 

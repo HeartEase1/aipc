@@ -127,7 +127,9 @@ func TestOpenAIGatewayService_HandleFailoverSideEffects_DoesNotRereadResponseBod
 		svc.handleFailoverSideEffects(context.Background(), resp, account, []byte(`{"error":{"type":"rate_limit_error","message":"rate limited"}}`))
 	})
 
-	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
+	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
+	require.True(t, svc.isOpenAIOAuth429TransientBlocked(account.ID))
+	require.True(t, svc.isOpenAIAccountRequestRuntimeBlocked(account, "gpt-5.6-sol"))
 }
 
 func TestGetOpenAIRequestBodyMap_IgnoresLegacyContextCache(t *testing.T) {

@@ -192,8 +192,17 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context
 	s.recordOpenAIOAuth429()
 	disposition, resetAt := classifyOpenAIOAuth429(headers, responseBody)
 	if disposition == openAIOAuth429Transient {
+		decision := s.recordOpenAIOAuth429TransientFailure(account.ID, time.Now())
+		if decision.Cooldown > 0 {
+			slog.Warn("openai_oauth_429_transient_cooldown",
+				"account_id", account.ID,
+				"failure_streak", decision.FailureStreak,
+				"cooldown_ms", decision.Cooldown.Milliseconds(),
+			)
+		}
 		return
 	}
+	s.clearOpenAIOAuth429TransientState(account.ID)
 
 	cooldownUntil := time.Now().Add(openAIOAuth429FallbackCooldown)
 	if resetAt != nil && resetAt.After(time.Now()) {
@@ -267,9 +276,10 @@ func (s *OpenAIGatewayService) ClearAccountSchedulingBlock(accountID int64) {
 	}
 	mu := s.openAIAccountRuntimeBlockLock(accountID)
 	mu.Lock()
-	defer mu.Unlock()
 	s.openaiAccountRuntimeBlockUntil.Delete(accountID)
 	s.openaiAccountRuntimeBlockGeneration.Store(accountID, s.openaiAccountRuntimeBlockSequence.Add(1))
+	mu.Unlock()
+	s.clearOpenAIOAuth429TransientState(accountID)
 }
 
 func (s *OpenAIGatewayService) isOpenAIAccountRuntimeBlocked(account *Account) bool {
@@ -307,6 +317,39 @@ func (s *OpenAIGatewayService) getOpenAIAccountModelTransientState() *openAIAcco
 		}
 	})
 	return s.openaiModelTransient
+}
+
+func (s *OpenAIGatewayService) getOpenAIOAuth429TransientState() *openAIOAuth429TransientState {
+	if s == nil {
+		return nil
+	}
+	s.openaiOAuth429TransientOnce.Do(func() {
+		if s.openaiOAuth429Transient == nil {
+			s.openaiOAuth429Transient = newOpenAIOAuth429TransientState(openAIOAuth429TransientDefaultMax)
+		}
+	})
+	return s.openaiOAuth429Transient
+}
+
+func (s *OpenAIGatewayService) recordOpenAIOAuth429TransientFailure(accountID int64, now time.Time) openAIOAuth429TransientDecision {
+	state := s.getOpenAIOAuth429TransientState()
+	if state == nil {
+		return openAIOAuth429TransientDecision{}
+	}
+	return state.recordFailure(accountID, now)
+}
+
+func (s *OpenAIGatewayService) clearOpenAIOAuth429TransientState(accountID int64) {
+	state := s.getOpenAIOAuth429TransientState()
+	if state == nil {
+		return
+	}
+	state.recordSuccess(accountID)
+}
+
+func (s *OpenAIGatewayService) isOpenAIOAuth429TransientBlocked(accountID int64) bool {
+	state := s.getOpenAIOAuth429TransientState()
+	return state != nil && state.isBlocked(accountID, time.Now())
 }
 
 func canonicalOpenAIAccountSchedulingModel(account *Account, requestedModel string) string {
@@ -356,7 +399,11 @@ func (s *OpenAIGatewayService) isOpenAIAccountModelRuntimeBlocked(account *Accou
 }
 
 func (s *OpenAIGatewayService) isOpenAIAccountRequestRuntimeBlocked(account *Account, requestedModel string) bool {
-	return s != nil && (s.isOpenAIAccountRuntimeBlocked(account) || s.isOpenAIAccountModelRuntimeBlocked(account, requestedModel))
+	return s != nil && account != nil && (s.isOpenAIAccountStickyInvalidatingRuntimeBlocked(account, requestedModel) || s.isOpenAIOAuth429TransientBlocked(account.ID))
+}
+
+func (s *OpenAIGatewayService) isOpenAIAccountStickyInvalidatingRuntimeBlocked(account *Account, requestedModel string) bool {
+	return s != nil && account != nil && (s.isOpenAIAccountRuntimeBlocked(account) || s.isOpenAIAccountModelRuntimeBlocked(account, requestedModel))
 }
 
 func (s *OpenAIGatewayService) recordOpenAIOAuth429() {

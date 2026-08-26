@@ -1156,6 +1156,38 @@ func TestOpenAISelectAccountForModelWithExclusions_SetsStickyBinding(t *testing.
 	}
 }
 
+func TestOpenAISelectAccountForModelWithExclusions_Transient429CooldownKeepsAndRestoresBinding(t *testing.T) {
+	sessionHash := "sticky-transient-429-legacy"
+	repo := stubOpenAIAccountRepo{
+		accounts: []Account{
+			{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1},
+			{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 2},
+		},
+	}
+	cache := &stubGatewayCache{sessionBindings: map[string]int64{"openai:" + sessionHash: 1}}
+	svc := &OpenAIGatewayService{
+		accountRepo:             repo,
+		cache:                   cache,
+		openaiOAuth429Transient: newOpenAIOAuth429TransientState(8),
+	}
+	svc.recordOpenAIOAuth429TransientFailure(1, time.Now())
+
+	account, err := svc.SelectAccountForModelWithExclusions(context.Background(), nil, sessionHash, "gpt-4", nil)
+	require.NoError(t, err)
+	require.NotNil(t, account)
+	require.Equal(t, int64(2), account.ID, "transient cooldown should spill this request to the alternate account")
+	require.Equal(t, int64(1), cache.sessionBindings["openai:"+sessionHash], "spillover must not migrate the durable sticky binding")
+	require.Zero(t, cache.deletedSessions["openai:"+sessionHash])
+
+	svc.ReportOpenAIAccountScheduleResult(1, "gpt-4", true, nil)
+	require.False(t, svc.isOpenAIOAuth429TransientBlocked(1))
+
+	account, err = svc.SelectAccountForModelWithExclusions(context.Background(), nil, sessionHash, "gpt-4", nil)
+	require.NoError(t, err)
+	require.NotNil(t, account)
+	require.Equal(t, int64(1), account.ID, "a successful result should restore the original sticky account")
+}
+
 func TestOpenAISelectAccountWithLoadAwareness_StickyWaitPlan(t *testing.T) {
 	sessionHash := "sticky-wait"
 	groupID := int64(1)
@@ -1228,6 +1260,45 @@ func TestOpenAISelectAccountWithLoadAwareness_StickyCapacitySpilloverKeepsBindin
 	require.Equal(t, int64(2), selection.Account.ID, "capacity spillover should use the other account for this request")
 	require.True(t, selection.Acquired)
 	require.Equal(t, int64(1), cache.sessionBindings["openai:"+sessionHash], "capacity spillover must not migrate the durable sticky binding")
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+}
+
+func TestOpenAISelectAccountWithLoadAwareness_Transient429CooldownKeepsBinding(t *testing.T) {
+	sessionHash := "sticky-transient-429"
+	groupID := int64(1)
+	repo := stubOpenAIAccountRepo{
+		accounts: []Account{
+			{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 6, Priority: 1, GroupIDs: []int64{groupID}},
+			{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 6, Priority: 1, GroupIDs: []int64{groupID}},
+		},
+	}
+	cache := &stubGatewayCache{sessionBindings: map[string]int64{"openai:" + sessionHash: 1}}
+	concurrencyCache := stubConcurrencyCache{
+		acquireResults: map[int64]bool{2: true},
+		loadMap: map[int64]*AccountLoadInfo{
+			1: {AccountID: 1, LoadRate: 10},
+			2: {AccountID: 2, LoadRate: 20},
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	cfg.Gateway.Scheduling.LoadBatchEnabled = true
+	svc := &OpenAIGatewayService{
+		accountRepo:             repo,
+		cache:                   cache,
+		cfg:                     cfg,
+		concurrencyService:      NewConcurrencyService(concurrencyCache),
+		openaiOAuth429Transient: newOpenAIOAuth429TransientState(8),
+	}
+	svc.recordOpenAIOAuth429TransientFailure(1, time.Now())
+
+	selection, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, sessionHash, "gpt-4", nil)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.Equal(t, int64(2), selection.Account.ID)
+	require.Equal(t, int64(1), cache.sessionBindings["openai:"+sessionHash])
+	require.Zero(t, cache.deletedSessions["openai:"+sessionHash])
 	if selection.ReleaseFunc != nil {
 		selection.ReleaseFunc()
 	}
