@@ -67,6 +67,9 @@ const messages: Record<string, string> = {
 	'usage.upstreamResponseModel': 'Upstream response',
 	'usage.modelVariant': 'Possible version variant',
 	'usage.modelMismatch': 'Different model',
+	'usage.latencyFirstToken': 'First',
+	'usage.latencyDuration': 'Total',
+	'usage.outputRate': 'Output rate',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -89,6 +92,7 @@ const DataTableStub = {
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
+        <slot name="cell-latency" :row="row" />
         <slot name="cell-request_id" :row="row" />
       </div>
     </div>
@@ -317,6 +321,72 @@ describe('admin UsageTable tooltip', () => {
     expect(rate.text()).toBe('77.8%')
     expect(rate.attributes('title')).toBe('Cache hit rate')
     expect(rate.attributes('aria-label')).toBe('Cache hit rate 77.8%')
+  })
+
+  it('shows output speed based on generation time after the first token', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-output-rate',
+          billing_mode: 'token',
+          image_count: 0,
+          output_tokens: 497,
+          first_token_ms: 4_980,
+          duration_ms: 11_610,
+        }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Output rate')
+    expect(wrapper.get('[data-testid="output-rate"]').text()).toBe('75.0 t/s')
+  })
+
+  it.each([
+    {
+      name: 'missing first-token timing',
+      row: { billing_mode: 'token', image_count: 0, output_tokens: 497, first_token_ms: null, duration_ms: 11_610 },
+    },
+    {
+      name: 'invalid generation duration',
+      row: { billing_mode: 'token', image_count: 0, output_tokens: 497, first_token_ms: 11_610, duration_ms: 11_610 },
+    },
+    {
+      name: 'zero output tokens',
+      row: { billing_mode: 'token', image_count: 0, output_tokens: 0, first_token_ms: 4_980, duration_ms: 11_610 },
+    },
+    {
+      name: 'image request',
+      row: { billing_mode: 'image', image_count: 1, output_tokens: 497, first_token_ms: 4_980, duration_ms: 11_610 },
+    },
+  ])('shows no misleading output speed for $name', ({ row }) => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, ...row, request_id: `req-output-rate-${name}` }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('[data-testid="output-rate"]').text()).toBe('-')
   })
 
   it.each([

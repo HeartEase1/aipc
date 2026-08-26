@@ -255,6 +255,11 @@
               <span v-else class="text-gray-400 dark:text-gray-500">-</span>
               <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
               <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
+              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.outputRate') }}</span>
+              <span
+                data-testid="output-rate"
+                class="font-medium tabular-nums text-violet-600 dark:text-violet-400"
+              >{{ isImageUsage(row) ? '-' : formatOutputRate(row.output_tokens, row.duration_ms, row.first_token_ms) }}</span>
             </div>
           </div>
         </template>
@@ -528,6 +533,7 @@ import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { calculateCacheHitRate } from '@/utils/cacheHitRate'
+import { formatOutputRate } from '@/utils/outputRate'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'
 import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'

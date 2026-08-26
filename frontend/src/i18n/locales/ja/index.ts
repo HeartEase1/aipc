@@ -26,6 +26,10 @@ export default {
     ...en.subscriptionProgress,
     used: '使用済み'
   },
+  usage: {
+    ...en.usage,
+    outputRate: '出力速度'
+  },
   onlinePlayground: {
     ...en.onlinePlayground,
     title: 'オンライン利用',
