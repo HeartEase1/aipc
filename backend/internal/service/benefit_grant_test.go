@@ -175,9 +175,9 @@ func TestParseBenefitDecimalRoundsAmountsToEightPlaces(t *testing.T) {
 func TestRenderBenefitGrantTemplateReplacesOnlySupportedVariables(t *testing.T) {
 	rendered := renderBenefitGrantTemplate(
 		"{{amount}}|{{reason}}|{{balance}}|{{site_name}}|{{unknown}}",
-		"1.25", "incident", "8.75", "IPCAI",
+		"1.25", "incident", "8.75", "AIPC",
 	)
-	require.Equal(t, "1.25|incident|8.75|IPCAI|{{unknown}}", rendered)
+	require.Equal(t, "1.25|incident|8.75|AIPC|{{unknown}}", rendered)
 }
 
 func TestListUserGrantsIncludesPercentageCalculationSnapshot(t *testing.T) {

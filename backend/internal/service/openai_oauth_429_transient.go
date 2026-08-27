@@ -123,15 +123,6 @@ func (s *openAIOAuth429TransientState) isBlocked(accountID int64, now time.Time)
 	return now.Before(entry.blockUntil)
 }
 
-func (s *openAIOAuth429TransientState) size() int {
-	if s == nil {
-		return 0
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.entries)
-}
-
 func (s *openAIOAuth429TransientState) evictOldestLocked() {
 	if len(s.entries) < s.maxEntries {
 		return

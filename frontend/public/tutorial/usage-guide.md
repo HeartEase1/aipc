@@ -1,4 +1,4 @@
-# IPCAI 使用教程
+# AIPC 使用教程
 
 本教程介绍从创建 API 密钥、配置接口地址，到使用 CC-Switch 或 Cockpit Tools 快速接入 Codex、Claude Code Desktop 等工具的完整流程。
 
@@ -59,20 +59,20 @@ API Key: sk-xxxxxxxxxxxxxxxx
 
 根据页面提示填写供应商参数：
 
-- **供应商名称**：`IPCAI`
+- **供应商名称**：`AIPC`
 - **官网链接**：`https://api.ipc.wiki`
 - **API Key**：填写本教程第 1 步创建的密钥
 - **请求地址**：`https://api.ipc.wiki`
 - 请求地址末尾**不要添加斜杠**
 - 点击 **添加**，新配置默认处于启用状态
 
-![填写 IPCAI 供应商参数](images/06-cc-switch-settings.webp)
+![填写 AIPC 供应商参数](images/06-cc-switch-settings.webp)
 
 可以添加多个密钥，添加后任意启用其中一个即可。切换启用项后，对应的模型 Agent 需要重启，以确保最新密钥生效，例如 Codex、Claude Code 等。
 
 ## 二、Cockpit Tools：下载与一键配置
 
-本节提供 Cockpit Tools 官方安装包，并通过实际截图说明如何结合 IPCAI 配置 Codex 与 Claude Code Desktop。两种客户端的地址填写方式不同，请按对应小节操作。
+本节提供 Cockpit Tools 官方安装包，并通过实际截图说明如何结合 AIPC 配置 Codex 与 Claude Code Desktop。两种客户端的地址填写方式不同，请按对应小节操作。
 
 ### 1. 下载 Cockpit Tools
 
@@ -95,11 +95,11 @@ https://api.ipc.wiki/v1
 
 以下图片中的红色和蓝色箭头标出了每一步需要点击或填写的位置。
 
-#### 步骤 1：复制 IPCAI API 密钥
+#### 步骤 1：复制 AIPC API 密钥
 
-打开 IPCAI **API 密钥** 页面，确认密钥处于活跃状态并绑定 OpenAI 平台分组，然后点击复制图标。完整密钥不要出现在截图、聊天或工单中；Codex 地址使用带 `/v1` 的端点。
+打开 AIPC **API 密钥** 页面，确认密钥处于活跃状态并绑定 OpenAI 平台分组，然后点击复制图标。完整密钥不要出现在截图、聊天或工单中；Codex 地址使用带 `/v1` 的端点。
 
-![在 IPCAI API 密钥页面复制密钥](images/03-key-created.webp)
+![在 AIPC API 密钥页面复制密钥](images/03-key-created.webp)
 
 #### 步骤 2：添加 Codex 账号
 
@@ -115,27 +115,27 @@ https://api.ipc.wiki/v1
 
 #### 步骤 4：选择自定义供应商
 
-在供应商区域选择 **自定义**，这样才能填写 IPCAI 的 API 地址。
+在供应商区域选择 **自定义**，这样才能填写 AIPC 的 API 地址。
 
 ![为 Codex 选择自定义供应商](images/09-cockpit-codex-custom-provider.webp)
 
 #### 步骤 5：填写连接参数
 
-- **API Key**：粘贴 IPCAI 密钥
+- **API Key**：粘贴 AIPC 密钥
 - **基础地址**：`https://api.ipc.wiki/v1`
-- **供应商名称**：`IPCAI`
+- **供应商名称**：`AIPC`
 
 核对后点击 **添加账号**。密钥输入框应始终保持隐藏。
 
-![填写 Codex 的 IPCAI 密钥和基础地址](images/10-cockpit-codex-credentials.webp)
+![填写 Codex 的 AIPC 密钥和基础地址](images/10-cockpit-codex-credentials.webp)
 
-#### 步骤 6：切换到 IPCAI 账号
+#### 步骤 6：切换到 AIPC 账号
 
-确认账户卡片显示供应商 IPCAI 和正确的基础地址；若尚未生效，点击卡片底部 **切换**。API Key 账户显示“OAuth 未绑定”属于正常现象。
+确认账户卡片显示供应商 AIPC 和正确的基础地址；若尚未生效，点击卡片底部 **切换**。API Key 账户显示“OAuth 未绑定”属于正常现象。
 
-![确认并切换到 IPCAI Codex 账号](images/11-cockpit-codex-switch-account.webp)
+![确认并切换到 AIPC Codex 账号](images/11-cockpit-codex-switch-account.webp)
 
-完成后完全退出并重新打开 Codex，发送一条简单测试消息；同时可在 IPCAI **使用记录**中确认请求已经到达。
+完成后完全退出并重新打开 Codex，发送一条简单测试消息；同时可在 AIPC **使用记录**中确认请求已经到达。
 
 ### 3. 使用 Cockpit 配置 Claude Code Desktop
 
@@ -176,19 +176,19 @@ Cockpit Tools → Claude → 顶部“Claude” → + → 网关 → 自定义
 
 #### 步骤 5：导入 Gateway
 
-名称填写 `IPCAI`，粘贴 IPCAI API Key，等待 Cockpit 自动读取模型列表；确认模型出现后点击 **导入 Gateway**。首次添加时按钮显示“导入 Gateway”，编辑已有账号时会显示“保存 Gateway”。
+名称填写 `AIPC`，粘贴 AIPC API Key，等待 Cockpit 自动读取模型列表；确认模型出现后点击 **导入 Gateway**。首次添加时按钮显示“导入 Gateway”，编辑已有账号时会显示“保存 Gateway”。
 
-![填写 IPCAI 密钥并导入 Claude Desktop Gateway](images/16-cockpit-claude-import-gateway.webp)
+![填写 AIPC 密钥并导入 Claude Desktop Gateway](images/16-cockpit-claude-import-gateway.webp)
 
 #### 步骤 6：应用供应商配置
 
-回到 IPCAI 账号卡片，点击卡片上的三角形按钮。看到“已应用 Claude Desktop 供应商配置：IPCAI”后，Cockpit 会应用配置并启动或重启 Claude Desktop；三角形按钮才是一键配置入口。
+回到 AIPC 账号卡片，点击卡片上的三角形按钮。看到“已应用 Claude Desktop 供应商配置：AIPC”后，Cockpit 会应用配置并启动或重启 Claude Desktop；三角形按钮才是一键配置入口。
 
-![应用 IPCAI Claude Desktop 供应商配置](images/17-cockpit-claude-apply-config.webp)
+![应用 AIPC Claude Desktop 供应商配置](images/17-cockpit-claude-apply-config.webp)
 
 #### 步骤 7：发送测试消息
 
-Claude 自动打开后进入 **Code** 标签页，底部供应商应显示 Gateway。发送测试消息，并在 IPCAI **使用记录**中核对请求。
+Claude 自动打开后进入 **Code** 标签页，底部供应商应显示 Gateway。发送测试消息，并在 AIPC **使用记录**中核对请求。
 
 ![在 Claude Desktop Code 中通过 Gateway 发送测试消息](images/18-claude-desktop-code-test.webp)
 
@@ -230,7 +230,7 @@ Cockpit Tools → Codex → 顶部“会话管理”
 
 ### 5. Cockpit 常见问题
 
-- Gateway 账号不显示 Claude 官方订阅额度属于正常现象，以 Claude 实际调用和 IPCAI 使用记录为准。
+- Gateway 账号不显示 Claude 官方订阅额度属于正常现象，以 Claude 实际调用和 AIPC 使用记录为准。
 - 本地网关映射模式需要 Cockpit 保持运行；退出 Cockpit 后若无法调用，请重新打开 Cockpit。
 - Windows 首次提示应用路径时，应选择 Microsoft Store 安装的 Claude 或真实的 `Claude.exe`，不要选择 Claude Code CLI。
 - 不要点击密钥输入框右侧的眼睛图标；截图、录屏和远程协助时始终保持密钥遮挡。
@@ -297,7 +297,7 @@ GPT 模型支持约 0.2 倍率，适合日常测试、开发调试和高频轻�
 - API 密钥需要绑定 OpenAI 平台分组。
 - 账户余额、订阅、额度、并发和 IP 限制需要处于可用状态。
 - 使用图片生成时，后台需要有可用的 OpenAI 图片上游账号。
-- 对外只发送 IPCAI API 密钥，不发送上游账号凭据。
+- 对外只发送 AIPC API 密钥，不发送上游账号凭据。
 - 批量调用前建议先用小额度密钥试跑，确认价格、额度、返回格式和超时设置符合预期。
 
 ## 七、常见错误

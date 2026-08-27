@@ -24,7 +24,7 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/stores', () => ({
-  useAppStore: () => ({ siteName: 'IPCAI', showError, showSuccess })
+  useAppStore: () => ({ siteName: 'AIPC', showError, showSuccess })
 }))
 
 vi.mock('vue-router', () => ({

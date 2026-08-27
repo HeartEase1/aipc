@@ -165,7 +165,7 @@
 
                 <a
                   v-if="authStore.isAdmin"
-                  href="https://github.com/Wei-Shaw/sub2api"
+                  href="https://github.com/HeartEase1/aipc"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"

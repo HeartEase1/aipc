@@ -70,6 +70,12 @@ const messages: Record<string, string> = {
 	'usage.latencyFirstToken': 'First',
 	'usage.latencyDuration': 'Total',
 	'usage.outputRate': 'Output rate',
+	'usage.outputRateDetails': 'How output rates are calculated',
+	'usage.outputRateAverage': 'Average output rate (includes first-token wait)',
+	'usage.outputRateGeneration': 'Generation rate (excludes first-token wait)',
+	'usage.outputRateAverageFormula': 'Output tokens / total duration, measured from the start of the request',
+	'usage.outputRateGenerationFormula': 'Output tokens / generation duration, measured from the first output',
+	'usage.outputRateGenerationWarning': 'Generation rate is affected by upstream timing and event buffering and is for reference only.',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -323,12 +329,40 @@ describe('admin UsageTable tooltip', () => {
     expect(rate.attributes('aria-label')).toBe('Cache hit rate 77.8%')
   })
 
-  it('shows output speed based on generation time after the first token', () => {
+  it('shows average output speed over the complete request duration', () => {
     const wrapper = mount(UsageTable, {
       props: {
         data: [{
           ...baseImageRow,
           request_id: 'req-output-rate',
+          billing_mode: 'token',
+          image_count: 0,
+          output_tokens: 497,
+          duration_ms: 11_610,
+        }],
+        loading: false,
+        columns: [],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Output rate')
+    expect(wrapper.get('[data-testid="output-rate"]').text()).toBe('42.8 t/s')
+  })
+
+  it('shows both output-rate definitions in the comparison tooltip', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-output-rate-tooltip',
           billing_mode: 'token',
           image_count: 0,
           output_tokens: 497,
@@ -348,18 +382,23 @@ describe('admin UsageTable tooltip', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Output rate')
-    expect(wrapper.get('[data-testid="output-rate"]').text()).toBe('75.0 t/s')
+    await wrapper.get('[data-testid="output-rate-info"]').trigger('mouseenter')
+    expect(wrapper.text()).toContain('How output rates are calculated')
+    expect(wrapper.text()).toContain('Average output rate (includes first-token wait)')
+    expect(wrapper.text()).toContain('42.8 t/s')
+    expect(wrapper.text()).toContain('Generation rate (excludes first-token wait)')
+    expect(wrapper.text()).toContain('75.0 t/s')
+    expect(wrapper.text()).toContain('measured from the start of the request')
   })
 
   it.each([
     {
-      name: 'missing first-token timing',
-      row: { billing_mode: 'token', image_count: 0, output_tokens: 497, first_token_ms: null, duration_ms: 11_610 },
+      name: 'missing duration timing',
+      row: { billing_mode: 'token', image_count: 0, output_tokens: 497, first_token_ms: 4_980, duration_ms: null },
     },
     {
-      name: 'invalid generation duration',
-      row: { billing_mode: 'token', image_count: 0, output_tokens: 497, first_token_ms: 11_610, duration_ms: 11_610 },
+      name: 'invalid duration',
+      row: { billing_mode: 'token', image_count: 0, output_tokens: 497, first_token_ms: 4_980, duration_ms: 0 },
     },
     {
       name: 'zero output tokens',

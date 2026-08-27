@@ -9,6 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func openAIOAuth429TransientStateSizeForTest(state *openAIOAuth429TransientState) int {
+	if state == nil {
+		return 0
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return len(state.entries)
+}
+
 func TestOpenAIOAuth429TransientState_EscalatesAndResetsAfterSuccess(t *testing.T) {
 	state := newOpenAIOAuth429TransientState(8)
 	now := time.Now()
@@ -27,7 +36,7 @@ func TestOpenAIOAuth429TransientState_EscalatesAndResetsAfterSuccess(t *testing.
 
 	state.recordSuccess(42)
 	require.False(t, state.isBlocked(42, now.Add(30*time.Second)))
-	require.Zero(t, state.size())
+	require.Zero(t, openAIOAuth429TransientStateSizeForTest(state))
 
 	afterSuccess := state.recordFailure(42, now.Add(31*time.Second))
 	require.Equal(t, 1, afterSuccess.FailureStreak)
@@ -41,7 +50,7 @@ func TestOpenAIOAuth429TransientState_ExpiresStaleStreakAndBoundsEntries(t *test
 	state.recordFailure(1, now)
 	state.recordFailure(2, now.Add(time.Second))
 	state.recordFailure(3, now.Add(2*time.Second))
-	require.Equal(t, 2, state.size())
+	require.Equal(t, 2, openAIOAuth429TransientStateSizeForTest(state))
 	require.False(t, state.isBlocked(1, now.Add(2*time.Second)))
 
 	stale := state.recordFailure(2, now.Add(openAIOAuth429TransientStreakTTL+2*time.Second))

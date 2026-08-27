@@ -256,10 +256,26 @@
               <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
               <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
               <span class="text-gray-400 dark:text-gray-500">{{ t('usage.outputRate') }}</span>
-              <span
-                data-testid="output-rate"
-                class="font-medium tabular-nums text-violet-600 dark:text-violet-400"
-              >{{ isImageUsage(row) ? '-' : formatOutputRate(row.output_tokens, row.duration_ms, row.first_token_ms) }}</span>
+              <span class="inline-flex items-center gap-1">
+                <span
+                  data-testid="output-rate"
+                  class="font-medium tabular-nums text-violet-600 dark:text-violet-400"
+                >{{ isImageUsage(row) ? '-' : formatOutputRate(row.output_tokens, row.duration_ms) }}</span>
+                <button
+                  v-if="!isImageUsage(row)"
+                  type="button"
+                  data-testid="output-rate-info"
+                  class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-violet-100 hover:text-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-400/60 dark:bg-gray-700 dark:text-gray-500 dark:hover:bg-violet-900/40 dark:hover:text-violet-300"
+                  :aria-label="t('usage.outputRateDetails')"
+                  :title="t('usage.outputRateDetails')"
+                  @mouseenter="showOutputRateTooltip($event, row)"
+                  @mouseleave="hideOutputRateTooltip"
+                  @focus="showOutputRateTooltip($event, row)"
+                  @blur="hideOutputRateTooltip"
+                >
+                  <Icon name="infoCircle" size="xs" />
+                </button>
+              </span>
             </div>
           </div>
         </template>
@@ -384,6 +400,39 @@
           </div>
         </div>
         <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-gray-900 border-t-transparent dark:border-r-gray-800"></div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Output rate comparison tooltip -->
+  <Teleport to="body">
+    <div
+      v-if="outputRateTooltipVisible"
+      class="pointer-events-none fixed z-[9999] -translate-y-1/2"
+      :style="{
+        left: outputRateTooltipPosition.x + 'px',
+        top: outputRateTooltipPosition.y + 'px'
+      }"
+    >
+      <div class="w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-gray-700 bg-gray-900 px-3 py-2.5 text-xs text-white shadow-xl dark:border-gray-600 dark:bg-gray-800">
+        <div class="mb-2 border-b border-gray-700 pb-2 text-xs font-semibold text-gray-200">
+          {{ t('usage.outputRateDetails') }}
+        </div>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-gray-400">{{ t('usage.outputRateAverage') }}</span>
+            <span class="font-semibold text-violet-300">{{ formatOutputRate(outputRateTooltipData?.output_tokens, outputRateTooltipData?.duration_ms) }}</span>
+          </div>
+          <div class="text-[11px] leading-4 text-gray-500">{{ t('usage.outputRateAverageFormula') }}</div>
+          <div class="flex items-center justify-between gap-4 border-t border-gray-700 pt-1.5">
+            <span class="text-gray-400">{{ t('usage.outputRateGeneration') }}</span>
+            <span class="font-medium text-fuchsia-300">{{ formatGenerationOutputRate(outputRateTooltipData?.output_tokens, outputRateTooltipData?.duration_ms, outputRateTooltipData?.first_token_ms) }}</span>
+          </div>
+          <div class="text-[11px] leading-4 text-gray-500">{{ t('usage.outputRateGenerationFormula') }}</div>
+          <p class="border-t border-gray-700 pt-1.5 text-[11px] leading-4 text-gray-500">
+            {{ t('usage.outputRateGenerationWarning') }}
+          </p>
+        </div>
       </div>
     </div>
   </Teleport>
@@ -533,7 +582,7 @@ import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { calculateCacheHitRate } from '@/utils/cacheHitRate'
-import { formatOutputRate } from '@/utils/outputRate'
+import { formatGenerationOutputRate, formatOutputRate } from '@/utils/outputRate'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'
 import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
@@ -694,6 +743,11 @@ const tokenTooltipVisible = ref(false)
 const tokenTooltipPosition = ref({ x: 0, y: 0 })
 const tokenTooltipData = ref<AdminUsageLog | null>(null)
 
+// Tooltip state - output rate comparison
+const outputRateTooltipVisible = ref(false)
+const outputRateTooltipPosition = ref({ x: 0, y: 0 })
+const outputRateTooltipData = ref<AdminUsageLog | null>(null)
+
 const getRequestTypeLabel = (row: AdminUsageLog): string => {
   const requestType = resolveUsageRequestType(row)
   if (requestType === 'cyber') return t('usage.cyber')
@@ -762,6 +816,29 @@ const showTokenTooltip = (event: MouseEvent, row: AdminUsageLog) => {
 const hideTokenTooltip = () => {
   tokenTooltipVisible.value = false
   tokenTooltipData.value = null
+}
+
+const showOutputRateTooltip = (event: MouseEvent | FocusEvent, row: AdminUsageLog) => {
+  const target = event.currentTarget as HTMLElement | null
+  if (!target) return
+  const rect = target.getBoundingClientRect()
+  const tooltipWidth = 288
+  const gap = 8
+  const viewportWidth = window.innerWidth || tooltipWidth + gap * 2
+  const right = rect.right + gap
+  outputRateTooltipData.value = row
+  outputRateTooltipPosition.value = {
+    x: right + tooltipWidth <= viewportWidth - gap
+      ? right
+      : Math.max(gap, rect.left - tooltipWidth - gap),
+    y: Math.min(Math.max(96, rect.top + rect.height / 2), (window.innerHeight || 192) - 96),
+  }
+  outputRateTooltipVisible.value = true
+}
+
+const hideOutputRateTooltip = () => {
+  outputRateTooltipVisible.value = false
+  outputRateTooltipData.value = null
 }
 </script>
 

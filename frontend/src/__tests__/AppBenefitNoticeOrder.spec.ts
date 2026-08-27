@@ -39,13 +39,13 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return { ...actual, useI18n: () => ({ t: (key: string) => key }) }
 })
 vi.mock('@/api/setup', () => ({ getSetupStatus: vi.fn().mockResolvedValue({ needs_setup: false }) }))
-vi.mock('@/router/title', () => ({ resolveRouteDocumentTitle: () => 'IPCAI' }))
+vi.mock('@/router/title', () => ({ resolveRouteDocumentTitle: () => 'AIPC' }))
 vi.mock('@/utils/branding', () => ({ updateFavicon: vi.fn() }))
 vi.mock('@/stores', () => ({
   useAppStore: () => ({
     siteLogo: '',
     cachedPublicSettings: null,
-    siteName: 'IPCAI',
+    siteName: 'AIPC',
     fetchPublicSettings: vi.fn().mockResolvedValue(null),
   }),
   useAuthStore: () => ({ isAuthenticated: true, isAdmin: false }),

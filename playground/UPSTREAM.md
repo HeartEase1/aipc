@@ -7,7 +7,7 @@ under its MIT license.
 - Upstream commit: `0348f72`
 - Imported: `2026-08-19`
 
-IPCAI-specific integration is intentionally limited to the hosted bridge, local-data isolation,
+AIPC-specific integration is intentionally limited to the hosted bridge, local-data isolation,
 navigation branding, build output, and security controls. Keep upstream changes separate when
 updating this snapshot so future merges remain reviewable.
 
@@ -26,7 +26,7 @@ Review these files carefully when importing a newer upstream release:
 - `src/index.css`, `src/vite-env.d.ts`, and `vite.config.ts`: iframe layout and nested build output.
 
 The remaining source files should normally match upstream. Do not replace the files above without
-reapplying and testing the IPCAI changes.
+reapplying and testing the AIPC changes.
 
 ## Updating upstream
 

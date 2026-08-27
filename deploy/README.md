@@ -1,6 +1,6 @@
-# Sub2API Deployment Files
+# AIPC Deployment Files
 
-This directory contains files for deploying Sub2API on Linux servers and Apple-silicon Macs.
+This directory contains files for deploying AIPC, a Sub2API-compatible gateway, on Linux servers and Apple-silicon Macs.
 
 ## Deployment Methods
 
@@ -33,7 +33,7 @@ This directory contains files for deploying Sub2API on Linux servers and Apple-s
 
 ## Apple container Deployment
 
-Apple-silicon Macs running macOS 26 can run the complete Sub2API, PostgreSQL, and Redis stack with Apple `container` 1.1.0 or newer:
+Apple-silicon Macs running macOS 26 can run the complete AIPC, PostgreSQL, and Redis stack with Apple `container` 1.1.0 or newer:
 
 ```bash
 ./apple-container.sh init
@@ -56,10 +56,10 @@ Use the automated preparation script for the easiest setup:
 
 ```bash
 # Download and run the preparation script
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh | bash
+curl -sSL https://raw.githubusercontent.com/HeartEase1/aipc/main/deploy/docker-deploy.sh | bash
 
 # Or download first, then run
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/docker-deploy.sh -o docker-deploy.sh
+curl -sSL https://raw.githubusercontent.com/HeartEase1/aipc/main/deploy/docker-deploy.sh -o docker-deploy.sh
 chmod +x docker-deploy.sh
 ./docker-deploy.sh
 ```
@@ -92,8 +92,8 @@ If you prefer manual control:
 
 ```bash
 # Clone repository
-git clone https://github.com/Wei-Shaw/sub2api.git
-cd sub2api/deploy
+git clone https://github.com/HeartEase1/aipc.git
+cd aipc/deploy
 
 # Configure environment
 cp .env.example .env
@@ -192,7 +192,7 @@ docker compose -f docker-compose.local.yml down
 # View logs
 docker compose -f docker-compose.local.yml logs -f sub2api
 
-# Restart Sub2API only
+# Restart AIPC only
 docker compose -f docker-compose.local.yml restart sub2api
 
 # Update to latest version
@@ -216,7 +216,7 @@ docker compose down
 # View logs
 docker compose logs -f sub2api
 
-# Restart Sub2API only
+# Restart AIPC only
 docker compose restart sub2api
 
 # Update to latest version
@@ -274,7 +274,7 @@ Your entire deployment (configuration + data) is migrated!
 
 ## Gemini OAuth Configuration
 
-Sub2API supports three methods to connect to Gemini:
+AIPC supports three methods to connect to Gemini:
 
 ### Method 1: Code Assist OAuth (Recommended for GCP Users)
 
@@ -319,7 +319,7 @@ Requires your own OAuth client credentials.
    - Go to "APIs & Services" → "Credentials"
    - Click "Create Credentials" → "OAuth client ID"
    - Application type: **Web application** (or **Desktop app**)
-   - Name: e.g., "Sub2API Gemini"
+   - Name: e.g., "AIPC Gemini"
    - Authorized redirect URIs: Add `http://localhost:1455/auth/callback`
 6. Copy the **Client ID** and **Client Secret**
 7. **⚠️ Publish to Production (IMPORTANT):**
@@ -376,12 +376,12 @@ For production servers using systemd.
 ### One-Line Installation
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Wei-Shaw/sub2api/main/deploy/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/HeartEase1/aipc/main/deploy/install.sh | sudo bash
 ```
 
 ### Manual Installation
 
-1. Download the latest release from [GitHub Releases](https://github.com/Wei-Shaw/sub2api/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/HeartEase1/aipc/releases)
 2. Extract and copy the binary to `/opt/sub2api/`
 3. Copy `sub2api.service` to `/etc/systemd/system/`
 4. Run:
@@ -582,7 +582,7 @@ sudo systemctl status redis
 
 ## TLS Fingerprint Configuration
 
-Sub2API supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
+AIPC supports TLS fingerprint simulation to make requests appear as if they come from the official Claude CLI (Node.js client).
 
 > **💡 Tip:** Visit **[tls.sub2api.org](https://tls.sub2api.org/)** to get TLS fingerprint information for different devices and browsers.
 

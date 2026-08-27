@@ -28,7 +28,13 @@ export default {
   },
   usage: {
     ...en.usage,
-    outputRate: '出力速度'
+    outputRate: '出力速度',
+    outputRateDetails: '出力速度の計算方法',
+    outputRateAverage: '平均出力速度（初回出力の待ち時間を含む）',
+    outputRateGeneration: '生成速度（初回出力の待ち時間を除く）',
+    outputRateAverageFormula: '出力トークン ÷ 合計時間（リクエスト開始時点から計測）',
+    outputRateGenerationFormula: '出力トークン ÷ 生成時間（最初の出力時点から計測）',
+    outputRateGenerationWarning: '生成速度は応答開始後の出力速度に近い値ですが、上流の計測方法やイベントバッファリングの影響を受けるため、参考値としてご利用ください。'
   },
   onlinePlayground: {
     ...en.onlinePlayground,
