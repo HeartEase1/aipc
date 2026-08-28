@@ -24,20 +24,21 @@ func NewDiscountCampaignHandler(
 }
 
 type DiscountCampaignRequest struct {
-	Name                   string `json:"name" binding:"required"`
-	Description            string `json:"description"`
-	Enabled                bool   `json:"enabled"`
-	ScheduleType           string `json:"schedule_type" binding:"required,oneof=one_time weekly"`
-	Timezone               string `json:"timezone"`
-	StartsAt               string `json:"starts_at"`
-	EndsAt                 string `json:"ends_at"`
-	Weekdays               []int  `json:"weekdays"`
-	StartTime              string `json:"start_time"`
-	EndTime                string `json:"end_time"`
-	AllDay                 bool   `json:"all_day"`
-	DiscountFactor         string `json:"discount_factor" binding:"required"`
-	MinEffectiveMultiplier string `json:"min_effective_multiplier"`
-	BudgetCap              string `json:"budget_cap"`
+	Name                   string  `json:"name" binding:"required"`
+	Description            string  `json:"description"`
+	GroupIDs               []int64 `json:"group_ids"`
+	Enabled                bool    `json:"enabled"`
+	ScheduleType           string  `json:"schedule_type" binding:"required,oneof=one_time weekly"`
+	Timezone               string  `json:"timezone"`
+	StartsAt               string  `json:"starts_at"`
+	EndsAt                 string  `json:"ends_at"`
+	Weekdays               []int   `json:"weekdays"`
+	StartTime              string  `json:"start_time"`
+	EndTime                string  `json:"end_time"`
+	AllDay                 bool    `json:"all_day"`
+	DiscountFactor         string  `json:"discount_factor" binding:"required"`
+	MinEffectiveMultiplier string  `json:"min_effective_multiplier"`
+	BudgetCap              string  `json:"budget_cap"`
 }
 
 func (h *DiscountCampaignHandler) List(c *gin.Context) {
@@ -116,7 +117,7 @@ func (h *DiscountCampaignHandler) Delete(c *gin.Context) {
 
 func (r DiscountCampaignRequest) toService(actorID int64) service.DiscountCampaignInput {
 	return service.DiscountCampaignInput{
-		Name: r.Name, Description: r.Description, Enabled: r.Enabled, ScheduleType: r.ScheduleType, Timezone: r.Timezone,
+		Name: r.Name, Description: r.Description, GroupIDs: r.GroupIDs, Enabled: r.Enabled, ScheduleType: r.ScheduleType, Timezone: r.Timezone,
 		StartsAt: r.StartsAt, EndsAt: r.EndsAt, Weekdays: r.Weekdays,
 		StartTime: r.StartTime, EndTime: r.EndTime, AllDay: r.AllDay,
 		DiscountFactor: r.DiscountFactor, MinEffectiveMultiplier: r.MinEffectiveMultiplier,

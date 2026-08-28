@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import DiscountCampaignsView from '../DiscountCampaignsView.vue'
 
-const { list, create, update, remove, stepUpRun, showError, showSuccess } = vi.hoisted(() => ({
+const { list, create, update, remove, getAllIncludingInactive, stepUpRun, showError, showSuccess } = vi.hoisted(() => ({
   list: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
+  getAllIncludingInactive: vi.fn(),
   stepUpRun: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn()
@@ -15,7 +16,8 @@ const { list, create, update, remove, stepUpRun, showError, showSuccess } = vi.h
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    discountCampaigns: { list, create, update, remove }
+    discountCampaigns: { list, create, update, remove },
+    groups: { getAllIncludingInactive }
   }
 }))
 
@@ -37,6 +39,7 @@ const existingCampaign = {
   id: 42,
   name: 'Sunday discount',
   description: 'Weekend balance discount',
+  group_ids: [11],
   enabled: true,
   schedule_type: 'weekly',
   timezone: 'Asia/Shanghai',
@@ -68,6 +71,19 @@ function mountView() {
           emits: ['confirm', 'cancel'],
           template: '<div v-if="show"><button data-testid="confirm-delete" @click="$emit(\'confirm\')">confirm</button></div>'
         },
+        GroupSelector: {
+          props: ['modelValue', 'groups', 'label'],
+          emits: ['update:modelValue'],
+          template: `<div data-testid="group-selector">
+            <button
+              v-for="group in groups"
+              :key="group.id"
+              type="button"
+              :data-group-id="group.id"
+              @click="$emit('update:modelValue', modelValue.includes(group.id) ? modelValue.filter(id => id !== group.id) : [...modelValue, group.id])"
+            >{{ group.name }}</button>
+          </div>`
+        },
         TotpStepUpDialog: true
       }
     }
@@ -91,6 +107,11 @@ describe('DiscountCampaignsView', () => {
     create.mockReset().mockResolvedValue(existingCampaign)
     update.mockReset().mockResolvedValue(existingCampaign)
     remove.mockReset().mockResolvedValue(undefined)
+    getAllIncludingInactive.mockReset().mockResolvedValue([
+      { id: 11, name: 'OpenAI balance', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1, account_count: 2 },
+      { id: 12, name: 'Gemini balance', platform: 'gemini', subscription_type: 'standard', rate_multiplier: 1, account_count: 1 },
+      { id: 13, name: 'Subscription', platform: 'openai', subscription_type: 'subscription', rate_multiplier: 1, account_count: 1 }
+    ])
     stepUpRun.mockReset().mockImplementation((callback: () => unknown) => callback())
     showError.mockReset()
     showSuccess.mockReset()
@@ -121,9 +142,34 @@ describe('DiscountCampaignsView', () => {
       schedule_type: 'one_time',
       timezone: 'Asia/Shanghai',
       discount_factor: '0.850000',
+      group_ids: [],
       weekdays: [],
       all_day: false
     }))
+  })
+
+  it('submits only explicitly selected balance groups', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('input[maxlength="120"]').setValue('Scoped discount')
+    await buttonByText(wrapper, 'admin.discountCampaigns.groupScopes.specific').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="group-selector"] button')).toHaveLength(2)
+    await wrapper.get('[data-group-id="12"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ group_ids: [12] }))
+  })
+
+  it('requires at least one group in specific scope mode', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('input[maxlength="120"]').setValue('Scoped discount')
+    await buttonByText(wrapper, 'admin.discountCampaigns.groupScopes.specific').trigger('click')
+
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('admin.discountCampaigns.errors.groupRequired')
   })
 
   it('keeps form switches aligned within their rows', async () => {
@@ -176,6 +222,7 @@ describe('DiscountCampaignsView', () => {
     expect(stepUpRun).toHaveBeenCalledTimes(1)
     expect(update).toHaveBeenCalledWith(42, expect.objectContaining({
       name: 'Updated discount',
+      group_ids: [11],
       schedule_type: 'weekly',
       start_time: '22:00',
       end_time: '02:00'

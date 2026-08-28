@@ -1,10 +1,14 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,6 +26,55 @@ func TestDiscountCampaignResolveChoosesLowestEffectiveMultiplier(t *testing.T) {
 	require.Equal(t, int64(2), resolved.CampaignID)
 	require.Equal(t, "Weekend offer", resolved.CampaignDescription)
 	require.InDelta(t, 1.6, resolved.EffectiveRateMultiplier, 1e-9)
+}
+
+func TestDiscountCampaignResolveHonorsGroupScope(t *testing.T) {
+	now := time.Date(2026, 8, 8, 12, 0, 0, 0, time.UTC)
+	start := now.Add(-time.Hour)
+	end := now.Add(time.Hour)
+	svc := &DiscountCampaignService{campaigns: []runtimeDiscountCampaign{
+		{id: 1, scheduleType: DiscountScheduleOneTime, location: time.UTC, startsAt: &start, endsAt: &end, factor: 0.9},
+		{id: 2, scheduleType: DiscountScheduleOneTime, location: time.UTC, startsAt: &start, endsAt: &end, factor: 0.8, groupIDs: map[int64]struct{}{20: {}}},
+	}}
+
+	allGroupsOnly := svc.Resolve(&Group{ID: 10, SubscriptionType: SubscriptionTypeStandard}, now, 2)
+	require.NotNil(t, allGroupsOnly)
+	require.Equal(t, int64(1), allGroupsOnly.CampaignID)
+
+	selectedGroup := svc.Resolve(&Group{ID: 20, SubscriptionType: SubscriptionTypeStandard}, now, 2)
+	require.NotNil(t, selectedGroup)
+	require.Equal(t, int64(2), selectedGroup.CampaignID)
+}
+
+func TestDiscountCampaignGroupIDsAreNormalizedAndValidated(t *testing.T) {
+	input := DiscountCampaignInput{
+		Name: "test", ActorID: 1, GroupIDs: []int64{9, 3, 9},
+		ScheduleType: DiscountScheduleOneTime, StartsAt: "2026-08-09T00:00:00Z",
+		EndsAt: "2026-08-10T00:00:00Z", DiscountFactor: "0.9",
+	}
+	validated, err := validateDiscountCampaignInput(input)
+	require.NoError(t, err)
+	require.Equal(t, []int64{3, 9}, validated.GroupIDs)
+
+	input.GroupIDs = []int64{0}
+	_, err = validateDiscountCampaignInput(input)
+	require.Error(t, err)
+	require.Equal(t, "INVALID_DISCOUNT_GROUPS", infraerrors.Reason(err))
+}
+
+func TestDiscountCampaignGroupScopeRejectsNonBalanceGroups(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	svc := NewDiscountCampaignService(db)
+
+	mock.ExpectQuery("SELECT COUNT\\(\\*\\)\\s+FROM groups").
+		WithArgs(pq.Array([]int64{3, 9}), SubscriptionTypeStandard).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	err = svc.validateGroupScope(context.Background(), []int64{3, 9})
+	require.Error(t, err)
+	require.Equal(t, "INVALID_DISCOUNT_GROUPS", infraerrors.Reason(err))
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestDiscountCampaignDescriptionValidation(t *testing.T) {

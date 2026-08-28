@@ -7,6 +7,7 @@ export interface DiscountCampaign {
   id: number
   name: string
   description: string
+  group_ids: number[]
   enabled: boolean
   schedule_type: DiscountScheduleType
   timezone: string
@@ -30,6 +31,7 @@ export interface DiscountCampaign {
 export interface DiscountCampaignRequest {
   name: string
   description?: string
+  group_ids: number[]
   enabled: boolean
   schedule_type: DiscountScheduleType
   timezone: string

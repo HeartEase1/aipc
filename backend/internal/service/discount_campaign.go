@@ -27,6 +27,7 @@ const (
 type DiscountCampaignInput struct {
 	Name                   string
 	Description            string
+	GroupIDs               []int64
 	Enabled                bool
 	ScheduleType           string
 	Timezone               string
@@ -46,6 +47,7 @@ type DiscountCampaign struct {
 	ID                     int64      `json:"id"`
 	Name                   string     `json:"name"`
 	Description            string     `json:"description"`
+	GroupIDs               []int64    `json:"group_ids"`
 	Enabled                bool       `json:"enabled"`
 	ScheduleType           string     `json:"schedule_type"`
 	Timezone               string     `json:"timezone"`
@@ -92,6 +94,7 @@ type runtimeDiscountCampaign struct {
 	id                     int64
 	name                   string
 	description            string
+	groupIDs               map[int64]struct{}
 	scheduleType           string
 	location               *time.Location
 	startsAt               *time.Time
@@ -184,6 +187,11 @@ func (s *DiscountCampaignService) Resolve(group *Group, at time.Time, originalRa
 	var best *DiscountResolution
 	for i := range s.campaigns {
 		campaign := &s.campaigns[i]
+		if len(campaign.groupIDs) > 0 {
+			if _, ok := campaign.groupIDs[group.ID]; !ok {
+				continue
+			}
+		}
 		if campaign.budgetCap > 0 && campaign.discountSpent >= campaign.budgetCap {
 			continue
 		}
@@ -262,7 +270,8 @@ func (s *DiscountCampaignService) Refresh(ctx context.Context) error {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT id, name, description, schedule_type, timezone, starts_at, ends_at, weekdays,
        start_minute, end_minute, all_day, discount_factor::float8,
-       COALESCE(min_effective_multiplier::float8, 0), COALESCE(budget_cap::float8, 0), discount_spent::float8
+       COALESCE(min_effective_multiplier::float8, 0), COALESCE(budget_cap::float8, 0), discount_spent::float8,
+       group_ids
 FROM discount_campaigns
 WHERE enabled = TRUE AND deleted_at IS NULL`)
 	if err != nil {
@@ -276,9 +285,10 @@ WHERE enabled = TRUE AND deleted_at IS NULL`)
 		var startsAt, endsAt sql.NullTime
 		var startMinute, endMinute sql.NullInt64
 		var weekdays pq.Int64Array
+		var groupIDs pq.Int64Array
 		if err := rows.Scan(&item.id, &item.name, &item.description, &item.scheduleType, &timezoneName, &startsAt, &endsAt, &weekdays,
 			&startMinute, &endMinute, &item.allDay, &item.factor, &item.minEffectiveMultiplier,
-			&item.budgetCap, &item.discountSpent); err != nil {
+			&item.budgetCap, &item.discountSpent, &groupIDs); err != nil {
 			return fmt.Errorf("scan discount campaign runtime: %w", err)
 		}
 		location, err := time.LoadLocation(timezoneName)
@@ -295,6 +305,12 @@ WHERE enabled = TRUE AND deleted_at IS NULL`)
 		for _, weekday := range weekdays {
 			if weekday >= 0 && weekday <= 6 {
 				item.weekdays[time.Weekday(weekday)] = struct{}{}
+			}
+		}
+		item.groupIDs = make(map[int64]struct{}, len(groupIDs))
+		for _, groupID := range groupIDs {
+			if groupID > 0 {
+				item.groupIDs[groupID] = struct{}{}
 			}
 		}
 		campaigns = append(campaigns, item)
@@ -346,6 +362,11 @@ func validateDiscountCampaignInput(input DiscountCampaignInput) (*validatedDisco
 	if len([]rune(input.Description)) > 500 {
 		return nil, infraerrors.BadRequest("INVALID_DISCOUNT_DESCRIPTION", "description must not exceed 500 characters")
 	}
+	groupIDs, err := normalizeDiscountGroupIDs(input.GroupIDs)
+	if err != nil {
+		return nil, err
+	}
+	input.GroupIDs = groupIDs
 	location, err := time.LoadLocation(input.Timezone)
 	if err != nil {
 		return nil, infraerrors.BadRequest("INVALID_DISCOUNT_TIMEZONE", "invalid timezone")
@@ -395,6 +416,42 @@ func validateDiscountCampaignInput(input DiscountCampaignInput) (*validatedDisco
 	return validated, nil
 }
 
+func normalizeDiscountGroupIDs(values []int64) ([]int64, error) {
+	seen := make(map[int64]struct{}, len(values))
+	out := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			return nil, infraerrors.BadRequest("INVALID_DISCOUNT_GROUPS", "group_ids must contain only positive group IDs")
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out, nil
+}
+
+func (s *DiscountCampaignService) validateGroupScope(ctx context.Context, groupIDs []int64) error {
+	if len(groupIDs) == 0 {
+		return nil
+	}
+	var count int
+	if err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM groups
+WHERE id = ANY($1)
+  AND deleted_at IS NULL
+  AND subscription_type = $2`, pq.Array(groupIDs), SubscriptionTypeStandard).Scan(&count); err != nil {
+		return fmt.Errorf("validate discount campaign groups: %w", err)
+	}
+	if count != len(groupIDs) {
+		return infraerrors.BadRequest("INVALID_DISCOUNT_GROUPS", "all group_ids must reference existing balance groups")
+	}
+	return nil
+}
+
 func parseDiscountDecimal(raw, field string, required bool) (*decimal.Decimal, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -441,14 +498,17 @@ func (s *DiscountCampaignService) Create(ctx context.Context, input DiscountCamp
 	if err != nil {
 		return nil, err
 	}
+	if err := s.validateGroupScope(ctx, validated.GroupIDs); err != nil {
+		return nil, err
+	}
 	var id int64
 	err = s.db.QueryRowContext(ctx, `
 INSERT INTO discount_campaigns (
-  name, description, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
+  name, description, group_ids, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
   start_minute, end_minute, all_day, discount_factor, min_effective_multiplier,
   budget_cap, created_by, updated_by
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::numeric,$13::numeric,$14::numeric,$15,$15)
-RETURNING id`, validated.Name, validated.Description, validated.Enabled, validated.ScheduleType, validated.Timezone,
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::numeric,$14::numeric,$15::numeric,$16,$16)
+RETURNING id`, validated.Name, validated.Description, pq.Array(validated.GroupIDs), validated.Enabled, validated.ScheduleType, validated.Timezone,
 		validated.startsAt, validated.endsAt, pq.Array(validated.Weekdays), validated.startMinute, validated.endMinute,
 		validated.AllDay, validated.discountFactor.StringFixed(6), decimalPointerArg(validated.minEffectiveMultiplier),
 		decimalPointerArg(validated.budgetCap), validated.ActorID).Scan(&id)
@@ -467,13 +527,16 @@ func (s *DiscountCampaignService) Update(ctx context.Context, id int64, input Di
 	if err != nil {
 		return nil, err
 	}
+	if err := s.validateGroupScope(ctx, validated.GroupIDs); err != nil {
+		return nil, err
+	}
 	result, err := s.db.ExecContext(ctx, `
 UPDATE discount_campaigns SET
-  name=$2, description=$3, enabled=$4, schedule_type=$5, timezone=$6, starts_at=$7, ends_at=$8,
-  weekdays=$9, start_minute=$10, end_minute=$11, all_day=$12,
-  discount_factor=$13::numeric, min_effective_multiplier=$14::numeric,
-  budget_cap=$15::numeric, updated_by=$16, updated_at=NOW()
-WHERE id=$1 AND deleted_at IS NULL`, id, validated.Name, validated.Description, validated.Enabled, validated.ScheduleType,
+  name=$2, description=$3, group_ids=$4, enabled=$5, schedule_type=$6, timezone=$7, starts_at=$8, ends_at=$9,
+  weekdays=$10, start_minute=$11, end_minute=$12, all_day=$13,
+  discount_factor=$14::numeric, min_effective_multiplier=$15::numeric,
+  budget_cap=$16::numeric, updated_by=$17, updated_at=NOW()
+WHERE id=$1 AND deleted_at IS NULL`, id, validated.Name, validated.Description, pq.Array(validated.GroupIDs), validated.Enabled, validated.ScheduleType,
 		validated.Timezone, validated.startsAt, validated.endsAt, pq.Array(validated.Weekdays),
 		validated.startMinute, validated.endMinute, validated.AllDay, validated.discountFactor.StringFixed(6),
 		decimalPointerArg(validated.minEffectiveMultiplier), decimalPointerArg(validated.budgetCap), validated.ActorID)
@@ -506,7 +569,7 @@ WHERE id=$1 AND deleted_at IS NULL`, id, actorID)
 }
 
 const discountCampaignSelect = `
-SELECT id, name, description, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
+SELECT id, name, description, group_ids, enabled, schedule_type, timezone, starts_at, ends_at, weekdays,
        start_minute, end_minute, all_day, discount_factor::text,
        min_effective_multiplier::text, budget_cap::text, discount_spent::text,
        created_by, updated_by, created_at, updated_at
@@ -517,15 +580,20 @@ func scanDiscountCampaign(scanner rowScanner) (*DiscountCampaign, error) {
 	var startsAt, endsAt sql.NullTime
 	var startMinute, endMinute sql.NullInt64
 	var weekdays pq.Int64Array
+	var groupIDs pq.Int64Array
 	var minMultiplier, budgetCap sql.NullString
 	var createdBy, updatedBy sql.NullInt64
-	if err := scanner.Scan(&item.ID, &item.Name, &item.Description, &item.Enabled, &item.ScheduleType, &item.Timezone,
+	if err := scanner.Scan(&item.ID, &item.Name, &item.Description, &groupIDs, &item.Enabled, &item.ScheduleType, &item.Timezone,
 		&startsAt, &endsAt, &weekdays, &startMinute, &endMinute, &item.AllDay,
 		&item.DiscountFactor, &minMultiplier, &budgetCap, &item.DiscountSpent,
 		&createdBy, &updatedBy, &item.CreatedAt, &item.UpdatedAt); err != nil {
 		return nil, err
 	}
 	item.StartsAt, item.EndsAt = nullTimePointer(startsAt), nullTimePointer(endsAt)
+	item.GroupIDs = append([]int64(nil), groupIDs...)
+	if item.GroupIDs == nil {
+		item.GroupIDs = make([]int64, 0)
+	}
 	item.StartTime, item.EndTime = minuteString(startMinute), minuteString(endMinute)
 	item.Weekdays = make([]int, 0, len(weekdays))
 	for _, day := range weekdays {

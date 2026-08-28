@@ -48,6 +48,9 @@
                 <td class="px-4 py-3">
                   <p class="font-medium text-gray-900 dark:text-white">{{ campaign.name }}</p>
                   <p class="mt-0.5 text-xs text-gray-500">#{{ campaign.id }} · {{ campaign.timezone }}</p>
+                  <p class="mt-1 text-xs text-primary-600 dark:text-primary-300" :title="groupScopeTitle(campaign)">
+                    {{ groupScopeLabel(campaign) }}
+                  </p>
                 </td>
                 <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
                   <p>{{ scheduleLabel(campaign) }}</p>
@@ -94,6 +97,34 @@
               <label class="input-label">{{ t('admin.discountCampaigns.fields.description') }}</label>
               <textarea v-model.trim="form.description" class="input mt-1 min-h-20 resize-y" maxlength="500" :placeholder="t('admin.discountCampaigns.fields.descriptionPlaceholder')" />
               <p class="mt-1.5 text-xs text-gray-500">{{ t('admin.discountCampaigns.hints.description') }}</p>
+            </div>
+
+            <div class="md:col-span-2 rounded-lg border border-gray-200 bg-gray-50/60 p-4 dark:border-dark-600 dark:bg-dark-900/40">
+              <label class="input-label">{{ t('admin.discountCampaigns.fields.groupScope') }}</label>
+              <div class="mt-2 grid grid-cols-2 rounded-lg bg-gray-200/70 p-1 dark:bg-dark-800">
+                <button
+                  v-for="scope in groupScopes"
+                  :key="scope"
+                  type="button"
+                  class="rounded-md px-3 py-2 text-sm font-medium transition-colors"
+                  :class="form.group_scope === scope ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-700 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'"
+                  @click="form.group_scope = scope"
+                >
+                  {{ t(`admin.discountCampaigns.groupScopes.${scope}`) }}
+                </button>
+              </div>
+              <div v-if="form.group_scope === 'specific'" class="mt-4">
+                <GroupSelector
+                  v-model="form.group_ids"
+                  :groups="groups"
+                  :label="t('admin.discountCampaigns.fields.applicableGroups')"
+                  searchable
+                />
+                <p v-if="form.group_ids.length === 0" class="mt-1.5 text-xs text-red-500">
+                  {{ t('admin.discountCampaigns.errors.groupRequired') }}
+                </p>
+              </div>
+              <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ t('admin.discountCampaigns.hints.groupScope') }}</p>
             </div>
 
             <div>
@@ -210,10 +241,12 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import GroupSelector from '@/components/common/GroupSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import { adminAPI } from '@/api/admin'
 import type { DiscountCampaign, DiscountCampaignRequest, DiscountScheduleType } from '@/api/admin/discountCampaigns'
+import type { AdminGroup } from '@/types'
 import { useAppStore } from '@/stores'
 import { isStepUpCancelled, useStepUp } from '@/composables/useStepUp'
 import { formatDateTime } from '@/utils/format'
@@ -222,12 +255,15 @@ const { t } = useI18n()
 const appStore = useAppStore()
 const stepUp = useStepUp()
 const campaigns = ref<DiscountCampaign[]>([])
+const groups = ref<AdminGroup[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const formVisible = ref(false)
 const editingID = ref<number | null>(null)
 const pendingDelete = ref<DiscountCampaign | null>(null)
 const scheduleTypes: DiscountScheduleType[] = ['one_time', 'weekly']
+const groupScopes = ['all', 'specific'] as const
+type DiscountGroupScope = (typeof groupScopes)[number]
 const weekdayOptions = [
   { value: 1, key: 'mon' }, { value: 2, key: 'tue' }, { value: 3, key: 'wed' },
   { value: 4, key: 'thu' }, { value: 5, key: 'fri' }, { value: 6, key: 'sat' }, { value: 0, key: 'sun' }
@@ -236,6 +272,8 @@ const weekdayOptions = [
 interface DiscountForm {
   name: string
   description: string
+  group_scope: DiscountGroupScope
+  group_ids: number[]
   enabled: boolean
   schedule_type: DiscountScheduleType
   timezone: string
@@ -256,7 +294,7 @@ function emptyForm(): DiscountForm {
   const start = new Date(Date.now() + 60 * 60 * 1000)
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
   return {
-    name: '', description: '', enabled: false, schedule_type: 'one_time', timezone: 'Asia/Shanghai',
+    name: '', description: '', group_scope: 'all', group_ids: [], enabled: false, schedule_type: 'one_time', timezone: 'Asia/Shanghai',
     starts_at: toLocalInput(start), ends_at: toLocalInput(end), weekdays: [0],
     start_time: '00:00', end_time: '23:59', all_day: true, discount_percent: 90,
     min_effective_multiplier: '', budget_cap: ''
@@ -265,6 +303,7 @@ function emptyForm(): DiscountForm {
 
 const formValid = computed(() => {
   if (!form.name.trim() || !form.timezone.trim() || form.discount_percent <= 0 || form.discount_percent >= 100) return false
+  if (form.group_scope === 'specific' && form.group_ids.length === 0) return false
   if (form.schedule_type === 'one_time') {
     return Boolean(form.starts_at && form.ends_at && new Date(form.starts_at) < new Date(form.ends_at))
   }
@@ -278,6 +317,19 @@ async function loadCampaigns() {
   finally { loading.value = false }
 }
 
+async function loadGroups() {
+  try {
+    const items = await adminAPI.groups.getAllIncludingInactive()
+    groups.value = items.filter((group) => group.subscription_type === 'standard')
+  } catch (error: any) {
+    appStore.showError(error?.message || t('admin.discountCampaigns.errors.loadGroups'))
+  }
+}
+
+async function loadData() {
+  await Promise.all([loadCampaigns(), loadGroups()])
+}
+
 function openCreate() {
   Object.assign(form, emptyForm())
   editingID.value = null
@@ -286,7 +338,9 @@ function openCreate() {
 
 function openEdit(campaign: DiscountCampaign) {
   Object.assign(form, {
-    name: campaign.name, description: campaign.description || '', enabled: campaign.enabled, schedule_type: campaign.schedule_type,
+    name: campaign.name, description: campaign.description || '',
+    group_scope: campaign.group_ids?.length ? 'specific' : 'all', group_ids: [...(campaign.group_ids || [])],
+    enabled: campaign.enabled, schedule_type: campaign.schedule_type,
     timezone: campaign.timezone, starts_at: campaign.starts_at ? toLocalInput(new Date(campaign.starts_at)) : '',
     ends_at: campaign.ends_at ? toLocalInput(new Date(campaign.ends_at)) : '', weekdays: [...campaign.weekdays],
     start_time: campaign.start_time || '00:00', end_time: campaign.end_time || '23:59', all_day: campaign.all_day,
@@ -302,7 +356,9 @@ function closeForm() { if (!saving.value) formVisible.value = false }
 function buildPayload(): DiscountCampaignRequest {
   const weekly = form.schedule_type === 'weekly'
   return {
-    name: form.name.trim(), description: form.description.trim() || undefined, enabled: form.enabled, schedule_type: form.schedule_type,
+    name: form.name.trim(), description: form.description.trim() || undefined,
+    group_ids: form.group_scope === 'specific' ? [...form.group_ids].sort((a, b) => a - b) : [],
+    enabled: form.enabled, schedule_type: form.schedule_type,
     timezone: form.timezone.trim(),
     starts_at: weekly ? undefined : new Date(form.starts_at).toISOString(),
     ends_at: weekly ? undefined : new Date(form.ends_at).toISOString(),
@@ -364,6 +420,17 @@ function scheduleLabel(campaign: DiscountCampaign): string {
   return labels.join('、')
 }
 
+function groupScopeLabel(campaign: DiscountCampaign): string {
+  if (!campaign.group_ids?.length) return t('admin.discountCampaigns.groupScopes.all')
+  return t('admin.discountCampaigns.groupScopes.selectedCount', { count: campaign.group_ids.length })
+}
+
+function groupScopeTitle(campaign: DiscountCampaign): string {
+  if (!campaign.group_ids?.length) return t('admin.discountCampaigns.hints.allBalanceGroups')
+  const names = new Map(groups.value.map((group) => [group.id, group.name]))
+  return campaign.group_ids.map((id) => names.get(id) || `#${id}`).join(', ')
+}
+
 function statusClass(status: DiscountCampaign['status']): string {
   if (status === 'active') return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-300'
   if (status === 'upcoming') return 'bg-blue-50 text-blue-700 dark:bg-blue-900/25 dark:text-blue-300'
@@ -371,5 +438,5 @@ function statusClass(status: DiscountCampaign['status']): string {
   return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
 }
 
-onMounted(loadCampaigns)
+onMounted(loadData)
 </script>

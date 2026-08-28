@@ -9,11 +9,12 @@ export default {
     safetyTitle: '计费范围',
     safetyHint: '折扣只作用于普通分组的 Token 计费；订阅分组以及独立定价的生图、视频和 Web Search 均不参与。',
     fields: {
-      name: '活动名称', description: '用户端活动说明', descriptionPlaceholder: '请输入给用户展示的活动规则或说明...', enabled: '启用活动', scheduleType: '活动周期', timezone: '活动时区',
+      name: '活动名称', description: '用户端活动说明', descriptionPlaceholder: '请输入给用户展示的活动规则或说明...', groupScope: '适用范围', applicableGroups: '适用分组', enabled: '启用活动', scheduleType: '活动周期', timezone: '活动时区',
       startsAt: '开始时间', endsAt: '结束时间', weekdays: '每周日期', allDay: '全天',
       startTime: '每日开始', endTime: '每日结束', discountPercent: '实付比例',
       minMultiplier: '折后最低倍率', budgetCap: '优惠预算上限'
     },
+    groupScopes: { all: '全部余额分组', specific: '指定余额分组', selectedCount: '指定 {count} 个余额分组' },
     scheduleTypes: { one_time: '一次性活动', weekly: '每周循环' },
     weekdays: { sun: '周日', mon: '周一', tue: '周二', wed: '周三', thu: '周四', fri: '周五', sat: '周六' },
     hints: {
@@ -22,7 +23,9 @@ export default {
       minimum: '可选。应用折扣后的倍率不会低于此值。',
       budget: '可选。已记录的优惠金额达到上限后，新请求不再参加；已开始的请求仍保留开始时价格。',
       overlap: '多个活动重叠时，自动采用折后倍率最低的活动。',
-      description: '活动生效时展示在 API 密钥页面，帮助用户理解活动规则。'
+      description: '活动生效时展示在 API 密钥页面，帮助用户理解活动规则。',
+      groupScope: '只有所选普通余额分组享受此活动；订阅分组始终不参与。',
+      allBalanceGroups: '适用于全部普通余额分组'
     },
     columns: { campaign: '活动', schedule: '活动时间', discount: '折扣', budget: '已优惠 / 预算', status: '状态', actions: '操作' },
     statuses: { active: '生效中', upcoming: '未开始', ended: '已结束', disabled: '未启用', budget_exhausted: '预算已用完' },
@@ -30,6 +33,6 @@ export default {
     save: '验证并保存', saving: '正在保存...', delete: '删除', deleteTitle: '删除折扣活动',
     deleteConfirm: '确认删除“{name}”吗？删除后新请求将不再享受该折扣。',
     created: '折扣活动已创建。', updated: '折扣活动已更新。', deleted: '折扣活动已删除。',
-    errors: { load: '加载折扣活动失败', save: '保存折扣活动失败', delete: '删除折扣活动失败' }
+    errors: { load: '加载折扣活动失败', loadGroups: '加载分组失败', groupRequired: '请至少选择一个适用分组', save: '保存折扣活动失败', delete: '删除折扣活动失败' }
   }
 }
