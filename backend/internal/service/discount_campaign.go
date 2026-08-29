@@ -393,7 +393,9 @@ func validateDiscountCampaignInput(input DiscountCampaignInput) (*validatedDisco
 			return nil, infraerrors.BadRequest("INVALID_DISCOUNT_WINDOW", "one-time start must be before end")
 		}
 		validated.startsAt, validated.endsAt = &start, &end
-		validated.Weekdays = nil
+		// weekdays is NOT NULL in PostgreSQL. Keep an explicit empty array for
+		// one-time campaigns instead of passing SQL NULL through pq.Array.
+		validated.Weekdays = make([]int, 0)
 		validated.AllDay = false
 	case DiscountScheduleWeekly:
 		weekdays := uniqueWeekdays(input.Weekdays)

@@ -62,6 +62,24 @@ func TestDiscountCampaignGroupIDsAreNormalizedAndValidated(t *testing.T) {
 	require.Equal(t, "INVALID_DISCOUNT_GROUPS", infraerrors.Reason(err))
 }
 
+func TestDiscountCampaignOneTimeUsesNonNullEmptyWeekdays(t *testing.T) {
+	validated, err := validateDiscountCampaignInput(DiscountCampaignInput{
+		Name:           "one-time reward",
+		ActorID:        1,
+		ScheduleType:   DiscountScheduleOneTime,
+		StartsAt:       "2026-08-29T09:00:00Z",
+		EndsAt:         "2026-08-29T12:00:00Z",
+		DiscountFactor: "0.9",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, validated.Weekdays)
+	require.Empty(t, validated.Weekdays)
+
+	databaseValue, err := pq.Array(validated.Weekdays).Value()
+	require.NoError(t, err)
+	require.Equal(t, "{}", databaseValue)
+}
+
 func TestDiscountCampaignGroupScopeRejectsNonBalanceGroups(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
