@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 21 // v21: API key fast mode
+const apiKeyAuthSnapshotVersion = 22 // v22: group blocked-model policy
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int

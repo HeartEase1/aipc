@@ -1062,6 +1062,16 @@ export default {
         selectAll: 'Select all',
         invertSelection: 'Invert'
       },
+      blockedModels: {
+        title: 'Blocked Models',
+        hint: 'Blocked models are hidden from model lists. Direct API requests using their model IDs are rejected before billing and account scheduling.',
+        count: '{count} blocked',
+        clear: 'Clear blocked',
+        searchPlaceholder: 'Search models',
+        empty: 'No models available',
+        noResults: 'No matching models',
+        blocked: 'Blocked'
+      },
       compositeRoutes: {
         action: 'Routes',
         title: 'Composite Routes',

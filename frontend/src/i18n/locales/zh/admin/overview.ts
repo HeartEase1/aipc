@@ -1059,6 +1059,16 @@ export default {
         selectAll: '全选',
         invertSelection: '反选'
       },
+      blockedModels: {
+        title: '禁用模型',
+        hint: '被禁用的模型会从模型列表中隐藏；即使用户直接填写模型 ID，API 请求也会在计费和账号调度前被拒绝。',
+        count: '已禁用 {count}',
+        clear: '清空禁用',
+        searchPlaceholder: '搜索模型',
+        empty: '暂无可选择的模型',
+        noResults: '没有匹配的模型',
+        blocked: '已禁用'
+      },
       compositeRoutes: {
         action: '路由',
         title: 'Composite 路由',

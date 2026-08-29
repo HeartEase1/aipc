@@ -1075,10 +1075,12 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	var groupID *int64
 	var platform string
+	var accessGroup *service.Group
 
 	if apiKey != nil && apiKey.Group != nil {
 		groupID = &apiKey.Group.ID
 		platform = apiKey.Group.Platform
+		accessGroup = apiKey.Group
 	}
 	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
 		platform = forcedPlatform
@@ -1088,14 +1090,16 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 		availableModels := h.compositeAvailableModels(c.Request.Context(), groupID)
 		if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
 			availableModels = filterModelsByCustomList(availableModels, defaultModelIDsForPlatform(service.PlatformComposite), apiKey.Group.ModelsListConfig.Models)
+			availableModels = filterModelsByBlockedPolicy(accessGroup, availableModels)
 			writeCustomModelsList(c, service.PlatformComposite, availableModels)
 			return
 		}
 		if len(availableModels) > 0 {
+			availableModels = filterModelsByBlockedPolicy(accessGroup, availableModels)
 			writeModelsList(c, service.PlatformComposite, availableModels)
 			return
 		}
-		writeModelsList(c, service.PlatformComposite, defaultModelIDsForPlatform(service.PlatformComposite))
+		writeModelsList(c, service.PlatformComposite, filterModelsByBlockedPolicy(accessGroup, defaultModelIDsForPlatform(service.PlatformComposite)))
 		return
 	}
 
@@ -1104,40 +1108,73 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.CustomModelsListEnabled() {
 		fallbackModels := defaultModelIDsForPlatform(platform)
 		availableModels = filterModelsByCustomList(customModelsListSource(platform, availableModels, fallbackModels), fallbackModels, apiKey.Group.ModelsListConfig.Models)
+		availableModels = filterModelsByBlockedPolicy(accessGroup, availableModels)
 		writeCustomModelsList(c, platform, availableModels)
 		return
 	}
 
 	if len(availableModels) > 0 {
+		availableModels = filterModelsByBlockedPolicy(accessGroup, availableModels)
 		writeModelsList(c, platform, availableModels)
 		return
 	}
 
 	// Fallback to default models
 	if platform == service.PlatformOpenAI {
+		models := make([]openai.Model, 0, len(openai.DefaultModels))
+		for _, model := range openai.DefaultModels {
+			if apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsModelBlocked(model.ID) {
+				models = append(models, model)
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"object": "list",
-			"data":   openai.DefaultModels,
+			"data":   models,
 		})
 		return
 	}
 
 	if platform == service.PlatformGemini {
+		models := make([]geminicli.Model, 0, len(geminicli.DefaultModels))
+		for _, model := range geminicli.DefaultModels {
+			if apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsModelBlocked(model.ID) {
+				models = append(models, model)
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"object": "list",
-			"data":   geminicli.DefaultModels,
+			"data":   models,
 		})
 		return
 	}
 	if platform == service.PlatformGrok {
-		writeGrokModelsList(c, xai.DefaultModelIDs())
+		writeGrokModelsList(c, filterModelsByBlockedPolicy(accessGroup, xai.DefaultModelIDs()))
 		return
 	}
 
+	models := make([]claude.Model, 0, len(claude.DefaultModels))
+	for _, model := range claude.DefaultModels {
+		if apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsModelBlocked(model.ID) {
+			models = append(models, model)
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
-		"data":   claude.DefaultModels,
+		"data":   models,
 	})
+}
+
+func filterModelsByBlockedPolicy(group *service.Group, modelIDs []string) []string {
+	if group == nil || !group.HasBlockedModels() || len(modelIDs) == 0 {
+		return modelIDs
+	}
+	filtered := make([]string, 0, len(modelIDs))
+	for _, modelID := range modelIDs {
+		if !group.IsModelBlocked(modelID) {
+			filtered = append(filtered, modelID)
+		}
+	}
+	return filtered
 }
 
 func (h *GatewayHandler) compositeAvailableModels(ctx context.Context, groupID *int64) []string {
@@ -1415,9 +1452,19 @@ func mergeModelIDs(primary, secondary []string) []string {
 // AntigravityModels 返回 Antigravity 支持的全部模型
 // GET /antigravity/models
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
+	models := antigravity.DefaultModels()
+	if apiKey, ok := middleware2.GetAPIKeyFromContext(c); ok && apiKey != nil && apiKey.Group != nil && apiKey.Group.HasBlockedModels() {
+		filtered := models[:0]
+		for _, model := range models {
+			if !apiKey.Group.IsModelBlocked(model.ID) {
+				filtered = append(filtered, model)
+			}
+		}
+		models = filtered
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"object": "list",
-		"data":   antigravity.DefaultModels(),
+		"data":   models,
 	})
 }
 

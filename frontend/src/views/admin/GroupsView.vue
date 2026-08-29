@@ -877,6 +877,14 @@
           </div>
         </div>
 
+        <GroupBlockedModelsPanel
+          :models="createModelsListCandidateIDs"
+          :blocked-models="createModelsListState.blockedModels"
+          :loading="createModelsListLoading"
+          @toggle-model="toggleBlockedModel(createModelsListState, $event)"
+          @clear="clearBlockedModels(createModelsListState)"
+        />
+
         <!-- 图片生成计费配置 -->
         <div
           v-if="supportsImagePricingPlatform(createForm.platform)"
@@ -2602,6 +2610,14 @@
             </div>
           </div>
         </div>
+
+        <GroupBlockedModelsPanel
+          :models="editModelsListCandidateIDs"
+          :blocked-models="editModelsListState.blockedModels"
+          :loading="editModelsListLoading"
+          @toggle-model="toggleBlockedModel(editModelsListState, $event)"
+          @clear="clearBlockedModels(editModelsListState)"
+        />
 
         <!-- 图片生成计费配置 -->
         <div
@@ -4439,6 +4455,7 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import Icon from "@/components/icons/Icon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
+import GroupBlockedModelsPanel from "@/components/admin/group/GroupBlockedModelsPanel.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
@@ -4466,11 +4483,13 @@ import {
 } from "./groupsMessagesDispatch";
 import {
   buildModelsListConfig,
+  clearBlockedModels,
   createModelsListState as createInitialModelsListState,
   invertModelsListSelection,
   moveModelsListItem,
   selectAllModelsListItems,
   setModelsListCandidates,
+  toggleBlockedModel,
 } from "./groupsModelsList";
 import { createModelsListCandidatesTracker } from "./groupsModelsListCandidates";
 import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModelScopes";
@@ -5023,6 +5042,12 @@ const createModelsListSelectedCount = computed(
 const editModelsListSelectedCount = computed(
   () => editModelsListState.items.filter((item) => item.selected).length,
 );
+const createModelsListCandidateIDs = computed(() =>
+  createModelsListState.items.map((item) => item.id),
+);
+const editModelsListCandidateIDs = computed(() =>
+  editModelsListState.items.map((item) => item.id),
+);
 
 const createForm = reactive({
   name: "",
@@ -5299,6 +5324,7 @@ const resetModelsListState = (
   const fresh = createInitialModelsListState(config);
   state.enabled = fresh.enabled;
   state.savedModels = fresh.savedModels;
+  state.blockedModels = fresh.blockedModels;
   state.items = fresh.items;
 };
 

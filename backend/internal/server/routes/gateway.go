@@ -477,6 +477,7 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(endpointNorm)
 	antigravityV1.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1.Use(gin.HandlerFunc(apiKeyAuth))
+	antigravityV1.Use(compositeTarget)
 	antigravityV1.Use(requireGroupAnthropic)
 	{
 		antigravityV1.POST("/messages", h.Gateway.Messages)
@@ -492,6 +493,7 @@ func RegisterGatewayRoutes(
 	antigravityV1Beta.Use(endpointNorm)
 	antigravityV1Beta.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1Beta.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
+	antigravityV1Beta.Use(compositeGeminiTarget)
 	antigravityV1Beta.Use(requireGroupGoogle)
 	{
 		antigravityV1Beta.GET("/models", h.Gateway.GeminiV1BetaListModels)
@@ -521,11 +523,25 @@ func compositeTargetPlatformMiddleware(resolver *service.CompositeRouteResolver)
 	}
 	return func(c *gin.Context) {
 		apiKey, ok := middleware.GetAPIKeyFromContext(c)
-		if !ok || apiKey == nil || apiKey.Group == nil || apiKey.Group.Platform != service.PlatformComposite {
+		if !ok || apiKey == nil || apiKey.Group == nil {
 			c.Next()
 			return
 		}
-		if c.Request == nil || c.Request.Method == http.MethodGet {
+		isComposite := apiKey.Group.Platform == service.PlatformComposite
+		if !isComposite && !apiKey.Group.HasBlockedModels() {
+			c.Next()
+			return
+		}
+		if c.Request == nil {
+			c.Next()
+			return
+		}
+		if c.Request.Method == http.MethodGet {
+			// WebSocket endpoints such as Grok Realtime carry the selected model
+			// in the query string rather than a request body.
+			if rejectBlockedGroupModel(c, apiKey, c.Query("model"), false) {
+				return
+			}
 			c.Next()
 			return
 		}
@@ -545,7 +561,10 @@ func compositeTargetPlatformMiddleware(resolver *service.CompositeRouteResolver)
 		}
 
 		model := compositeRequestModelFromBody(c.GetHeader("Content-Type"), body)
-		if model != "" {
+		if rejectBlockedGroupModel(c, apiKey, model, false) {
+			return
+		}
+		if isComposite && model != "" {
 			decision, err := resolver.Resolve(c.Request.Context(), apiKey.Group.ID, model, compositeRouteEndpointForPath(c.Request.URL.Path))
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"type": "server_error", "message": "Failed to resolve composite model route"}})
@@ -631,9 +650,12 @@ func compositeGeminiTargetPlatformMiddleware(resolver *service.CompositeRouteRes
 	}
 	return func(c *gin.Context) {
 		apiKey, ok := middleware.GetAPIKeyFromContext(c)
-		if ok && apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform == service.PlatformComposite {
+		if ok && apiKey != nil && apiKey.Group != nil {
 			model := compositeGeminiModelFromParams(c)
-			if model != "" {
+			if rejectBlockedGroupModel(c, apiKey, model, true) {
+				return
+			}
+			if apiKey.Group.Platform == service.PlatformComposite && model != "" {
 				decision, err := resolver.Resolve(c.Request.Context(), apiKey.Group.ID, model, service.CompositeRouteEndpointGemini)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"type": "server_error", "message": "Failed to resolve composite model route"}})
@@ -644,12 +666,35 @@ func compositeGeminiTargetPlatformMiddleware(resolver *service.CompositeRouteRes
 					c.Request = c.Request.WithContext(service.WithCompositeRouteDecision(c.Request.Context(), decision))
 				}
 			}
-			if _, resolved := service.ResolvedTargetPlatformFromContext(c.Request.Context()); !resolved {
-				c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), service.PlatformGemini))
+			if apiKey.Group.Platform == service.PlatformComposite {
+				if _, resolved := service.ResolvedTargetPlatformFromContext(c.Request.Context()); !resolved {
+					c.Request = c.Request.WithContext(service.WithResolvedTargetPlatform(c.Request.Context(), service.PlatformGemini))
+				}
 			}
 		}
 		c.Next()
 	}
+}
+
+func rejectBlockedGroupModel(c *gin.Context, apiKey *service.APIKey, model string, googleStyle bool) bool {
+	if c == nil || apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsModelBlocked(model) {
+		return false
+	}
+	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalPolicyDenied)
+	const message = "Model is disabled for this API key group"
+	if googleStyle {
+		middleware.GoogleErrorWriter(c, http.StatusForbidden, message)
+	} else {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": gin.H{
+				"type":    "permission_error",
+				"code":    "MODEL_DISABLED_BY_GROUP",
+				"message": message,
+			},
+		})
+	}
+	c.Abort()
+	return true
 }
 
 // grokCustomVoiceEndpoint derives the upstream Voice endpoint for the

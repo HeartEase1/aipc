@@ -48,7 +48,17 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 
 	// 强制 antigravity 模式：返回 antigravity 支持的模型列表
 	if forcePlatform == service.PlatformAntigravity {
-		c.JSON(http.StatusOK, antigravity.FallbackGeminiModelsList())
+		response := antigravity.FallbackGeminiModelsList()
+		if apiKey.Group != nil && apiKey.Group.HasBlockedModels() {
+			models := response.Models[:0]
+			for _, model := range response.Models {
+				if !apiKey.Group.IsModelBlocked(model.Name) {
+					models = append(models, model)
+				}
+			}
+			response.Models = models
+		}
+		c.JSON(http.StatusOK, response)
 		return
 	}
 
@@ -58,7 +68,17 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), apiKey.GroupID)
 		if hasAntigravity {
 			// antigravity 账户使用静态模型列表
-			c.JSON(http.StatusOK, gemini.FallbackModelsList())
+			response := gemini.FallbackModelsList()
+			if apiKey.Group != nil && apiKey.Group.HasBlockedModels() {
+				models := response.Models[:0]
+				for _, model := range response.Models {
+					if !apiKey.Group.IsModelBlocked(model.Name) {
+						models = append(models, model)
+					}
+				}
+				response.Models = models
+			}
+			c.JSON(http.StatusOK, response)
 			return
 		}
 		markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -72,8 +92,26 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 	if shouldFallbackGeminiModels(res) {
-		c.JSON(http.StatusOK, gemini.FallbackModelsList())
+		response := gemini.FallbackModelsList()
+		if apiKey.Group != nil && apiKey.Group.HasBlockedModels() {
+			models := response.Models[:0]
+			for _, model := range response.Models {
+				if !apiKey.Group.IsModelBlocked(model.Name) {
+					models = append(models, model)
+				}
+			}
+			response.Models = models
+		}
+		c.JSON(http.StatusOK, response)
 		return
+	}
+	if apiKey.Group != nil && apiKey.Group.HasBlockedModels() && res.StatusCode >= 200 && res.StatusCode < 300 {
+		filtered, filterErr := filterModelListEnvelope(res.Body, "models", apiKey.Group, "name")
+		if filterErr != nil {
+			googleError(c, http.StatusBadGateway, "Invalid upstream model list")
+			return
+		}
+		res.Body = filtered
 	}
 	writeUpstreamResponse(c, res)
 }

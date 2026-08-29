@@ -139,6 +139,9 @@ func (h *BatchImageHandler) Models(c *gin.Context) {
 		batchImageError(c, err)
 		return
 	}
+	if apiKey, ok := middleware.GetAPIKeyFromContext(c); ok && apiKey != nil {
+		got.Data = filterBatchImageModelsByBlockedPolicy(got.Data, apiKey.Group)
+	}
 	c.JSON(http.StatusOK, got)
 }
 

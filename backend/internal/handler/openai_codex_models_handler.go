@@ -31,6 +31,12 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Codex models manifest is only available for OpenAI and Composite groups")
 		return
 	}
+	ifNoneMatch := c.GetHeader("If-None-Match")
+	if apiKey.Group.HasBlockedModels() {
+		// The upstream ETag identifies the unfiltered manifest. Do not allow a
+		// client-side 304 to retain models that this group now blocks.
+		ifNoneMatch = ""
+	}
 
 	maxAccountSwitches := h.maxAccountSwitches
 	if maxAccountSwitches <= 0 {
@@ -56,7 +62,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		// 让 ops 错误日志携带实际选中的上游账号，便于定位失效账号（#4544）。
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
-		manifest, err := h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), c.GetHeader("If-None-Match"))
+		manifest, err := h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), ifNoneMatch)
 		if err != nil {
 			if c.Request.Context().Err() != nil {
 				return
@@ -74,14 +80,19 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 			return
 		}
 
-		if manifest.ETag != "" {
+		if manifest.ETag != "" && !apiKey.Group.HasBlockedModels() {
 			c.Header("ETag", manifest.ETag)
 		}
 		if manifest.NotModified {
 			c.Status(http.StatusNotModified)
 			return
 		}
-		c.Data(http.StatusOK, "application/json", manifest.Body)
+		body, filterErr := filterModelListEnvelope(manifest.Body, "models", apiKey.Group, "slug", "id", "name")
+		if filterErr != nil {
+			h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to apply group model policy")
+			return
+		}
+		c.Data(http.StatusOK, "application/json", body)
 		return
 	}
 }

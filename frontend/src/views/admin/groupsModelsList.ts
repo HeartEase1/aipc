@@ -1,6 +1,7 @@
 export interface ModelsListConfig {
   enabled: boolean
   models: string[]
+  blocked_models: string[]
 }
 
 export interface ModelsListItem {
@@ -11,6 +12,7 @@ export interface ModelsListItem {
 export interface ModelsListState {
   enabled: boolean
   savedModels: string[]
+  blockedModels: string[]
   items: ModelsListItem[]
 }
 
@@ -19,6 +21,7 @@ export const createModelsListState = (
 ): ModelsListState => ({
   enabled: config?.enabled ?? false,
   savedModels: normalizeModels(config?.models ?? []),
+  blockedModels: normalizeModels(config?.blocked_models ?? []),
   items: [],
 })
 
@@ -45,6 +48,7 @@ export const setModelsListCandidates = (
   const selectionOrder = normalizeModels([
     ...state.items.map(item => item.id),
     ...state.savedModels,
+    ...state.blockedModels,
     ...normalizedCandidates,
   ])
 
@@ -81,6 +85,23 @@ export const invertModelsListSelection = (state: ModelsListState) => {
   })
 }
 
+export const toggleBlockedModel = (state: ModelsListState, modelID: string) => {
+  const model = modelID.trim()
+  if (!model) {
+    return
+  }
+  const index = state.blockedModels.indexOf(model)
+  if (index >= 0) {
+    state.blockedModels.splice(index, 1)
+    return
+  }
+  state.blockedModels.push(model)
+}
+
+export const clearBlockedModels = (state: ModelsListState) => {
+  state.blockedModels.splice(0)
+}
+
 export const moveModelsListItem = (
   state: ModelsListState,
   fromIndex: number,
@@ -104,6 +125,7 @@ export const buildModelsListConfig = (state: ModelsListState): ModelsListConfig 
   models: state.items.length > 0
     ? state.items.filter(item => item.selected).map(item => item.id)
     : [...state.savedModels],
+  blocked_models: [...state.blockedModels],
 })
 
 const normalizeModels = (models: string[]): string[] => {

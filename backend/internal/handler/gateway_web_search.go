@@ -76,6 +76,9 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 		}})
 		return
 	}
+	if rejectBlockedAPIKeyModel(c, apiKey, searchModel) {
+		return
+	}
 
 	// Billing eligibility (same as other requests)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)

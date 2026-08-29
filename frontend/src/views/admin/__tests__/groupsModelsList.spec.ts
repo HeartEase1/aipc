@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildModelsListConfig,
+  clearBlockedModels,
   createModelsListState,
   hydrateModelsListState,
   invertModelsListSelection,
@@ -9,6 +10,7 @@ import {
   selectAllModelsListItems,
   setModelsListCandidates,
   toggleModelsListItem,
+  toggleBlockedModel,
 } from "../groupsModelsList";
 
 describe("groupsModelsList", () => {
@@ -66,6 +68,7 @@ describe("groupsModelsList", () => {
     expect(buildModelsListConfig(state)).toEqual({
       enabled: true,
       models: ["gpt-5.4", "gpt-5.5"],
+      blocked_models: [],
     });
   });
 
@@ -78,6 +81,7 @@ describe("groupsModelsList", () => {
     expect(buildModelsListConfig(state)).toEqual({
       enabled: false,
       models: ["gpt-5.5"],
+      blocked_models: [],
     });
   });
 
@@ -90,6 +94,7 @@ describe("groupsModelsList", () => {
     expect(buildModelsListConfig(state)).toEqual({
       enabled: true,
       models: ["gpt-5.5", "gpt-5.4"],
+      blocked_models: [],
     });
   });
 
@@ -121,5 +126,43 @@ describe("groupsModelsList", () => {
       { id: "gpt-5.4", selected: true },
       { id: "gpt-5.4-mini", selected: true },
     ]);
+  });
+
+  it("preserves blocked models that are no longer returned as candidates", () => {
+    const state = createModelsListState({
+      enabled: false,
+      models: [],
+      blocked_models: ["legacy-gpt", "gpt-5.6-luna"],
+    });
+
+    setModelsListCandidates(state, ["gpt-5.6-sol", "gpt-5.6-luna"]);
+
+    expect(state.items.map(item => item.id)).toEqual([
+      "legacy-gpt",
+      "gpt-5.6-luna",
+      "gpt-5.6-sol",
+    ]);
+    expect(buildModelsListConfig(state)).toEqual({
+      enabled: false,
+      models: ["gpt-5.6-luna", "gpt-5.6-sol"],
+      blocked_models: ["legacy-gpt", "gpt-5.6-luna"],
+    });
+  });
+
+  it("toggles and clears blocked models independently from the display list", () => {
+    const state = hydrateModelsListState({
+      enabled: true,
+      models: ["gpt-5.6-sol"],
+      blocked_models: ["gpt-5.6-luna"],
+    }, ["gpt-5.6-sol", "gpt-5.6-luna"]);
+
+    toggleBlockedModel(state, "gpt-5.6-sol");
+    toggleBlockedModel(state, "gpt-5.6-luna");
+
+    expect(state.blockedModels).toEqual(["gpt-5.6-sol"]);
+    expect(state.items.find(item => item.id === "gpt-5.6-sol")?.selected).toBe(true);
+
+    clearBlockedModels(state);
+    expect(buildModelsListConfig(state).blocked_models).toEqual([]);
   });
 });

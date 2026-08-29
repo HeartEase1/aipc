@@ -31,6 +31,13 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Realtime API is not supported for this platform")
 		return
 	}
+	model := strings.TrimSpace(c.Query("model"))
+	if model == "" {
+		model = "grok-voice-latest"
+	}
+	if rejectBlockedAPIKeyModel(c, apiKey, model) {
+		return
+	}
 	if !h.ensureResponsesDependencies(c, nil) {
 		return
 	}
@@ -84,10 +91,6 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 	}
 	defer func() { _ = conn.CloseNow() }()
 
-	model := c.Query("model")
-	if strings.TrimSpace(model) == "" {
-		model = "grok-voice-latest"
-	}
 	started := time.Now()
 	audioObserved, proxyErr := h.gatewayService.ProxyGrokRealtime(c.Request.Context(), c, conn, selection.Account, token, model)
 	elapsed := time.Since(started)
