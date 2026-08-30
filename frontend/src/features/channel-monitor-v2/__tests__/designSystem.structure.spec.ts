@@ -43,6 +43,19 @@ describe('channel-monitor-v2 design system structure', () => {
     expect(src).toContain("trendView")
     expect(src).toContain("'platform_group'")
     expect(src).toContain('MonitorTrendChart')
+    // Concise status cards are the default layer; diagnostic controls remain expandable.
+    expect(src).toContain('ChannelHealthCard')
+    expect(src).toContain('advancedOpen')
+    expect(src.indexOf('ChannelHealthCard')).toBeLessThan(src.indexOf('MonitorTrendChart'))
+  })
+
+  it('ChannelHealthCard reuses provider chrome and a compact health timeline', () => {
+    const src = read('features/channel-monitor-v2/ChannelHealthCard.vue')
+    expect(src).toContain('ProviderIcon')
+    expect(src).toContain('providerGradient')
+    expect(src).toContain('ChannelHealthTimeline')
+    expect(src).toContain('channel-health-card')
+    expect(src).toContain('prefers-reduced-motion')
   })
 
   it('RelayPulseMatrix uses card chrome, matrix scroll, and hover tooltips (no click modal)', () => {

@@ -1,25 +1,24 @@
 <template>
   <AppLayout>
     <div class="space-y-6 pb-12">
-      <!-- Ops-style elevated shell: title toolbar + filters (mirrors OpsDashboardHeader) -->
-      <section
-        class="card sticky top-0 z-20 !rounded-3xl !border-0 p-0 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:!bg-dark-800 dark:ring-dark-700 supports-[backdrop-filter]:bg-white/95 dark:supports-[backdrop-filter]:bg-dark-800/95"
-      >
-        <header class="page-header mb-0 flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-dark-700 sm:px-6">
+      <section class="card overflow-hidden !rounded-2xl !border-0 p-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
+        <header class="page-header mb-0 flex flex-col gap-5 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <div class="min-w-0">
-            <h1 class="page-title flex items-center gap-2 text-xl font-black text-gray-900 dark:text-white">
-              <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
+            <h1 class="page-title flex items-center gap-2.5 text-xl font-black text-gray-900 dark:text-white">
+              <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
                 <Icon name="chart" size="sm" />
               </span>
               {{ t('channelMonitorV2.title') }}
             </h1>
-            <div class="page-description mt-1.5 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span class="relative flex h-2 w-2 shrink-0">
-                <span
-                  class="relative inline-flex h-2 w-2 rounded-full"
-                  :class="loading || refreshing ? 'bg-gray-400' : 'bg-green-500'"
-                ></span>
-              </span>
+            <p class="page-description mt-2 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('channelMonitorV2.overview.description') }}
+            </p>
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+              <span
+                class="h-2 w-2 shrink-0 rounded-full"
+                :class="loading || refreshing ? 'bg-gray-400' : 'bg-emerald-500'"
+                aria-hidden="true"
+              />
               <span v-if="refreshing" class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-300">
                 <LoadingSpinner size="sm" />
                 {{ t('channelMonitorV2.updating') }}
@@ -27,37 +26,42 @@
               <span v-else-if="snapshot?.coverage.data_through">
                 {{ t('channelMonitorV2.updatedTo', { time: formatTime(snapshot.coverage.data_through) }) }}
               </span>
-              <span v-else class="text-gray-400">{{ t('common.loading') }}</span>
-              <span
-                v-if="snapshot && !snapshot.coverage.coverage_complete && !bootstrapActive"
-                class="badge badge-warning"
-              >
+              <span v-else>{{ t('common.loading') }}</span>
+              <span v-if="snapshot && !snapshot.coverage.coverage_complete && !bootstrapActive" class="badge badge-warning">
                 {{ t('channelMonitorV2.partialCoverage') }}
-              </span>
-              <span
-                v-if="bootstrapActive"
-                class="badge badge-primary inline-flex items-center gap-1"
-              >
-                <LoadingSpinner size="sm" />
-                {{ t('channelMonitorV2.bootstrap.progress', { percent: bootstrapPercent }) }}
               </span>
             </div>
           </div>
-          <button
-            class="btn btn-secondary btn-icon flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600"
-            type="button"
-            :title="t('common.refresh')"
-            :disabled="loading"
-            @click="reload(false)"
-          >
-            <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
-          </button>
+
+          <div class="flex max-w-full items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
+            <div class="tabs inline-flex shrink-0" role="group" :aria-label="t('channelMonitorV2.timeRange')">
+              <button
+                v-for="option in ranges"
+                :key="option.value"
+                type="button"
+                class="tab !px-2.5 !py-1.5 text-xs"
+                :class="filter.range === option.value ? 'tab-active' : ''"
+                @click="setRange(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+            <button
+              class="btn btn-secondary btn-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              type="button"
+              :title="t('common.refresh')"
+              :disabled="loading"
+              @click="reload(false)"
+            >
+              <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
+            </button>
+          </div>
         </header>
 
         <!-- First-upgrade silent backfill: show until 30d product window is covered -->
         <div
           v-if="bootstrapActive"
-          class="border-b border-blue-100 bg-blue-50/90 px-5 py-3 dark:border-blue-900/40 dark:bg-blue-950/40 sm:px-6"
+          class="border-t border-blue-100 bg-blue-50/90 px-5 py-3 dark:border-blue-900/40 dark:bg-blue-950/40 sm:px-6"
           role="status"
           aria-live="polite"
         >
@@ -89,27 +93,77 @@
           </div>
         </div>
 
-        <!-- Single compact toolbar row: range · filters · view controls -->
-        <div class="monitor-toolbar flex flex-nowrap items-center gap-1.5 overflow-x-auto px-4 py-3 sm:gap-2 sm:px-5">
-          <div
-            class="tabs inline-flex shrink-0"
-            role="group"
-            :aria-label="t('channelMonitorV2.timeRange')"
-          >
-            <button
-              v-for="option in ranges"
-              :key="option.value"
-              type="button"
-              class="tab !px-2 !py-1 text-xs sm:!px-2.5"
-              :class="filter.range === option.value ? 'tab-active' : ''"
-              @click="setRange(option.value)"
-            >
-              {{ option.label }}
-            </button>
+        <div v-if="snapshot" class="grid grid-cols-2 border-t border-gray-100 dark:border-dark-700 sm:grid-cols-4">
+          <div class="px-5 py-3.5 sm:px-6">
+            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.totalGroups') }}</p>
+            <p class="mt-0.5 text-lg font-black tabular-nums text-gray-900 dark:text-white">{{ overviewCounts.total }}</p>
           </div>
+          <div class="border-l border-gray-100 px-5 py-3.5 dark:border-dark-700 sm:px-6">
+            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.healthyGroups') }}</p>
+            <p class="mt-0.5 text-lg font-black tabular-nums text-emerald-600 dark:text-emerald-400">{{ overviewCounts.healthy }}</p>
+          </div>
+          <div class="border-t border-gray-100 px-5 py-3.5 dark:border-dark-700 sm:border-l sm:border-t-0 sm:px-6">
+            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.attentionGroups') }}</p>
+            <p class="mt-0.5 text-lg font-black tabular-nums text-amber-600 dark:text-amber-400">{{ overviewCounts.attention }}</p>
+          </div>
+          <div class="border-l border-t border-gray-100 px-5 py-3.5 dark:border-dark-700 sm:border-t-0 sm:px-6">
+            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.noDataGroups') }}</p>
+            <p class="mt-0.5 text-lg font-black tabular-nums text-gray-500 dark:text-gray-400">{{ overviewCounts.unknown }}</p>
+          </div>
+        </div>
+      </section>
 
-          <span class="mx-0.5 hidden h-5 w-px shrink-0 bg-gray-200 dark:bg-dark-700 sm:block" aria-hidden="true"></span>
+      <section :aria-label="t('channelMonitorV2.overview.title')">
+        <div class="mb-3 flex flex-wrap items-end justify-between gap-3 px-1">
+          <div>
+            <h2 class="text-base font-black text-gray-900 dark:text-white">{{ t('channelMonitorV2.overview.title') }}</h2>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('channelMonitorV2.overview.hint') }}</p>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] text-gray-400 dark:text-gray-500" :aria-label="t('channelMonitorV2.overview.legend')">
+            <span class="inline-flex items-center gap-1.5"><i class="h-1.5 w-1.5 rounded-full bg-emerald-500" />{{ t('channelMonitorV2.overview.status.healthy') }}</span>
+            <span class="inline-flex items-center gap-1.5"><i class="h-1.5 w-1.5 rounded-full bg-amber-500" />{{ t('channelMonitorV2.overview.status.warning') }}</span>
+            <span class="inline-flex items-center gap-1.5"><i class="h-1.5 w-1.5 rounded-full bg-red-500" />{{ t('channelMonitorV2.overview.status.critical') }}</span>
+          </div>
+        </div>
 
+        <div v-if="overviewRows.length" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <ChannelHealthCard
+            v-for="row in overviewRows"
+            :key="`${row.platform}:${row.group_id || row.group_name}`"
+            :row="row"
+            :rate="rateForRow(row)"
+            @select="openGroupDetails(row)"
+          />
+        </div>
+        <div v-else-if="loading" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" aria-hidden="true">
+          <div v-for="i in 6" :key="i" class="h-60 animate-pulse rounded-2xl bg-white/70 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800/70 dark:ring-dark-700" />
+        </div>
+        <div v-else class="card empty-state !rounded-2xl !border-0 py-14 shadow-sm ring-1 ring-gray-900/5 dark:ring-dark-700">
+          <p class="empty-state-title">{{ t('channelMonitorV2.empty.title') }}</p>
+          <p class="empty-state-description">{{ t('channelMonitorV2.empty.description') }}</p>
+        </div>
+      </section>
+
+      <section ref="advancedSection" class="card overflow-hidden !rounded-2xl !border-0 p-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-700/40 sm:px-6"
+          :aria-expanded="advancedOpen"
+          @click="advancedOpen = !advancedOpen"
+        >
+          <span class="min-w-0">
+            <span class="flex items-center gap-2 text-sm font-black text-gray-900 dark:text-white">
+              <Icon name="chartBar" size="sm" class="text-primary-500" />
+              {{ t('channelMonitorV2.overview.advancedTitle') }}
+              <span v-if="hasDimensionFilter" class="badge badge-primary">{{ t('channelMonitorV2.overview.activeFilters', { count: activeFilterCount }) }}</span>
+            </span>
+            <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ t('channelMonitorV2.overview.advancedHint') }}</span>
+          </span>
+          <Icon name="chevronDown" size="sm" :class="['shrink-0 text-gray-400 transition-transform', advancedOpen ? 'rotate-180' : '']" />
+        </button>
+
+        <div v-if="advancedOpen" class="space-y-5 border-t border-gray-100 p-4 dark:border-dark-700 sm:p-5">
+          <div class="monitor-toolbar flex flex-nowrap items-center gap-1.5 overflow-x-auto rounded-xl bg-gray-50 px-3 py-2.5 dark:bg-dark-900/35 sm:gap-2">
           <FilterMultiSelect
             v-model="filter.platforms"
             compact
@@ -191,7 +245,6 @@
             </button>
           </div>
         </div>
-      </section>
 
       <!-- Overview KPI: success · TTFT · tokens/s(optional) · cache · (+ RPM when throughput visible) -->
       <section
@@ -453,13 +506,15 @@
           </div>
         </div>
       </section>
+        </div>
+      </section>
     </div>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -470,8 +525,10 @@ import MetricCell from '@/features/channel-monitor-v2/MetricCell.vue'
 import MonitorRankBadge from '@/features/channel-monitor-v2/MonitorRankBadge.vue'
 import MonitorTrendChart from '@/features/channel-monitor-v2/MonitorTrendChart.vue'
 import RelayPulseMatrix from '@/features/channel-monitor-v2/RelayPulseMatrix.vue'
+import ChannelHealthCard from '@/features/channel-monitor-v2/ChannelHealthCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { userGroupsAPI } from '@/api/groups'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { isChannelMonitorThroughputHidden } from '@/utils/featureFlags'
 import * as api from '@/api/channelMonitorV2'
@@ -482,6 +539,7 @@ import type {
   MonitorFilter,
   MonitorHealth,
   MonitorMatrixGroupBy,
+  MonitorMatrixRow,
   MonitorMatrixResponse,
   MonitorModelRow,
   MonitorRange,
@@ -549,9 +607,13 @@ const activeTab = ref<Tab>(
 const matrixGroupBy = ref<MonitorMatrixGroupBy>(parseMatrixGroupBy(route.query.group_by))
 const healthMode = ref<HealthMode>(parseHealthMode(route.query.health_mode))
 const trendView = ref<TrendView>(parseTrendView(route.query.trend_view))
+const advancedOpen = ref(route.query.details === '1' || hasQueryDimensions(route.query))
+const advancedSection = ref<HTMLElement | null>(null)
 const dimensions = ref<MonitorDimensions>({ platforms: [], groups: [], models: [] })
 const snapshot = ref<MonitorSnapshot | null>(null)
 const matrix = ref<MonitorMatrixResponse | null>(null)
+const overviewMatrix = ref<MonitorMatrixResponse | null>(null)
+const displayedGroupRates = ref<Record<number, number>>({})
 const modelRows = ref<MonitorModelRow[]>([])
 const errorRows = ref<MonitorErrorRow[]>([])
 const userRows = ref<MonitorUserRow[]>([])
@@ -562,10 +624,28 @@ const expandedErrors = ref(new Set<string>())
 let controller: AbortController | null = null
 let sequence = 0
 let autoRefreshTimer: number | null = null
+let detailScrollTimer: number | null = null
 
 const hasDimensionFilter = computed(
   () => filter.value.platforms.length + filter.value.groupIds.length + filter.value.models.length > 0
 )
+const activeFilterCount = computed(
+  () => filter.value.platforms.length + filter.value.groupIds.length + filter.value.models.length,
+)
+const overviewRows = computed(() =>
+  (overviewMatrix.value?.items || []).filter(
+    (row) => row.group_id != null && Number(row.group_id) > 0,
+  ),
+)
+const overviewCounts = computed(() => {
+  const counts = { total: overviewRows.value.length, healthy: 0, attention: 0, unknown: 0 }
+  for (const row of overviewRows.value) {
+    if (!row.metrics.request_count || row.health.overall === 'unknown') counts.unknown += 1
+    else if (row.health.overall === 'healthy') counts.healthy += 1
+    else counts.attention += 1
+  }
+  return counts
+})
 // Full platform catalog (never pruned). Groups/models cascade by selected platforms
 // so choosing a platform narrows the other pickers without collapsing platforms.
 const platformOptions = computed(() =>
@@ -658,6 +738,9 @@ const matrixRows = computed(() => {
 function csv(value: unknown) {
   return typeof value === 'string' ? value.split(',').filter(Boolean) : []
 }
+function hasQueryDimensions(query: Record<string, unknown>) {
+  return Boolean(query.platform || query.group || query.model)
+}
 function parseRange(value: unknown): MonitorRange {
   return ['90m', '24h', '7d', '30d'].includes(String(value)) ? (value as MonitorRange) : '90m'
 }
@@ -690,6 +773,7 @@ function syncQuery() {
       health_mode: healthMode.value,
       trend_view: trendView.value === 'line' ? 'line' : undefined,
       tab: activeTab.value,
+      details: advancedOpen.value ? '1' : undefined,
     },
   })
 }
@@ -706,14 +790,28 @@ async function loadDimensions(signal?: AbortSignal, id = sequence) {
   dimensions.value = next
 }
 
-async function loadMetrics(signal?: AbortSignal, id = sequence) {
-  const [nextSnapshot, nextMatrix] = await Promise.all([
+async function loadMetrics(signal?: AbortSignal, id = sequence, refreshOverview = true) {
+  const overviewFilter: MonitorFilter = {
+    range: filter.value.range,
+    platforms: [],
+    groupIds: [],
+    models: [],
+  }
+  const canReuseMatrix = !hasDimensionFilter.value && matrixGroupBy.value === 'platform_group'
+  const overviewRequest = canReuseMatrix
+    ? null
+    : refreshOverview || !overviewMatrix.value
+      ? api.getMatrix(overviewFilter, 'platform_group', isAdmin.value, signal)
+      : Promise.resolve(overviewMatrix.value)
+  const [nextSnapshot, nextMatrix, nextOverviewMatrix] = await Promise.all([
     api.getSnapshot(filter.value, isAdmin.value, signal),
     api.getMatrix(filter.value, matrixGroupBy.value, isAdmin.value, signal),
+    overviewRequest,
   ])
   if (id !== sequence) return
   snapshot.value = nextSnapshot
   matrix.value = nextMatrix
+  overviewMatrix.value = canReuseMatrix ? nextMatrix : nextOverviewMatrix
   scheduleAutoRefresh()
   await loadTab(signal, id)
 }
@@ -753,7 +851,7 @@ async function reloadMetricsOnly(silent = true) {
   refreshing.value = true
   if (!silent) loading.value = true
   try {
-    await loadMetrics(request.signal, id)
+    await loadMetrics(request.signal, id, false)
   } catch (error) {
     if ((error as { name?: string }).name !== 'CanceledError') {
       appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.loadFailed')))
@@ -794,6 +892,54 @@ function clearDimensions() {
     platforms: [],
     groupIds: [],
     models: [],
+  }
+}
+function rateForRow(row: MonitorMatrixRow) {
+  if (!row.group_id) return null
+  const rate = displayedGroupRates.value[row.group_id]
+  return Number.isFinite(rate) ? rate : null
+}
+function openGroupDetails(row: MonitorMatrixRow) {
+  filter.value = {
+    ...filter.value,
+    platforms: [row.platform],
+    groupIds: row.group_id ? [row.group_id] : [],
+    models: [],
+  }
+  advancedOpen.value = true
+  if (detailScrollTimer) window.clearTimeout(detailScrollTimer)
+  void nextTick(() => {
+    // Query synchronization and the filtered request both update the page after
+    // this click. Scroll after those first updates so router scroll restoration
+    // cannot pull the user back to the selected card.
+    detailScrollTimer = window.setTimeout(() => {
+      advancedSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      detailScrollTimer = null
+    }, 300)
+  })
+}
+async function loadDisplayedGroupRates() {
+  try {
+    const [groupsResult, ratesResult] = await Promise.allSettled([
+      userGroupsAPI.getAvailable(),
+      userGroupsAPI.getUserGroupRates(),
+    ])
+    const next: Record<number, number> = {}
+    if (groupsResult.status === 'fulfilled') {
+      for (const group of groupsResult.value) {
+        const rate = group.effective_rate_multiplier ?? group.rate_multiplier
+        if (Number.isFinite(rate)) next[group.id] = rate
+      }
+    }
+    if (ratesResult.status === 'fulfilled') {
+      for (const [groupID, rate] of Object.entries(ratesResult.value)) {
+        const id = Number(groupID)
+        if (Number.isInteger(id) && Number.isFinite(rate)) next[id] = rate
+      }
+    }
+    displayedGroupRates.value = next
+  } catch {
+    // Multiplier labels are optional context and must never block monitor data.
   }
 }
 function scheduleAutoRefresh() {
@@ -900,14 +1046,19 @@ watch(matrixGroupBy, () => {
 })
 watch(healthMode, syncQuery)
 watch(trendView, syncQuery)
+watch(advancedOpen, syncQuery)
 watch(activeTab, () => {
   syncQuery()
   void loadTab()
 })
-onMounted(() => void reload(false))
+onMounted(() => {
+  void reload(false)
+  void loadDisplayedGroupRates()
+})
 onBeforeUnmount(() => {
   controller?.abort()
   if (autoRefreshTimer) window.clearInterval(autoRefreshTimer)
+  if (detailScrollTimer) window.clearTimeout(detailScrollTimer)
 })
 </script>
 

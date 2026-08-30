@@ -642,9 +642,8 @@
             </span>
           </p>
           <p v-if="extendingSubscription.expires_at" class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-            {{ t('admin.subscriptions.remainingDays') }}:
             <span class="font-medium text-gray-900 dark:text-white">
-              {{ getDaysRemaining(extendingSubscription.expires_at) ?? 0 }}
+              {{ formatRemainingExpiry(extendingSubscription.expires_at) ?? t('admin.subscriptions.windowNotActive') }}
             </span>
           </p>
         </div>
@@ -818,7 +817,6 @@ import Icon from '@/components/icons/Icon.vue'
 import {
   formatQuotaUsagePercentage,
   getRemainingDurationParts,
-  getRemainingExpiryDuration,
   isOneTimeDailyQuota,
   type RemainingDurationParts
 } from '@/utils/subscriptionQuota'
@@ -826,6 +824,8 @@ import { GROUP_PLATFORM_OPTIONS } from '@/constants/platforms'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const countdownNow = ref(new Date())
+let countdownTimer: number | null = null
 
 interface GroupOption {
   value: number
@@ -1369,26 +1369,29 @@ const confirmResetQuota = async () => {
 
 // Helper functions
 const getDaysRemaining = (expiresAt: string): number | null => {
-  const now = new Date()
   const expires = new Date(expiresAt)
-  const diff = expires.getTime() - now.getTime()
+  const diff = expires.getTime() - countdownNow.value.getTime()
   if (diff < 0) return null
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
 const formatRemainingExpiry = (expiresAt: string): string | null => {
-  const duration = getRemainingExpiryDuration(expiresAt)
-  if (!duration) return null
-  if (duration.unit === 'days') {
-    return t('admin.subscriptions.daysRemaining', { days: duration.days })
-  }
-  if (duration.hours) {
-    return t('admin.subscriptions.hoursMinutesRemaining', {
-      hours: duration.hours,
-      minutes: duration.minutes
+  const parts = getRemainingDurationParts(expiresAt, countdownNow.value)
+  if (!parts) return null
+  if (parts.days > 0) {
+    return t('admin.subscriptions.daysHoursMinutesRemaining', {
+      days: parts.days,
+      hours: parts.hours,
+      minutes: parts.minutes
     })
   }
-  return t('admin.subscriptions.minutesRemaining', { minutes: duration.minutes })
+  if (parts.hours > 0) {
+    return t('admin.subscriptions.hoursMinutesRemaining', {
+      hours: parts.hours,
+      minutes: parts.minutes
+    })
+  }
+  return t('admin.subscriptions.minutesRemaining', { minutes: parts.minutes })
 }
 
 const isExpiringSoon = (expiresAt: string): boolean => {
@@ -1414,7 +1417,11 @@ const getProgressClass = (used: number | null | undefined, limit: number | null)
 
 const formatResetDuration = (parts: RemainingDurationParts): string => {
   if (parts.days > 0) {
-    return t('admin.subscriptions.resetInDaysHours', { days: parts.days, hours: parts.hours })
+    return t('admin.subscriptions.resetInDaysHoursMinutes', {
+      days: parts.days,
+      hours: parts.hours,
+      minutes: parts.minutes
+    })
   }
 
   if (parts.hours > 0) {
@@ -1426,7 +1433,11 @@ const formatResetDuration = (parts: RemainingDurationParts): string => {
 
 const formatQuotaEndDuration = (parts: RemainingDurationParts): string => {
   if (parts.days > 0) {
-    return t('admin.subscriptions.quotaEndsInDaysHours', { days: parts.days, hours: parts.hours })
+    return t('admin.subscriptions.quotaEndsInDaysHoursMinutes', {
+      days: parts.days,
+      hours: parts.hours,
+      minutes: parts.minutes
+    })
   }
 
   if (parts.hours > 0) {
@@ -1438,7 +1449,7 @@ const formatQuotaEndDuration = (parts: RemainingDurationParts): string => {
 
 const formatDailyUsageWindow = (subscription: UserSubscription): string => {
   if (isOneTimeDailyQuota(subscription) && subscription.expires_at) {
-    const parts = getRemainingDurationParts(subscription.expires_at)
+    const parts = getRemainingDurationParts(subscription.expires_at, countdownNow.value)
     return parts ? formatQuotaEndDuration(parts) : t('admin.subscriptions.windowNotActive')
   }
 
@@ -1450,7 +1461,7 @@ const formatResetTime = (windowStart: string | null, period: 'daily' | 'weekly' 
   if (!windowStart) return t('admin.subscriptions.windowNotActive')
 
   const start = new Date(windowStart)
-  const now = new Date()
+  const now = countdownNow.value
 
   // Calculate reset time based on period
   let resetTime: Date
@@ -1482,6 +1493,9 @@ const handleClickOutside = (event: MouseEvent) => {
 }
 
 onMounted(() => {
+  countdownTimer = window.setInterval(() => {
+    countdownNow.value = new Date()
+  }, 60 * 1000)
   loadUserColumnMode()
   loadSavedColumns()
   loadSubscriptions()
@@ -1491,6 +1505,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  if (countdownTimer) {
+    window.clearInterval(countdownTimer)
+  }
   if (filterUserSearchTimeout) {
     clearTimeout(filterUserSearchTimeout)
   }
