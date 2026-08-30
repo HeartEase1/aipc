@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql/driver"
 	"strings"
 	"testing"
 	"time"
@@ -59,12 +60,26 @@ func TestChannelMonitorV2MetricIncludesSuccessRate(t *testing.T) {
 	acc.success, acc.errors = 80, 20
 	metric := acc.metric(1, false)
 	require.Equal(t, int64(100), metric.RequestCount)
+	require.True(t, metric.HasTraffic)
 	require.InDelta(t, 0.8, metric.SuccessRate, 0.0001)
 	require.InDelta(t, 0.2, metric.ErrorRate, 0.0001)
 	require.Nil(t, metric.UpstreamAffectedRequests)
 
 	adminMetric := acc.metric(1, true)
 	require.NotNil(t, adminMetric.UpstreamAffectedRequests)
+
+	emptyMetric := newMetricAccumulator().metric(1, false)
+	require.False(t, emptyMetric.HasTraffic)
+}
+
+func TestChannelMonitorV2MetricMarksLowSampleTraffic(t *testing.T) {
+	acc := newMetricAccumulator()
+	acc.success = 1
+
+	metric := acc.metric(1, false)
+	require.Equal(t, int64(1), metric.RequestCount)
+	require.True(t, metric.HasTraffic)
+	require.Equal(t, "unknown", service.ChannelMonitorV2HealthFor(metric).Overall)
 }
 
 func TestChannelMonitorV2WhereUsesConfiguredScopeAndEmptyFilterMeansAllConfigured(t *testing.T) {
@@ -77,6 +92,25 @@ func TestChannelMonitorV2WhereUsesConfiguredScopeAndEmptyFilterMeansAllConfigure
 	require.Contains(t, where, "m.platform = ANY($3)")
 	require.Contains(t, where, "m.group_id = ANY($4)")
 	require.Len(t, args, 4)
+}
+
+func TestChannelMonitorV2WhereIncludesEnabledCNProviders(t *testing.T) {
+	filter := service.ChannelMonitorV2Filter{Start: time.Unix(1, 0), End: time.Unix(2, 0)}
+	cfg := service.ChannelMonitorV2Config{Platforms: []service.ChannelMonitorV2PlatformConfig{
+		{Platform: service.PlatformKimi, Enabled: true},
+		{Platform: service.PlatformZhipu, Enabled: false},
+		{Platform: service.PlatformDeepseek, Enabled: true},
+	}}
+
+	where, args := channelMonitorV2Where(filter, cfg, "m")
+	require.Contains(t, where, "m.platform = ANY($3)")
+	require.Len(t, args, 3)
+
+	platformArg, ok := args[2].(driver.Valuer)
+	require.True(t, ok)
+	value, err := platformArg.Value()
+	require.NoError(t, err)
+	require.Equal(t, `{"kimi","deepseek"}`, value)
 }
 
 func TestChannelMonitorV2WhereRejectsGroupFilterOutsideConfiguredScope(t *testing.T) {
@@ -196,6 +230,27 @@ func TestSameFixedRollupBucket(t *testing.T) {
 	require.True(t, sameFixedRollupBucket(start, start.Add(10*time.Minute), 86400))
 	require.False(t, sameFixedRollupBucket(start, start.Add(15*time.Hour), 43200))
 	require.False(t, sameFixedRollupBucket(start, start.Add(24*time.Hour), 86400))
+}
+
+func TestChannelMonitorV2SameBucketRefreshDoesNotPredeleteFixedRollups(t *testing.T) {
+	// This is the boundary that previously exposed the bug: at 12:10 the
+	// trailing 10-minute refresh starts exactly on the 12h/1d bucket boundary.
+	// The coarse fast path skips rebuilding both buckets, so the exact-window
+	// rewrite must be restricted to minute facts.
+	start := time.Date(2026, 8, 7, 12, 0, 0, 0, time.UTC)
+	end := start.Add(10 * time.Minute)
+	require.True(t, sameFixedRollupBucket(start, end, 43200))
+	require.True(t, sameFixedRollupBucket(start, end, 86400))
+
+	for _, table := range channelMonitorV2MinuteFactTables {
+		require.NotContains(t, table, "_rollup", "exact-window rewrite must not own fixed rollups")
+	}
+	require.ElementsMatch(t, []string{
+		"channel_monitor_v2_latency_histograms_rollup",
+		"channel_monitor_v2_error_metrics_rollup",
+		"channel_monitor_v2_user_metrics_rollup",
+		"channel_monitor_v2_metrics_rollup",
+	}, channelMonitorV2FixedRollupTables[:])
 }
 
 // Needles present in service.ClassifyChannelMonitorV2Error must appear in the

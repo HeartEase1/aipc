@@ -87,6 +87,7 @@ type ChannelMonitorV2Metric struct {
 	SuccessRequests          int64                   `json:"success_requests"`
 	ErrorRequests            int64                   `json:"error_requests"`
 	RequestCount             int64                   `json:"request_count"`
+	HasTraffic               bool                    `json:"has_traffic"`
 	InputTokens              int64                   `json:"input_tokens"`
 	OutputTokens             int64                   `json:"output_tokens"`
 	CacheCreationTokens      int64                   `json:"cache_creation_tokens"`
@@ -972,13 +973,15 @@ func ChannelMonitorV2HealthForWithThresholds(metrics ChannelMonitorV2Metric, thr
 			parts = append(parts, scored{score: s, weight: thresholds.TTFTWeight, band: result.TTFT})
 		}
 	}
-	// Cache: need a meaningful denominator; higher rate is better.
-	if metrics.CacheRateDenominator >= result.MinimumSample {
+	// Cache scoring is opt-in. A zero/zero threshold pair means the operator has
+	// disabled this signal, so it must not silently contribute a perfect score to
+	// the overall result. Require both request and token samples when enabled so a
+	// single large prompt cannot turn an otherwise insufficient bucket healthy.
+	cacheScoringEnabled := thresholds.WarningCacheRate > 0 || thresholds.CriticalCacheRate > 0
+	if cacheScoringEnabled &&
+		metrics.RequestCount >= result.MinimumSample &&
+		metrics.CacheRateDenominator >= result.MinimumSample {
 		s := cacheRateScore(metrics.CacheRate)
-		if thresholds.WarningCacheRate <= 0 && thresholds.CriticalCacheRate <= 0 {
-			// A zero/zero cache threshold means "do not penalize cache misses".
-			s = 100
-		}
 		result.CacheScore = &s
 		// Invert for healthBand (lower is worse): use (1 - rate) against warning/critical floors.
 		result.Cache = cacheRateBand(metrics.CacheRate, thresholds.WarningCacheRate, thresholds.CriticalCacheRate)

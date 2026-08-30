@@ -5,13 +5,12 @@
     :style="timelineStyle"
   >
     <span
-      v-for="(slot, index) in timelineSlots"
-      :key="slot ? `${slot.bucket_start}:${index}` : `empty:${index}`"
+      v-for="bucket in visibleBuckets"
+      :key="bucket.bucket_start"
       class="health-timeline__bar"
-      :class="slot ? bucketClass(slot) : 'health-timeline__missing'"
-      :style="slot ? bucketStyle(slot) : undefined"
-      :title="slot ? bucketTitle(slot) : undefined"
-      :aria-hidden="slot ? undefined : 'true'"
+      :class="bucketClass(bucket)"
+      :style="bucketStyle(bucket)"
+      :title="bucketTitle(bucket)"
     />
   </div>
 </template>
@@ -19,32 +18,87 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { MonitorMatrixBucket } from '@/api/channelMonitorV2'
+import type { MonitorCoverage, MonitorMatrixBucket } from '@/api/channelMonitorV2'
 import {
   formatMonitorMs,
   formatMonitorPercent,
   healthScoreClass,
+  monitorMetricHasTraffic,
+  monitorMetricHealthSuccessRate,
+  monitorMetricSuccessRate,
 } from './monitorFormat'
 
 const props = defineProps<{
   buckets: MonitorMatrixBucket[]
+  coverage: MonitorCoverage
 }>()
 
 const { t, locale } = useI18n()
 
-const visibleBuckets = computed(() => (props.buckets || []).slice(-24))
-const timelineSlots = computed(() => [
-  ...Array<null>(Math.max(0, 24 - visibleBuckets.value.length)).fill(null),
-  ...visibleBuckets.value,
-])
-const timelineStyle = { gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }
+// Product ranges currently resolve to 14-30 buckets. This guard prevents a
+// malformed payload from creating an unbounded number of compact DOM nodes.
+const MAX_COMPACT_SLOTS = 48
+
+const visibleBuckets = computed<MonitorMatrixBucket[]>(() => {
+  const requestedStart = Date.parse(props.coverage.requested_start)
+  const requestedEnd = Date.parse(props.coverage.requested_end || props.coverage.data_through)
+  const coverageStart = Date.parse(props.coverage.coverage_start)
+  const dataThrough = Date.parse(props.coverage.data_through)
+  const bucketSeconds = Number(props.coverage.bucket_seconds)
+
+  if (
+    !Number.isFinite(requestedStart) ||
+    !Number.isFinite(requestedEnd) ||
+    !Number.isFinite(bucketSeconds) ||
+    bucketSeconds <= 0 ||
+    requestedStart >= requestedEnd
+  ) {
+    return []
+  }
+
+  const coveredStart = Number.isFinite(coverageStart)
+    ? Math.max(requestedStart, coverageStart)
+    : requestedStart
+  const coveredEnd = Number.isFinite(dataThrough)
+    ? Math.min(requestedEnd, dataThrough)
+    : requestedEnd
+  const bucketStep = bucketSeconds * 1000
+
+  return (props.buckets || [])
+    .filter((bucket) => {
+      const bucketStart = Date.parse(bucket.bucket_start)
+      return Number.isFinite(bucketStart) &&
+        bucketStart >= coveredStart &&
+        bucketStart < coveredEnd &&
+        Math.abs(bucketStart - Math.round(bucketStart / bucketStep) * bucketStep) <= 1 &&
+        monitorMetricHasTraffic(bucket.metrics)
+    })
+    .sort((left, right) => Date.parse(left.bucket_start) - Date.parse(right.bucket_start))
+    .slice(-MAX_COMPACT_SLOTS)
+})
+
+const timelineStyle = computed(() => {
+  const count = visibleBuckets.value.length
+  if (count === 0) return { gridTemplateColumns: 'none' }
+  const compact = count < 12
+  return {
+    gridTemplateColumns: compact
+      ? `repeat(${count}, minmax(8px, 18px))`
+      : `repeat(${count}, minmax(4px, 1fr))`,
+    gap: '2px',
+    justifyContent: compact ? 'end' : 'stretch',
+  }
+})
 
 function bucketClass(bucket: MonitorMatrixBucket) {
-  return healthScoreClass(bucket.health, 'overall', bucket.metrics.request_count)
+  if (bucket.health.overall === 'unknown' && bucket.health.score == null) {
+    return 'health-insufficient'
+  }
+  return healthScoreClass(bucket.health, 'overall', Math.max(1, bucket.metrics.request_count))
 }
 
 function bucketStyle(bucket: MonitorMatrixBucket) {
-  if (bucket.health.overall === 'unknown' || !Number.isFinite(bucket.metrics.cache_rate)) {
+  if (!Number.isFinite(bucket.metrics.cache_rate)) {
     return { height: '18%' }
   }
   const cacheRate = Math.max(0, Math.min(1, bucket.metrics.cache_rate))
@@ -58,21 +112,33 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(bucket.bucket_start))
-  if (bucket.health.overall === 'unknown') {
+  if (!monitorMetricHasTraffic(bucket.metrics)) {
     return t('channelMonitorV2.overview.noTrafficAt', { time })
   }
-  return [
-    time,
+  const successRate = monitorMetricSuccessRate(bucket.metrics)
+  const healthSuccessRate = monitorMetricHealthSuccessRate(bucket.metrics)
+  const lines = [
+    bucket.health.overall === 'unknown'
+      ? t('channelMonitorV2.overview.insufficientSamplesAt', { time })
+      : time,
     t('channelMonitorV2.metrics.successRateValue', {
-      value: formatMonitorPercent(1 - bucket.metrics.error_rate),
+      value: formatMonitorPercent(successRate),
     }),
+  ]
+  if (Math.abs(successRate - healthSuccessRate) >= 0.0005) {
+    lines.push(t('channelMonitorV2.metrics.healthSuccessRateValue', {
+      value: formatMonitorPercent(healthSuccessRate),
+    }))
+  }
+  lines.push(
     t('channelMonitorV2.metrics.cacheRateValue', {
       value: formatMonitorPercent(bucket.metrics.cache_rate),
     }),
     t('channelMonitorV2.metrics.ttftValue', {
       value: formatMonitorMs(bucket.metrics.ttft.p50_ms),
     }),
-  ].join(' · ')
+  )
+  return lines.join(' · ')
 }
 </script>
 
@@ -80,7 +146,7 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
 .health-timeline {
   display: grid;
   align-items: end;
-  gap: 3px;
+  gap: 2px;
   height: 2.25rem;
 }
 
@@ -113,6 +179,7 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
 .health-healthy { background: #22c55e; }
 .health-warning { background: #f59e0b; }
 .health-unknown { background: #d1d5db; }
+.health-insufficient { background: #60a5fa; }
 .health-timeline__missing {
   height: 18%;
   background: rgb(226 232 240 / 0.72);
@@ -123,6 +190,8 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
 :global(.dark) .health-unknown {
   background: #475569;
 }
+
+:global(.dark) .health-insufficient { background: #60a5fa; }
 
 @media (prefers-reduced-motion: reduce) {
   .health-timeline__bar {

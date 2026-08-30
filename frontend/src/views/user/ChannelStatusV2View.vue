@@ -137,6 +137,7 @@
             v-for="row in overviewRows"
             :key="`${row.platform}:${row.group_id || row.group_name}`"
             :row="row"
+            :coverage="overviewMatrix!.coverage"
             :rate="rateForRow(row)"
             :interactive="showDetailedAnalysis"
             @select="openGroupDetails(row)"
@@ -261,9 +262,9 @@
         :aria-label="t('channelMonitorV2.summaryAria')"
       >
         <MetricCell
-          :label="t('channelMonitorV2.metrics.successRate')"
-          :value="formatPercent(1 - snapshot.metrics.error_rate)"
-          :detail="t('channelMonitorV2.metrics.errorRateValue', { value: formatPercent(snapshot.metrics.error_rate) })"
+          :label="t('channelMonitorV2.metrics.windowSuccessRate')"
+          :value="displaySuccessRate(snapshot.metrics)"
+          :detail="healthSuccessDetail(snapshot.metrics)"
           :state="snapshot.health.error_rate"
         />
         <MetricCell
@@ -281,7 +282,7 @@
           :title="exactTps(snapshot.metrics.tpm)"
         />
         <MetricCell
-          :label="t('channelMonitorV2.metrics.cacheRate')"
+          :label="t('channelMonitorV2.metrics.windowCacheRate')"
           :value="formatPercent(snapshot.metrics.cache_rate)"
           :detail="t('channelMonitorV2.metrics.cacheDetail')"
           :state="snapshot.health.cache || snapshot.health.overall"
@@ -378,8 +379,8 @@
                     </div>
                   </td>
                   <td>
-                    <span class="block">{{ formatPercent(1 - row.metrics.error_rate) }}</span>
-                    <small class="text-xs text-gray-400">{{ t('channelMonitorV2.metrics.errorRateValue', { value: formatPercent(row.metrics.error_rate) }) }}</small>
+                    <span class="block">{{ displaySuccessRate(row.metrics) }}</span>
+                    <small class="text-xs text-gray-400">{{ healthSuccessDetail(row.metrics) }}</small>
                   </td>
                   <td>
                     <span class="block">{{ formatMs(row.metrics.ttft.p50_ms) }}</span>
@@ -479,8 +480,8 @@
                     </strong>
                   </td>
                   <td>
-                    <span class="block">{{ formatPercent(1 - row.metrics.error_rate) }}</span>
-                    <small class="text-xs text-gray-400">{{ t('channelMonitorV2.metrics.errorRateValue', { value: formatPercent(row.metrics.error_rate) }) }}</small>
+                    <span class="block">{{ displaySuccessRate(row.metrics) }}</span>
+                    <small class="text-xs text-gray-400">{{ healthSuccessDetail(row.metrics) }}</small>
                   </td>
                   <td>
                     <span class="block">{{ formatMs(row.metrics.ttft.p50_ms) }}</span>
@@ -551,6 +552,7 @@ import type {
   MonitorMatrixGroupBy,
   MonitorMatrixRow,
   MonitorMatrixResponse,
+  MonitorMetric,
   MonitorModelRow,
   MonitorRange,
   MonitorSnapshot,
@@ -566,6 +568,9 @@ import {
   tokensPerSecondFromTpm,
   healthScoreClass,
   monitorErrorCategoryLabel,
+  monitorMetricHasTraffic,
+  monitorMetricHealthSuccessRate,
+  monitorMetricSuccessRate,
 } from '@/features/channel-monitor-v2/monitorFormat'
 
 type Tab = 'models' | 'errors' | 'users'
@@ -655,8 +660,9 @@ const overviewRows = computed(() =>
 const overviewCounts = computed(() => {
   const counts = { total: overviewRows.value.length, healthy: 0, attention: 0, unknown: 0 }
   for (const row of overviewRows.value) {
-    if (!row.metrics.request_count || row.health.overall === 'unknown') counts.unknown += 1
-    else if (row.health.overall === 'healthy') counts.healthy += 1
+    const state = row.health.overall
+    if (state === 'unknown') counts.unknown += 1
+    else if (state === 'healthy') counts.healthy += 1
     else counts.attention += 1
   }
   return counts
@@ -994,6 +1000,23 @@ function exactTps(tpm: number | null | undefined) {
 }
 function formatPercent(value: number) {
   return formatMonitorPercent(value)
+}
+function displaySuccessRate(metrics: MonitorMetric) {
+  if (!monitorMetricHasTraffic(metrics)) return '-'
+  return formatMonitorPercent(monitorMetricSuccessRate(metrics))
+}
+function healthSuccessDetail(metrics: MonitorMetric) {
+  if (!monitorMetricHasTraffic(metrics)) return '-'
+  const actual = monitorMetricSuccessRate(metrics)
+  const health = monitorMetricHealthSuccessRate(metrics)
+  if (Math.abs(actual - health) < 0.0005) {
+    return t('channelMonitorV2.metrics.errorRateValue', {
+      value: formatMonitorPercent(metrics.error_rate),
+    })
+  }
+  return t('channelMonitorV2.metrics.healthSuccessRateValue', {
+    value: formatMonitorPercent(health),
+  })
 }
 function formatMs(value: number | null) {
   return formatMonitorMs(value)

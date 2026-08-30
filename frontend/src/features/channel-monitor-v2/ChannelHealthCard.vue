@@ -47,7 +47,7 @@
     <div class="mt-5 grid grid-cols-3 divide-x divide-gray-100 dark:divide-dark-700">
       <div class="min-w-0 pr-3">
         <p class="truncate text-[11px] font-medium text-gray-400 dark:text-gray-500">
-          {{ t('channelMonitorV2.metrics.successRate') }}
+          {{ t('channelMonitorV2.metrics.windowSuccessRate') }}
         </p>
         <p class="mt-1 text-base font-black tabular-nums text-gray-900 dark:text-white">
           {{ successRate }}
@@ -55,7 +55,7 @@
       </div>
       <div class="min-w-0 px-3">
         <p class="truncate text-[11px] font-medium text-gray-400 dark:text-gray-500">
-          {{ t('channelMonitorV2.metrics.cacheRate') }}
+          {{ t('channelMonitorV2.metrics.windowCacheRate') }}
         </p>
         <p class="mt-1 text-base font-black tabular-nums text-gray-900 dark:text-white">
           {{ cacheRate }}
@@ -82,7 +82,7 @@
           <Icon name="chevronRight" size="xs" />
         </span>
       </div>
-      <ChannelHealthTimeline :buckets="row.buckets" />
+      <ChannelHealthTimeline :buckets="row.buckets" :coverage="coverage" />
     </div>
   </component>
 </template>
@@ -93,12 +93,18 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import ProviderIcon from '@/components/user/monitor/ProviderIcon.vue'
 import { providerGradient, useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
-import type { MonitorMatrixRow } from '@/api/channelMonitorV2'
-import { formatMonitorMs, formatMonitorPercent } from './monitorFormat'
+import type { MonitorCoverage, MonitorMatrixRow } from '@/api/channelMonitorV2'
+import {
+  formatMonitorMs,
+  formatMonitorPercent,
+  monitorMetricHasTraffic,
+  monitorMetricSuccessRate,
+} from './monitorFormat'
 import ChannelHealthTimeline from './ChannelHealthTimeline.vue'
 
 const props = withDefaults(defineProps<{
   row: MonitorMatrixRow
+  coverage: MonitorCoverage
   rate?: number | null
   interactive?: boolean
 }>(), {
@@ -113,17 +119,21 @@ const { t } = useI18n()
 const { providerBadgeClass, providerLabel } = useChannelMonitorFormat()
 
 const displayName = computed(() => props.row.group_name || `#${props.row.group_id || '-'}`)
-const hasTraffic = computed(() => props.row.metrics.request_count > 0)
-const state = computed(() => (hasTraffic.value ? props.row.health.overall : 'unknown'))
+const state = computed(() => props.row.health.overall)
+const hasTraffic = computed(() => monitorMetricHasTraffic(props.row.metrics))
 const successRate = computed(() =>
-  hasTraffic.value ? formatMonitorPercent(1 - props.row.metrics.error_rate) : '-',
+  hasTraffic.value ? formatMonitorPercent(monitorMetricSuccessRate(props.row.metrics)) : '-',
 )
 const cacheRate = computed(() =>
   hasTraffic.value ? formatMonitorPercent(props.row.metrics.cache_rate) : '-',
 )
 const ttft = computed(() => formatMonitorMs(props.row.metrics.ttft.p50_ms))
 
-const statusLabel = computed(() => t(`channelMonitorV2.overview.status.${state.value}`))
+const statusKey = computed(() => {
+  if (!hasTraffic.value) return 'unknown'
+  return state.value === 'unknown' ? 'insufficient' : state.value
+})
+const statusLabel = computed(() => t(`channelMonitorV2.overview.status.${statusKey.value}`))
 const statusTone = computed(() => {
   if (state.value === 'healthy') {
     return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
@@ -133,6 +143,9 @@ const statusTone = computed(() => {
   }
   if (state.value === 'critical') {
     return 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300'
+  }
+  if (hasTraffic.value) {
+    return 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
   }
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
 })

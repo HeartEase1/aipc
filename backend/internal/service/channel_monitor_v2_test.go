@@ -263,10 +263,48 @@ func TestChannelMonitorV2DefaultHealthThresholdsAreTolerant(t *testing.T) {
 	})
 	require.Equal(t, "healthy", health.ErrorRate)
 	require.Equal(t, "healthy", health.TTFT)
-	require.Equal(t, "healthy", health.Cache)
+	require.Equal(t, "unknown", health.Cache)
 	require.Equal(t, "healthy", health.Overall)
-	require.NotNil(t, health.CacheScore)
-	require.InDelta(t, 100.0, *health.CacheScore, 0.01)
+	require.Nil(t, health.CacheScore)
+}
+
+func TestChannelMonitorV2DisabledCacheScoringCannotPromoteLowTraffic(t *testing.T) {
+	health := ChannelMonitorV2HealthFor(ChannelMonitorV2Metric{
+		RequestCount:         1,
+		CacheRate:            1,
+		CacheRateDenominator: 10000,
+	})
+
+	require.Equal(t, "unknown", health.Cache)
+	require.Equal(t, "unknown", health.Overall)
+	require.Nil(t, health.CacheScore)
+	require.Nil(t, health.Score)
+}
+
+func TestChannelMonitorV2ConfiguredCacheScoringRequiresMinimumRequests(t *testing.T) {
+	thresholds := DefaultChannelMonitorV2HealthThresholds()
+	thresholds.WarningCacheRate = 0.20
+	thresholds.CriticalCacheRate = 0.05
+
+	lowTraffic := ChannelMonitorV2HealthForWithThresholds(ChannelMonitorV2Metric{
+		RequestCount:         1,
+		CacheRate:            1,
+		CacheRateDenominator: 10000,
+	}, thresholds)
+	require.Equal(t, "unknown", lowTraffic.Cache)
+	require.Equal(t, "unknown", lowTraffic.Overall)
+	require.Nil(t, lowTraffic.CacheScore)
+
+	enoughTraffic := ChannelMonitorV2HealthForWithThresholds(ChannelMonitorV2Metric{
+		RequestCount:         thresholds.MinimumSample,
+		CacheRate:            0.50,
+		CacheRateDenominator: 10000,
+	}, thresholds)
+	require.Equal(t, "healthy", enoughTraffic.Cache)
+	require.NotNil(t, enoughTraffic.CacheScore)
+	require.InDelta(t, 50.0, *enoughTraffic.CacheScore, 0.01)
+	require.NotNil(t, enoughTraffic.Score)
+	require.InDelta(t, 87.5, *enoughTraffic.Score, 0.01)
 }
 
 func TestErrorRateTTFTAndCacheScoreHelpers(t *testing.T) {
@@ -429,6 +467,7 @@ func TestRedactChannelMonitorV2MetricKeepsRates(t *testing.T) {
 	p50 := int64(100)
 	m := ChannelMonitorV2Metric{
 		SuccessRequests: 90, ErrorRequests: 10, RequestCount: 100,
+		HasTraffic:  true,
 		InputTokens: 1, OutputTokens: 2, CacheCreationTokens: 3, CacheReadTokens: 4,
 		TokenCount: 10, RPM: 12, TPM: 34, ErrorRate: 0.1, SuccessRate: 0.9,
 		CacheRate: 0.5, CacheRateNumerator: 4, CacheRateDenominator: 8,
@@ -438,6 +477,7 @@ func TestRedactChannelMonitorV2MetricKeepsRates(t *testing.T) {
 	m.UpstreamAffectedRequests = &upstream
 	redactChannelMonitorV2Metric(&m, false)
 	require.Zero(t, m.RequestCount)
+	require.True(t, m.HasTraffic)
 	require.Zero(t, m.ErrorRequests)
 	require.Zero(t, m.TokenCount)
 	require.Zero(t, m.CacheRateNumerator)

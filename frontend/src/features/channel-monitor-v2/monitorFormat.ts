@@ -6,7 +6,7 @@
  * request/error/token counts in user-facing surfaces.
  */
 
-import type { HealthScoreBand, MonitorHealth } from '@/api/channelMonitorV2'
+import type { HealthScoreBand, MonitorHealth, MonitorMetric } from '@/api/channelMonitorV2'
 import { formatCompactNumber } from '@/utils/format'
 
 export function monitorIntlLocale(): string {
@@ -75,6 +75,35 @@ export function formatMonitorSuccessRate(successRequests: number, requestCount: 
 
 export function formatMonitorSuccessRateFromError(errorRate: number): string {
   return formatMonitorPercent(1 - (errorRate || 0))
+}
+
+/** Preserve the backend's real success/request rate; older payloads fall back safely. */
+export function monitorMetricSuccessRate(metrics: MonitorMetric): number {
+  const value = Number(metrics.success_rate)
+  const fallback = 1 - (Number(metrics.error_rate) || 0)
+  return Math.max(0, Math.min(1, Number.isFinite(value) ? value : fallback))
+}
+
+/** Effective rate used by health scoring after configured non-channel errors are ignored. */
+export function monitorMetricHealthSuccessRate(metrics: MonitorMetric): number {
+  return Math.max(0, Math.min(1, 1 - (Number(metrics.error_rate) || 0)))
+}
+
+/**
+ * Volume-safe presence check. New servers expose has_traffic because public
+ * responses redact request counts; the remaining signals keep rolling deploys
+ * compatible with older payloads.
+ */
+export function monitorMetricHasTraffic(metrics: MonitorMetric): boolean {
+  if (typeof metrics.has_traffic === 'boolean') return metrics.has_traffic
+  return (
+    metrics.request_count > 0 ||
+    (metrics.rpm || 0) > 0 ||
+    (metrics.tpm || 0) > 0 ||
+    metrics.cache_rate_denominator > 0 ||
+    metrics.ttft.p50_ms != null ||
+    metrics.duration.p50_ms != null
+  )
 }
 
 /**
