@@ -1,53 +1,57 @@
 <template>
   <AppLayout>
     <div class="space-y-6 pb-12">
-      <section class="card overflow-hidden !rounded-2xl !border-0 p-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
-        <header class="page-header mb-0 flex flex-col gap-5 px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <div class="min-w-0">
-            <h1 class="page-title flex items-center gap-2.5 text-xl font-black text-gray-900 dark:text-white">
-              <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400">
-                <Icon name="chart" size="sm" />
-              </span>
-              {{ t('channelMonitorV2.title') }}
-            </h1>
-            <p class="page-description mt-2 text-sm text-gray-500 dark:text-gray-400">
-              {{ t('channelMonitorV2.overview.description') }}
-            </p>
-            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-              <span
-                class="h-2 w-2 shrink-0 rounded-full"
-                :class="loading || refreshing ? 'bg-gray-400' : 'bg-emerald-500'"
-                aria-hidden="true"
-              />
-              <span v-if="refreshing" class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-300">
-                <LoadingSpinner size="sm" />
-                {{ t('channelMonitorV2.updating') }}
-              </span>
-              <span v-else-if="snapshot?.coverage.data_through">
-                {{ t('channelMonitorV2.updatedTo', { time: formatTime(snapshot.coverage.data_through) }) }}
-              </span>
-              <span v-else>{{ t('common.loading') }}</span>
-              <span v-if="snapshot && !snapshot.coverage.coverage_complete && !bootstrapActive" class="badge badge-warning">
-                {{ t('channelMonitorV2.partialCoverage') }}
-              </span>
+      <section class="monitor-hero">
+        <header class="page-header monitor-hero__header mb-0">
+          <div class="flex min-w-0 items-start gap-3.5">
+            <span class="monitor-hero__icon">
+              <Icon name="chart" size="sm" />
+            </span>
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                <h1 class="page-title text-lg font-black text-gray-900 dark:text-white">
+                  {{ t('channelMonitorV2.title') }}
+                </h1>
+                <span class="monitor-hero__live">
+                  <i
+                    class="h-1.5 w-1.5 shrink-0 rounded-full"
+                    :class="loading || refreshing ? 'bg-gray-400' : 'bg-emerald-500'"
+                    aria-hidden="true"
+                  />
+                  <span v-if="refreshing" class="inline-flex items-center gap-1 text-primary-600 dark:text-primary-300">
+                    <LoadingSpinner size="sm" />
+                    {{ t('channelMonitorV2.updating') }}
+                  </span>
+                  <span v-else-if="snapshot?.coverage.data_through">
+                    {{ t('channelMonitorV2.updatedTo', { time: formatTime(snapshot.coverage.data_through) }) }}
+                  </span>
+                  <span v-else>{{ t('common.loading') }}</span>
+                </span>
+                <span v-if="snapshot && !snapshot.coverage.coverage_complete && !bootstrapActive" class="badge badge-warning">
+                  {{ t('channelMonitorV2.partialCoverage') }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {{ t('channelMonitorV2.overview.description') }}
+              </p>
             </div>
           </div>
 
-          <div class="flex max-w-full items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-            <div class="tabs inline-flex shrink-0" role="group" :aria-label="t('channelMonitorV2.timeRange')">
+          <div class="monitor-hero__controls">
+            <div class="monitor-hero__range" role="group" :aria-label="t('channelMonitorV2.timeRange')">
               <button
                 v-for="option in ranges"
                 :key="option.value"
                 type="button"
-                class="tab !px-2.5 !py-1.5 text-xs"
-                :class="filter.range === option.value ? 'tab-active' : ''"
+                class="tab monitor-hero__range-button"
+                :class="filter.range === option.value ? 'tab-active is-active' : ''"
                 @click="setRange(option.value)"
               >
                 {{ option.label }}
               </button>
             </div>
             <button
-              class="btn btn-secondary btn-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              class="btn btn-secondary monitor-hero__refresh"
               type="button"
               :title="t('common.refresh')"
               :disabled="loading"
@@ -93,31 +97,33 @@
           </div>
         </div>
 
-        <div v-if="snapshot" class="grid grid-cols-2 border-t border-gray-100 dark:border-dark-700 sm:grid-cols-4">
-          <div class="px-5 py-3.5 sm:px-6">
-            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.totalGroups') }}</p>
-            <p class="mt-0.5 text-lg font-black tabular-nums text-gray-900 dark:text-white">{{ overviewCounts.total }}</p>
+        <dl v-if="snapshot" class="monitor-summary">
+          <div class="monitor-summary__item monitor-summary__item--total">
+            <dt><i />{{ t('channelMonitorV2.overview.totalGroups') }}</dt>
+            <dd>{{ overviewCounts.total }}</dd>
           </div>
-          <div class="border-l border-gray-100 px-5 py-3.5 dark:border-dark-700 sm:px-6">
-            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.healthyGroups') }}</p>
-            <p class="mt-0.5 text-lg font-black tabular-nums text-emerald-600 dark:text-emerald-400">{{ overviewCounts.healthy }}</p>
+          <div class="monitor-summary__item monitor-summary__item--healthy">
+            <dt><i />{{ t('channelMonitorV2.overview.healthyGroups') }}</dt>
+            <dd>{{ overviewCounts.healthy }}</dd>
           </div>
-          <div class="border-t border-gray-100 px-5 py-3.5 dark:border-dark-700 sm:border-l sm:border-t-0 sm:px-6">
-            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.attentionGroups') }}</p>
-            <p class="mt-0.5 text-lg font-black tabular-nums text-amber-600 dark:text-amber-400">{{ overviewCounts.attention }}</p>
+          <div class="monitor-summary__item monitor-summary__item--attention">
+            <dt><i />{{ t('channelMonitorV2.overview.attentionGroups') }}</dt>
+            <dd>{{ overviewCounts.attention }}</dd>
           </div>
-          <div class="border-l border-t border-gray-100 px-5 py-3.5 dark:border-dark-700 sm:border-t-0 sm:px-6">
-            <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500">{{ t('channelMonitorV2.overview.noDataGroups') }}</p>
-            <p class="mt-0.5 text-lg font-black tabular-nums text-gray-500 dark:text-gray-400">{{ overviewCounts.unknown }}</p>
+          <div class="monitor-summary__item monitor-summary__item--unknown">
+            <dt><i />{{ t('channelMonitorV2.overview.noDataGroups') }}</dt>
+            <dd>{{ overviewCounts.unknown }}</dd>
           </div>
-        </div>
+        </dl>
       </section>
 
       <section :aria-label="t('channelMonitorV2.overview.title')">
         <div class="mb-3 flex flex-wrap items-end justify-between gap-3 px-1">
           <div>
             <h2 class="text-base font-black text-gray-900 dark:text-white">{{ t('channelMonitorV2.overview.title') }}</h2>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('channelMonitorV2.overview.hint') }}</p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t(showDetailedAnalysis ? 'channelMonitorV2.overview.hint' : 'channelMonitorV2.overview.summaryHint') }}
+            </p>
           </div>
           <div class="flex items-center gap-3 text-[11px] text-gray-400 dark:text-gray-500" :aria-label="t('channelMonitorV2.overview.legend')">
             <span class="inline-flex items-center gap-1.5"><i class="h-1.5 w-1.5 rounded-full bg-emerald-500" />{{ t('channelMonitorV2.overview.status.healthy') }}</span>
@@ -132,6 +138,7 @@
             :key="`${row.platform}:${row.group_id || row.group_name}`"
             :row="row"
             :rate="rateForRow(row)"
+            :interactive="showDetailedAnalysis"
             @select="openGroupDetails(row)"
           />
         </div>
@@ -144,7 +151,7 @@
         </div>
       </section>
 
-      <section ref="advancedSection" class="card overflow-hidden !rounded-2xl !border-0 p-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
+      <section v-if="showDetailedAnalysis" ref="advancedSection" class="card overflow-hidden !rounded-2xl !border-0 p-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
         <button
           type="button"
           class="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-dark-700/40 sm:px-6"
@@ -530,7 +537,10 @@ import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { userGroupsAPI } from '@/api/groups'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import { isChannelMonitorThroughputHidden } from '@/utils/featureFlags'
+import {
+  isChannelMonitorThroughputHidden,
+  isChannelMonitorV2DetailedAnalysisEnabled,
+} from '@/utils/featureFlags'
 import * as api from '@/api/channelMonitorV2'
 import type {
   HealthState,
@@ -568,6 +578,7 @@ const authStore = useAuthStore()
 const appStore = useAppStore()
 const { t, te, locale } = useI18n()
 const isAdmin = computed(() => authStore.isAdmin)
+const showDetailedAnalysis = computed(() => isChannelMonitorV2DetailedAnalysisEnabled())
 /** Admins always see RPM/TPM; users honor the hide-throughput system setting. */
 const showThroughput = computed(() => isAdmin.value || !isChannelMonitorThroughputHidden())
 
@@ -597,17 +608,21 @@ const healthModeOptions = computed(() => [
 
 const filter = ref<MonitorFilter>({
   range: parseRange(route.query.range),
-  platforms: csv(route.query.platform),
-  groupIds: csv(route.query.group).map(Number).filter(Boolean),
-  models: csv(route.query.model),
+  platforms: showDetailedAnalysis.value ? csv(route.query.platform) : [],
+  groupIds: showDetailedAnalysis.value ? csv(route.query.group).map(Number).filter(Boolean) : [],
+  models: showDetailedAnalysis.value ? csv(route.query.model) : [],
 })
 const activeTab = ref<Tab>(
   (['models', 'errors', 'users'].includes(String(route.query.tab)) ? route.query.tab : 'models') as Tab
 )
-const matrixGroupBy = ref<MonitorMatrixGroupBy>(parseMatrixGroupBy(route.query.group_by))
+const matrixGroupBy = ref<MonitorMatrixGroupBy>(
+  showDetailedAnalysis.value ? parseMatrixGroupBy(route.query.group_by) : 'platform_group',
+)
 const healthMode = ref<HealthMode>(parseHealthMode(route.query.health_mode))
 const trendView = ref<TrendView>(parseTrendView(route.query.trend_view))
-const advancedOpen = ref(route.query.details === '1' || hasQueryDimensions(route.query))
+const advancedOpen = ref(
+  showDetailedAnalysis.value && (route.query.details === '1' || hasQueryDimensions(route.query)),
+)
 const advancedSection = ref<HTMLElement | null>(null)
 const dimensions = ref<MonitorDimensions>({ platforms: [], groups: [], models: [] })
 const snapshot = ref<MonitorSnapshot | null>(null)
@@ -773,7 +788,7 @@ function syncQuery() {
       health_mode: healthMode.value,
       trend_view: trendView.value === 'line' ? 'line' : undefined,
       tab: activeTab.value,
-      details: advancedOpen.value ? '1' : undefined,
+      details: showDetailedAnalysis.value && advancedOpen.value ? '1' : undefined,
     },
   })
 }
@@ -813,7 +828,7 @@ async function loadMetrics(signal?: AbortSignal, id = sequence, refreshOverview 
   matrix.value = nextMatrix
   overviewMatrix.value = canReuseMatrix ? nextMatrix : nextOverviewMatrix
   scheduleAutoRefresh()
-  await loadTab(signal, id)
+  if (showDetailedAnalysis.value) await loadTab(signal, id)
 }
 
 async function reload(silent = true) {
@@ -865,6 +880,7 @@ async function reloadMetricsOnly(silent = true) {
   }
 }
 async function loadTab(signal?: AbortSignal, id = sequence) {
+  if (!showDetailedAnalysis.value) return
   tabLoading.value = true
   try {
     if (activeTab.value === 'models') {
@@ -900,6 +916,7 @@ function rateForRow(row: MonitorMatrixRow) {
   return Number.isFinite(rate) ? rate : null
 }
 function openGroupDetails(row: MonitorMatrixRow) {
+  if (!showDetailedAnalysis.value) return
   filter.value = {
     ...filter.value,
     platforms: [row.platform],
@@ -1049,7 +1066,7 @@ watch(trendView, syncQuery)
 watch(advancedOpen, syncQuery)
 watch(activeTab, () => {
   syncQuery()
-  void loadTab()
+  if (showDetailedAnalysis.value) void loadTab()
 })
 onMounted(() => {
   void reload(false)
@@ -1063,6 +1080,240 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.monitor-hero {
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240 / 0.92);
+  border-radius: 1.125rem;
+  background: rgb(255 255 255 / 0.92);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.03),
+    0 12px 30px rgb(15 23 42 / 0.07);
+}
+
+.monitor-hero__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem 0.875rem;
+}
+
+.monitor-hero__icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(191 219 254 / 0.75);
+  border-radius: 0.75rem;
+  background: rgb(239 246 255 / 0.95);
+  color: rgb(37 99 235);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+.monitor-hero__live {
+  display: inline-flex;
+  min-height: 1.5rem;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  background: rgb(248 250 252 / 0.95);
+  padding: 0.2rem 0.55rem;
+  color: rgb(100 116 139);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.monitor-hero__controls {
+  display: flex;
+  max-width: 100%;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.monitor-hero__range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(248 250 252);
+  padding: 0.1875rem;
+}
+
+.monitor-hero__range-button {
+  min-width: 2.65rem;
+  border-radius: 0.55rem;
+  padding: 0.35rem 0.6rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 650;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.monitor-hero__range-button:hover {
+  color: rgb(30 64 175);
+}
+
+.monitor-hero__range-button.is-active {
+  background: white;
+  color: rgb(37 99 235);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.12), inset 0 0 0 1px rgb(191 219 254 / 0.72);
+}
+
+.monitor-hero__refresh {
+  display: inline-flex;
+  width: 2.125rem;
+  height: 2.125rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.7rem;
+  background: white;
+  padding: 0;
+  color: rgb(100 116 139);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.monitor-hero__refresh:hover:not(:disabled) {
+  border-color: rgb(147 197 253);
+  color: rgb(37 99 235);
+  transform: translateY(-1px);
+}
+
+.monitor-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  border-top: 1px solid rgb(241 245 249);
+  background: rgb(248 250 252 / 0.72);
+  padding: 0.625rem 1.125rem;
+}
+
+.monitor-summary__item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 0.65rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.monitor-summary__item dt {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgb(100 116 139);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.monitor-summary__item dt i {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: none;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgb(148 163 184 / 0.12);
+}
+
+.monitor-summary__item dd {
+  flex: none;
+  color: rgb(15 23 42);
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.monitor-summary__item--total dt { color: rgb(59 130 246); }
+.monitor-summary__item--healthy dt,
+.monitor-summary__item--healthy dd { color: rgb(5 150 105); }
+.monitor-summary__item--attention dt,
+.monitor-summary__item--attention dd { color: rgb(217 119 6); }
+.monitor-summary__item--unknown dt { color: rgb(148 163 184); }
+.monitor-summary__item--unknown dd { color: rgb(100 116 139); }
+
+:global(.dark) .monitor-hero {
+  border-color: rgb(51 65 85 / 0.9);
+  background: rgb(30 41 59 / 0.94);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.22);
+}
+
+:global(.dark) .monitor-hero__icon {
+  border-color: rgb(30 64 175 / 0.65);
+  background: rgb(30 58 138 / 0.32);
+  color: rgb(147 197 253);
+  box-shadow: none;
+}
+
+:global(.dark) .monitor-hero__live,
+:global(.dark) .monitor-hero__range,
+:global(.dark) .monitor-summary {
+  border-color: rgb(51 65 85);
+  background: rgb(15 23 42 / 0.42);
+}
+
+:global(.dark) .monitor-hero__range-button { color: rgb(148 163 184); }
+:global(.dark) .monitor-hero__range-button:hover { color: rgb(191 219 254); }
+:global(.dark) .monitor-hero__range-button.is-active {
+  background: rgb(51 65 85);
+  color: rgb(147 197 253);
+  box-shadow: inset 0 0 0 1px rgb(59 130 246 / 0.35);
+}
+
+:global(.dark) .monitor-hero__refresh {
+  border-color: rgb(51 65 85);
+  background: rgb(30 41 59);
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .monitor-summary__item dd { color: rgb(241 245 249); }
+:global(.dark) .monitor-summary__item--healthy dd { color: rgb(52 211 153); }
+:global(.dark) .monitor-summary__item--attention dd { color: rgb(251 191 36); }
+:global(.dark) .monitor-summary__item--unknown dd { color: rgb(148 163 184); }
+
+@media (max-width: 767px) {
+  .monitor-hero__header {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 0.875rem 0.875rem 0.75rem;
+  }
+
+  .monitor-hero__controls {
+    overflow-x: auto;
+  }
+
+  .monitor-hero__range {
+    flex: 1;
+  }
+
+  .monitor-hero__range-button {
+    flex: 1;
+  }
+
+  .monitor-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.5rem 0.75rem;
+  }
+
+  .monitor-summary__item {
+    padding-inline: 0.4rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monitor-hero__range-button,
+  .monitor-hero__refresh {
+    transition: none;
+  }
+}
+
 .status-dot {
   display: inline-block;
   height: 0.5rem;

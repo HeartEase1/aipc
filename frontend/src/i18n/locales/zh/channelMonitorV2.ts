@@ -6,6 +6,7 @@ export default {
       description: '快速查看各渠道分组的可用性、响应表现与近期状态。',
       title: '渠道状态',
       hint: '点击任意分组可查看对应模型、趋势和错误明细',
+      summaryHint: '展示各渠道分组当前状态与最近 24 个统计区间',
       legend: '健康状态图例',
       totalGroups: '监控分组',
       healthyGroups: '运行良好',

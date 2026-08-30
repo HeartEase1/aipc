@@ -480,6 +480,12 @@ const (
 	// Default false (show rates). Admin endpoints always keep full metrics.
 	SettingKeyChannelMonitorHideThroughput = "channel_monitor_hide_throughput"
 
+	// SettingKeyChannelMonitorV2DetailedAnalysisEnabled controls whether the
+	// user-facing V2 page exposes the matrix, trend, model, error, and user
+	// analysis section. Default false keeps the public page concise and avoids
+	// issuing the additional analysis requests unless an administrator opts in.
+	SettingKeyChannelMonitorV2DetailedAnalysisEnabled = "channel_monitor_v2_detailed_analysis_enabled"
+
 	// SettingKeyChannelMonitorShowQuota controls whether quota/balance snapshots
 	// attached to channel monitors (check_mode=quota/quota_probe) are exposed on
 	// the user-facing monitor APIs and UI. Default false (hidden); parsed

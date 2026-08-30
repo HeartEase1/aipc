@@ -6,6 +6,7 @@ export default {
       description: 'See channel-group availability, response performance, and recent health at a glance.',
       title: 'Channel status',
       hint: 'Select a group to inspect its models, trends, and error details',
+      summaryHint: 'Current status and the latest 24 reporting intervals for each channel group',
       legend: 'Health status legend',
       totalGroups: 'Monitored groups',
       healthyGroups: 'Operational',

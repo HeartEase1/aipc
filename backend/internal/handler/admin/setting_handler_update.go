@@ -329,11 +329,12 @@ type UpdateSettingsRequest struct {
 	PaymentAlipayMobilePrecreateDeepLink *bool `json:"payment_alipay_mobile_precreate_deep_link"`
 
 	// Channel Monitor feature switch
-	ChannelMonitorEnabled                *bool   `json:"channel_monitor_enabled"`
-	ChannelMonitorMode                   *string `json:"channel_monitor_mode"`
-	ChannelMonitorDefaultIntervalSeconds *int    `json:"channel_monitor_default_interval_seconds"`
-	ChannelMonitorHideThroughput         *bool   `json:"channel_monitor_hide_throughput"`
-	ChannelMonitorShowQuota              *bool   `json:"channel_monitor_show_quota"`
+	ChannelMonitorEnabled                   *bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorMode                      *string `json:"channel_monitor_mode"`
+	ChannelMonitorDefaultIntervalSeconds    *int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorHideThroughput            *bool   `json:"channel_monitor_hide_throughput"`
+	ChannelMonitorV2DetailedAnalysisEnabled *bool   `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	ChannelMonitorShowQuota                 *bool   `json:"channel_monitor_show_quota"`
 
 	// Grok model mapping policy
 	GrokDefaultTextModel           *string `json:"grok_default_text_model"`
@@ -1908,6 +1909,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.ChannelMonitorHideThroughput
 		}(),
+		ChannelMonitorV2DetailedAnalysisEnabled: func() bool {
+			if req.ChannelMonitorV2DetailedAnalysisEnabled != nil {
+				return *req.ChannelMonitorV2DetailedAnalysisEnabled
+			}
+			return previousSettings.ChannelMonitorV2DetailedAnalysisEnabled
+		}(),
 		ChannelMonitorShowQuota: func() bool {
 			if req.ChannelMonitorShowQuota != nil {
 				return *req.ChannelMonitorShowQuota
@@ -2370,11 +2377,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PaymentAlipayForceQRCode:                               updatedPaymentCfg.AlipayForceQRCode,
 		PaymentAlipayMobilePrecreateDeepLink:                   updatedPaymentCfg.AlipayMobilePrecreateDeepLink,
 
-		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
-		ChannelMonitorMode:                   updatedSettings.ChannelMonitorMode,
-		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
-		ChannelMonitorHideThroughput:         updatedSettings.ChannelMonitorHideThroughput,
-		ChannelMonitorShowQuota:              updatedSettings.ChannelMonitorShowQuota,
+		ChannelMonitorEnabled:                   updatedSettings.ChannelMonitorEnabled,
+		ChannelMonitorMode:                      updatedSettings.ChannelMonitorMode,
+		ChannelMonitorDefaultIntervalSeconds:    updatedSettings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorHideThroughput:            updatedSettings.ChannelMonitorHideThroughput,
+		ChannelMonitorV2DetailedAnalysisEnabled: updatedSettings.ChannelMonitorV2DetailedAnalysisEnabled,
+		ChannelMonitorShowQuota:                 updatedSettings.ChannelMonitorShowQuota,
 
 		GrokDefaultTextModel:           updatedSettings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,

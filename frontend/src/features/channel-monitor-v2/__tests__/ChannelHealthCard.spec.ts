@@ -21,6 +21,7 @@ vi.mock('vue-i18n', async (importOriginal) => ({
       if (key === 'channelMonitorV2.overview.openDetailsFor') return `查看 ${params?.name} 的详细分析`
       if (key === 'channelMonitorV2.overview.noTrafficAt') return `${params?.time} · 暂无流量`
       if (key === 'channelMonitorV2.metrics.successRateValue') return `成功率 ${params?.value}`
+      if (key === 'channelMonitorV2.metrics.cacheRateValue') return `缓存率 ${params?.value}`
       if (key === 'channelMonitorV2.metrics.ttftValue') return `首 Token ${params?.value}`
       return labels[key] || key
     },
@@ -108,6 +109,24 @@ describe('ChannelHealthCard', () => {
     expect(wrapper.text()).toContain('暂无数据')
     expect(wrapper.text()).not.toContain('100.0%')
   })
+
+  it('renders as a non-interactive summary when detailed analysis is disabled', async () => {
+    const wrapper = mount(ChannelHealthCard, {
+      props: { row: row(), interactive: false },
+      global: {
+        stubs: {
+          ProviderIcon: true,
+          Icon: true,
+          ChannelHealthTimeline: true,
+        },
+      },
+    })
+
+    expect(wrapper.element.tagName).toBe('ARTICLE')
+    expect(wrapper.text()).not.toContain('查看详情')
+    await wrapper.trigger('click')
+    expect(wrapper.emitted('select')).toBeUndefined()
+  })
 })
 
 describe('ChannelHealthTimeline', () => {
@@ -122,5 +141,52 @@ describe('ChannelHealthTimeline', () => {
 
     expect(wrapper.findAll('.health-timeline__bar')).toHaveLength(24)
     expect(wrapper.find('.health-score9').exists()).toBe(true)
+  })
+
+  it('keeps sparse data in fixed-width 24-slot intervals', () => {
+    const base = row()
+    const buckets = Array.from({ length: 2 }, (_, index) => ({
+      bucket_start: new Date(Date.UTC(2026, 7, 30, 0, index)).toISOString(),
+      metrics: base.metrics,
+      health: base.health,
+    }))
+    const wrapper = mount(ChannelHealthTimeline, { props: { buckets } })
+
+    expect(wrapper.findAll('.health-timeline__bar')).toHaveLength(24)
+    expect(wrapper.findAll('.health-timeline__missing')).toHaveLength(22)
+  })
+
+  it('uses cache rate to encode bar height without random decoration', () => {
+    const base = row()
+    const buckets = [0.2, 0.9].map((cacheRate, index) => ({
+      bucket_start: new Date(Date.UTC(2026, 7, 30, 0, index)).toISOString(),
+      metrics: { ...base.metrics, cache_rate: cacheRate },
+      health: base.health,
+    }))
+    const wrapper = mount(ChannelHealthTimeline, { props: { buckets } })
+    const bars = wrapper.findAll('.health-timeline__bar').slice(-2)
+    const lowHeight = Number.parseFloat((bars[0].element as HTMLElement).style.height)
+    const highHeight = Number.parseFloat((bars[1].element as HTMLElement).style.height)
+
+    expect(lowHeight).toBeLessThan(highHeight)
+    expect(highHeight).toBeLessThanOrEqual(100)
+  })
+
+  it('keeps cache height when user payload redacts request count', () => {
+    const base = row()
+    const wrapper = mount(ChannelHealthTimeline, {
+      props: {
+        buckets: [{
+          bucket_start: new Date(Date.UTC(2026, 7, 30)).toISOString(),
+          metrics: { ...base.metrics, request_count: 0, cache_rate: 0.9 },
+          health: { ...base.health, overall: 'healthy' },
+        }],
+      },
+    })
+    const bar = wrapper.findAll('.health-timeline__bar').at(-1)
+
+    expect((bar?.element as HTMLElement).style.height).toBe('92%')
+    expect(bar?.attributes('title')).toContain('缓存率 90.0%')
+    expect(bar?.attributes('title')).not.toContain('暂无流量')
   })
 })

@@ -270,6 +270,8 @@ export interface PublicSettings {
   channel_monitor_default_interval_seconds: number
   /** When true, user monitor hides RPM/TPM so scale cannot be reverse-estimated. */
   channel_monitor_hide_throughput?: boolean
+  /** Whether Channel Monitor V2 exposes the optional detailed analysis section. */
+  channel_monitor_v2_detailed_analysis_enabled?: boolean
   /** When true, user monitor shows account quota/balance snapshots (default off). */
   channel_monitor_show_quota?: boolean
   available_channels_enabled: boolean

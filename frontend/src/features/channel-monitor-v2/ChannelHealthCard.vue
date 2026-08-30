@@ -1,9 +1,11 @@
 <template>
-  <button
-    type="button"
+  <component
+    :is="interactive ? 'button' : 'article'"
+    :type="interactive ? 'button' : undefined"
     class="channel-health-card group w-full text-left"
-    :aria-label="t('channelMonitorV2.overview.openDetailsFor', { name: displayName })"
-    @click="emit('select')"
+    :class="interactive ? 'channel-health-card--interactive' : ''"
+    :aria-label="interactive ? t('channelMonitorV2.overview.openDetailsFor', { name: displayName }) : undefined"
+    @click="interactive && emit('select')"
   >
     <div class="flex min-w-0 items-start gap-3">
       <span
@@ -72,14 +74,17 @@
     <div class="mt-5 border-t border-gray-100 pt-4 dark:border-dark-700/80">
       <div class="mb-2 flex items-center justify-between gap-3 text-[11px] font-medium text-gray-400 dark:text-gray-500">
         <span>{{ t('channelMonitorV2.overview.recentTrend') }}</span>
-        <span class="inline-flex items-center gap-1 text-gray-500 transition-colors group-hover:text-primary-600 dark:text-gray-400 dark:group-hover:text-primary-300">
+        <span
+          v-if="interactive"
+          class="inline-flex items-center gap-1 text-gray-500 transition-colors group-hover:text-primary-600 dark:text-gray-400 dark:group-hover:text-primary-300"
+        >
           {{ t('channelMonitorV2.overview.viewDetails') }}
           <Icon name="chevronRight" size="xs" />
         </span>
       </div>
       <ChannelHealthTimeline :buckets="row.buckets" />
     </div>
-  </button>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -92,10 +97,13 @@ import type { MonitorMatrixRow } from '@/api/channelMonitorV2'
 import { formatMonitorMs, formatMonitorPercent } from './monitorFormat'
 import ChannelHealthTimeline from './ChannelHealthTimeline.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   row: MonitorMatrixRow
   rate?: number | null
-}>()
+  interactive?: boolean
+}>(), {
+  interactive: true,
+})
 
 const emit = defineEmits<{
   (event: 'select'): void
@@ -173,18 +181,18 @@ function formatRate(value: number) {
   transition: opacity 180ms ease;
 }
 
-.channel-health-card:hover {
+.channel-health-card--interactive:hover {
   border-color: rgb(var(--color-primary-200) / 0.9);
   box-shadow: 0 16px 36px rgb(15 23 42 / 0.1);
   transform: translateY(-2px);
 }
 
-.channel-health-card:hover::before,
-.channel-health-card:focus-visible::before {
+.channel-health-card--interactive:hover::before,
+.channel-health-card--interactive:focus-visible::before {
   opacity: 1;
 }
 
-.channel-health-card:focus-visible {
+.channel-health-card--interactive:focus-visible {
   outline: 3px solid rgb(var(--color-primary-300) / 0.4);
   outline-offset: 2px;
 }
@@ -195,7 +203,7 @@ function formatRate(value: number) {
   box-shadow: 0 10px 28px rgb(0 0 0 / 0.18);
 }
 
-:global(.dark) .channel-health-card:hover {
+:global(.dark) .channel-health-card--interactive:hover {
   border-color: rgb(var(--color-primary-500) / 0.45);
   box-shadow: 0 16px 38px rgb(0 0 0 / 0.28);
 }
@@ -206,7 +214,7 @@ function formatRate(value: number) {
     transition: none;
   }
 
-  .channel-health-card:hover {
+  .channel-health-card--interactive:hover {
     transform: none;
   }
 }

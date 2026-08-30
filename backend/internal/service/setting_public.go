@@ -233,6 +233,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorMode,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
+		SettingKeyChannelMonitorV2DetailedAnalysisEnabled,
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyOnlinePlaygroundEnabled,
@@ -357,11 +358,12 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		BalanceLowNotifyThreshold:           balanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:         settings[SettingKeyBalanceLowNotifyRechargeURL],
 
-		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
-		ChannelMonitorMode:                   normalizeChannelMonitorMode(settings[SettingKeyChannelMonitorMode]),
-		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
-		ChannelMonitorHideThroughput:         !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
-		ChannelMonitorShowQuota:              settings[SettingKeyChannelMonitorShowQuota] == "true",
+		ChannelMonitorEnabled:                   !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
+		ChannelMonitorMode:                      normalizeChannelMonitorMode(settings[SettingKeyChannelMonitorMode]),
+		ChannelMonitorDefaultIntervalSeconds:    parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
+		ChannelMonitorHideThroughput:            !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
+		ChannelMonitorV2DetailedAnalysisEnabled: settings[SettingKeyChannelMonitorV2DetailedAnalysisEnabled] == "true",
+		ChannelMonitorShowQuota:                 settings[SettingKeyChannelMonitorShowQuota] == "true",
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
@@ -625,6 +627,9 @@ type PublicSettingsInjectionPayload struct {
 	// ChannelMonitorHideThroughput is public so the user UI can hide RPM/TPM
 	// without waiting for API redaction alone (defense in depth).
 	ChannelMonitorHideThroughput bool `json:"channel_monitor_hide_throughput"`
+	// ChannelMonitorV2DetailedAnalysisEnabled exposes the optional heavier
+	// analysis section. Missing/false remains disabled.
+	ChannelMonitorV2DetailedAnalysisEnabled bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
 	// ChannelMonitorShowQuota gates the user-facing quota/balance display on
 	// monitors; fail-closed (absent/false = hidden). Admin UI always shows it.
 	ChannelMonitorShowQuota    bool `json:"channel_monitor_show_quota"`
@@ -706,18 +711,19 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		BalanceLowNotifyThreshold:           settings.BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:         settings.BalanceLowNotifyRechargeURL,
 
-		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
-		ChannelMonitorMode:                   settings.ChannelMonitorMode,
-		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
-		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
-		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
-		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
-		OnlinePlaygroundEnabled:              settings.OnlinePlaygroundEnabled,
-		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
-		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
-		AffiliateEnabled:                     settings.AffiliateEnabled,
-		RiskControlEnabled:                   settings.RiskControlEnabled,
-		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,
+		ChannelMonitorEnabled:                   settings.ChannelMonitorEnabled,
+		ChannelMonitorMode:                      settings.ChannelMonitorMode,
+		ChannelMonitorDefaultIntervalSeconds:    settings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorHideThroughput:            settings.ChannelMonitorHideThroughput,
+		ChannelMonitorV2DetailedAnalysisEnabled: settings.ChannelMonitorV2DetailedAnalysisEnabled,
+		ChannelMonitorShowQuota:                 settings.ChannelMonitorShowQuota,
+		AvailableChannelsEnabled:                settings.AvailableChannelsEnabled,
+		OnlinePlaygroundEnabled:                 settings.OnlinePlaygroundEnabled,
+		ModelPlazaEnabled:                       settings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:                   settings.ModelPlazaRequireAuth,
+		AffiliateEnabled:                        settings.AffiliateEnabled,
+		RiskControlEnabled:                      settings.RiskControlEnabled,
+		AllowUserViewErrorRequests:              settings.AllowUserViewErrorRequests,
 	}, nil
 }
 

@@ -192,6 +192,12 @@ export function isChannelMonitorThroughputHidden(): boolean {
   return Boolean(appStore.cachedPublicSettings?.channel_monitor_hide_throughput)
 }
 
+/** Detailed V2 analysis is opt-in; missing/false keeps the concise status view. */
+export function isChannelMonitorV2DetailedAnalysisEnabled(): boolean {
+  const appStore = useAppStore()
+  return appStore.cachedPublicSettings?.channel_monitor_v2_detailed_analysis_enabled === true
+}
+
 /**
  * Show quota/balance snapshots on the user-facing monitor page
  * (channel_monitor_show_quota, default off). The backend strips

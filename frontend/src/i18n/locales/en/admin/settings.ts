@@ -31,6 +31,9 @@ export default {
           hideThroughput: 'Hide throughput rates from users (RPM / TPM)',
           hideThroughputHint:
             'When on, the user Channel Monitor page and user APIs omit RPM and TPM so fleet volume cannot be reverse-estimated from rates × window. Admins still see full metrics. Error rates, latency, and cache rates remain visible.',
+          detailedAnalysis: 'Show detailed analysis',
+          detailedAnalysisHint:
+            'When enabled, users can expand the matrix, trends, models, error reasons, and user ranking, which issues the corresponding queries. Disabled by default for a concise status-card view.',
           showQuota: 'Show channel usage/balance to users',
           showQuotaHint:
             'When on, quota-mode channel monitors expose the linked account usage windows/balance on the user Channel Status page. Disabled by default; admins always see it.',

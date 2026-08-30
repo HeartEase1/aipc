@@ -198,11 +198,12 @@ type SystemSettings struct {
 	OpsMetricsIntervalSeconds    int
 
 	// Channel Monitor feature
-	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
-	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
-	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
-	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
+	ChannelMonitorEnabled                   bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorMode                      string `json:"channel_monitor_mode"`
+	ChannelMonitorDefaultIntervalSeconds    int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorHideThroughput            bool   `json:"channel_monitor_hide_throughput"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool   `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	ChannelMonitorShowQuota                 bool   `json:"channel_monitor_show_quota"`
 
 	// Grok model mapping policy (admin settings; empty mapping falls back to these).
 	GrokDefaultTextModel           string `json:"grok_default_text_model"`
@@ -381,11 +382,12 @@ type PublicSettings struct {
 	BalanceLowNotifyRechargeURL string
 
 	// Channel Monitor feature
-	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
-	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
-	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
-	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
-	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
+	ChannelMonitorEnabled                   bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorMode                      string `json:"channel_monitor_mode"`
+	ChannelMonitorDefaultIntervalSeconds    int    `json:"channel_monitor_default_interval_seconds"`
+	ChannelMonitorHideThroughput            bool   `json:"channel_monitor_hide_throughput"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool   `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	ChannelMonitorShowQuota                 bool   `json:"channel_monitor_show_quota"`
 
 	// Grok model mapping policy (admin settings).
 	GrokDefaultTextModel           string `json:"grok_default_text_model"`

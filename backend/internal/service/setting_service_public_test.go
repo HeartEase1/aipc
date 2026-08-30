@@ -185,6 +185,27 @@ func TestSettingService_ChannelMonitorHideThroughputDefaultsToPrivate(t *testing
 	}
 }
 
+func TestSettingService_ChannelMonitorV2DetailedAnalysisFailsClosed(t *testing.T) {
+	missing, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).
+		GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, missing.ChannelMonitorV2DetailedAnalysisEnabled)
+
+	enabled, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyChannelMonitorV2DetailedAnalysisEnabled: "true",
+	}}, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, enabled.ChannelMonitorV2DetailedAnalysisEnabled)
+
+	for _, value := range []string{"false", "TRUE", "1", "yes", "garbage"} {
+		settings, getErr := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+			SettingKeyChannelMonitorV2DetailedAnalysisEnabled: value,
+		}}, &config.Config{}).GetPublicSettings(context.Background())
+		require.NoError(t, getErr)
+		require.False(t, settings.ChannelMonitorV2DetailedAnalysisEnabled, "value=%q", value)
+	}
+}
+
 func TestSettingService_ChannelMonitorShowQuotaFailsClosed(t *testing.T) {
 	// 缺省（迁移插入 'false' / 老库无行）一律不展示。
 	missingRuntime := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).GetChannelMonitorRuntime(context.Background())

@@ -5,15 +5,13 @@
     :style="timelineStyle"
   >
     <span
-      v-for="(bucket, index) in visibleBuckets"
-      :key="`${bucket.bucket_start}:${index}`"
+      v-for="(slot, index) in timelineSlots"
+      :key="slot ? `${slot.bucket_start}:${index}` : `empty:${index}`"
       class="health-timeline__bar"
-      :class="bucketClass(bucket)"
-      :title="bucketTitle(bucket)"
-    />
-    <span
-      v-if="visibleBuckets.length === 0"
-      class="health-timeline__empty"
+      :class="slot ? bucketClass(slot) : 'health-timeline__missing'"
+      :style="slot ? bucketStyle(slot) : undefined"
+      :title="slot ? bucketTitle(slot) : undefined"
+      :aria-hidden="slot ? undefined : 'true'"
     />
   </div>
 </template>
@@ -35,12 +33,22 @@ const props = defineProps<{
 const { t, locale } = useI18n()
 
 const visibleBuckets = computed(() => (props.buckets || []).slice(-24))
-const timelineStyle = computed(() => ({
-  gridTemplateColumns: `repeat(${Math.max(visibleBuckets.value.length, 1)}, minmax(0, 1fr))`,
-}))
+const timelineSlots = computed(() => [
+  ...Array<null>(Math.max(0, 24 - visibleBuckets.value.length)).fill(null),
+  ...visibleBuckets.value,
+])
+const timelineStyle = { gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }
 
 function bucketClass(bucket: MonitorMatrixBucket) {
   return healthScoreClass(bucket.health, 'overall', bucket.metrics.request_count)
+}
+
+function bucketStyle(bucket: MonitorMatrixBucket) {
+  if (bucket.health.overall === 'unknown' || !Number.isFinite(bucket.metrics.cache_rate)) {
+    return { height: '18%' }
+  }
+  const cacheRate = Math.max(0, Math.min(1, bucket.metrics.cache_rate))
+  return { height: `${Math.round(18 + cacheRate * 82)}%` }
 }
 
 function bucketTitle(bucket: MonitorMatrixBucket) {
@@ -50,13 +58,16 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(bucket.bucket_start))
-  if (!bucket.metrics.request_count) {
+  if (bucket.health.overall === 'unknown') {
     return t('channelMonitorV2.overview.noTrafficAt', { time })
   }
   return [
     time,
     t('channelMonitorV2.metrics.successRateValue', {
       value: formatMonitorPercent(1 - bucket.metrics.error_rate),
+    }),
+    t('channelMonitorV2.metrics.cacheRateValue', {
+      value: formatMonitorPercent(bucket.metrics.cache_rate),
     }),
     t('channelMonitorV2.metrics.ttftValue', {
       value: formatMonitorMs(bucket.metrics.ttft.p50_ms),
@@ -75,24 +86,16 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
 
 .health-timeline__bar {
   display: block;
-  height: 100%;
   min-width: 2px;
   border-radius: 9999px;
   opacity: 0.82;
   transition: opacity 160ms ease, transform 160ms ease;
+  transform-origin: bottom;
 }
 
 .health-timeline__bar:hover {
   opacity: 1;
-  transform: scaleY(1.12);
-}
-
-.health-timeline__empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  height: 0.375rem;
-  border-radius: 9999px;
-  background: rgb(229 231 235 / 0.8);
+  transform: translateY(-1px) scaleY(1.06);
 }
 
 .health-score10 { background: #16a34a; }
@@ -110,8 +113,13 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
 .health-healthy { background: #22c55e; }
 .health-warning { background: #f59e0b; }
 .health-unknown { background: #d1d5db; }
+.health-timeline__missing {
+  height: 18%;
+  background: rgb(226 232 240 / 0.72);
+  opacity: 0.62;
+}
 
-:global(.dark) .health-timeline__empty,
+:global(.dark) .health-timeline__missing,
 :global(.dark) .health-unknown {
   background: #475569;
 }
