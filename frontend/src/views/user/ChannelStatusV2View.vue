@@ -568,6 +568,7 @@ import {
   tokensPerSecondFromTpm,
   healthScoreClass,
   monitorErrorCategoryLabel,
+  monitorDisplayHealthState,
   monitorMetricHasTraffic,
   monitorMetricHealthSuccessRate,
   monitorMetricSuccessRate,
@@ -660,7 +661,7 @@ const overviewRows = computed(() =>
 const overviewCounts = computed(() => {
   const counts = { total: overviewRows.value.length, healthy: 0, attention: 0, unknown: 0 }
   for (const row of overviewRows.value) {
-    const state = row.health.overall
+    const state = monitorDisplayHealthState(row.metrics, row.health)
     if (state === 'unknown') counts.unknown += 1
     else if (state === 'healthy') counts.healthy += 1
     else counts.attention += 1

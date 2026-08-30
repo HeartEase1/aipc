@@ -35,6 +35,31 @@ func TestChannelMonitorV2MatrixDimensionKey(t *testing.T) {
 	require.Equal(t, channelMonitorV2MatrixKey{platform: "openai"}, key)
 }
 
+func TestChannelMonitorV2MatrixRowLessPrioritizesTrafficVolume(t *testing.T) {
+	highID, lowID := int64(20), int64(10)
+	high := service.ChannelMonitorV2MatrixRow{
+		Platform: "openai", GroupName: "Z high", GroupID: &highID,
+		Metrics: service.ChannelMonitorV2Metric{RequestCount: 50},
+	}
+	low := service.ChannelMonitorV2MatrixRow{
+		Platform: "anthropic", GroupName: "A low", GroupID: &lowID,
+		Metrics: service.ChannelMonitorV2Metric{RequestCount: 2},
+	}
+	empty := service.ChannelMonitorV2MatrixRow{
+		Platform: "gemini", GroupName: "Empty",
+		Metrics: service.ChannelMonitorV2Metric{RequestCount: 0},
+	}
+
+	require.True(t, channelMonitorV2MatrixRowLess(high, low))
+	require.True(t, channelMonitorV2MatrixRowLess(low, empty))
+	require.False(t, channelMonitorV2MatrixRowLess(empty, high))
+
+	// Stable deterministic fallback remains alphabetical when volume is equal.
+	tieA := service.ChannelMonitorV2MatrixRow{Platform: "anthropic", GroupName: "B", Metrics: service.ChannelMonitorV2Metric{RequestCount: 5}}
+	tieB := service.ChannelMonitorV2MatrixRow{Platform: "openai", GroupName: "A", Metrics: service.ChannelMonitorV2Metric{RequestCount: 5}}
+	require.True(t, channelMonitorV2MatrixRowLess(tieA, tieB))
+}
+
 func TestChannelMonitorV2HistogramPercentilesAreMergedFromCounts(t *testing.T) {
 	// 100 samples: 50@100, 40@500, 10@1000
 	// target = int64(total*p + 0.999999) truncates: p50→50, p90→90, p95→95

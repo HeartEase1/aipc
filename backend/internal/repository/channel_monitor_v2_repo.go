@@ -464,19 +464,27 @@ func (r *channelMonitorV2Repository) GetMatrix(ctx context.Context, filter servi
 		result.Items = append(result.Items, row)
 	}
 	sort.Slice(result.Items, func(i, j int) bool {
-		a, b := result.Items[i], result.Items[j]
-		if a.Platform != b.Platform {
-			return a.Platform < b.Platform
-		}
-		if a.GroupName != b.GroupName {
-			return a.GroupName < b.GroupName
-		}
-		if a.GroupID != nil && b.GroupID != nil && *a.GroupID != *b.GroupID {
-			return *a.GroupID < *b.GroupID
-		}
-		return a.Model < b.Model
+		return channelMonitorV2MatrixRowLess(result.Items[i], result.Items[j])
 	})
 	return result, nil
+}
+
+func channelMonitorV2MatrixRowLess(a, b service.ChannelMonitorV2MatrixRow) bool {
+	// Sort before public redaction so active, high-volume dimensions stay first
+	// without exposing the operator's absolute request counts.
+	if a.Metrics.RequestCount != b.Metrics.RequestCount {
+		return a.Metrics.RequestCount > b.Metrics.RequestCount
+	}
+	if a.Platform != b.Platform {
+		return a.Platform < b.Platform
+	}
+	if a.GroupName != b.GroupName {
+		return a.GroupName < b.GroupName
+	}
+	if a.GroupID != nil && b.GroupID != nil && *a.GroupID != *b.GroupID {
+		return *a.GroupID < *b.GroupID
+	}
+	return a.Model < b.Model
 }
 
 func channelMonitorV2MatrixDimensionKey(groupBy service.ChannelMonitorV2GroupBy, cfg service.ChannelMonitorV2Config, platform string, groupID int64, model string) channelMonitorV2MatrixKey {

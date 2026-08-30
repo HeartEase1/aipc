@@ -20,19 +20,21 @@
           <h3 class="truncate text-[15px] font-bold text-gray-900 dark:text-white">
             {{ displayName }}
           </h3>
+        </div>
+        <div class="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+          <span
+            class="inline-flex max-w-full items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+            :class="providerBadgeClass(row.platform)"
+          >
+            {{ providerLabel(row.platform) }}
+          </span>
           <span
             v-if="rate != null"
-            class="shrink-0 rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-gray-500 dark:bg-dark-700 dark:text-gray-300"
+            class="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
           >
-            {{ formatRate(rate) }}
+            {{ t('channelMonitorV2.overview.userRate', { rate: formatRate(rate) }) }}
           </span>
         </div>
-        <span
-          class="mt-1 inline-flex max-w-full items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
-          :class="providerBadgeClass(row.platform)"
-        >
-          {{ providerLabel(row.platform) }}
-        </span>
       </div>
 
       <span
@@ -97,6 +99,7 @@ import type { MonitorCoverage, MonitorMatrixRow } from '@/api/channelMonitorV2'
 import {
   formatMonitorMs,
   formatMonitorPercent,
+  monitorDisplayHealthState,
   monitorMetricHasTraffic,
   monitorMetricSuccessRate,
 } from './monitorFormat'
@@ -119,8 +122,8 @@ const { t } = useI18n()
 const { providerBadgeClass, providerLabel } = useChannelMonitorFormat()
 
 const displayName = computed(() => props.row.group_name || `#${props.row.group_id || '-'}`)
-const state = computed(() => props.row.health.overall)
 const hasTraffic = computed(() => monitorMetricHasTraffic(props.row.metrics))
+const displayState = computed(() => monitorDisplayHealthState(props.row.metrics, props.row.health))
 const successRate = computed(() =>
   hasTraffic.value ? formatMonitorPercent(monitorMetricSuccessRate(props.row.metrics)) : '-',
 )
@@ -130,22 +133,18 @@ const cacheRate = computed(() =>
 const ttft = computed(() => formatMonitorMs(props.row.metrics.ttft.p50_ms))
 
 const statusKey = computed(() => {
-  if (!hasTraffic.value) return 'unknown'
-  return state.value === 'unknown' ? 'insufficient' : state.value
+  return displayState.value
 })
 const statusLabel = computed(() => t(`channelMonitorV2.overview.status.${statusKey.value}`))
 const statusTone = computed(() => {
-  if (state.value === 'healthy') {
+  if (displayState.value === 'healthy') {
     return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
   }
-  if (state.value === 'warning') {
+  if (displayState.value === 'warning') {
     return 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
   }
-  if (state.value === 'critical') {
+  if (displayState.value === 'critical') {
     return 'bg-red-50 text-red-700 dark:bg-red-500/15 dark:text-red-300'
-  }
-  if (hasTraffic.value) {
-    return 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
   }
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
 })
@@ -165,7 +164,7 @@ const providerTintClass = computed(() => {
 })
 
 function formatRate(value: number) {
-  return `×${new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value)}`
+  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value)}x`
 }
 </script>
 

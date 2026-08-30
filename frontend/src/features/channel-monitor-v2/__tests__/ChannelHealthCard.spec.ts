@@ -11,9 +11,9 @@ vi.mock('vue-i18n', async (importOriginal) => ({
       const labels: Record<string, string> = {
         'monitorCommon.providers.openai': 'OpenAI',
         'channelMonitorV2.metrics.successRate': '成功率',
-        'channelMonitorV2.metrics.windowSuccessRate': '区间成功率',
+        'channelMonitorV2.metrics.windowSuccessRate': '成功率',
         'channelMonitorV2.metrics.cacheRate': '缓存率',
-        'channelMonitorV2.metrics.windowCacheRate': '区间缓存率',
+        'channelMonitorV2.metrics.windowCacheRate': '缓存率',
         'channelMonitorV2.metrics.ttftP50': '首 Token P50',
         'channelMonitorV2.overview.recentTrend': '近期状态',
         'channelMonitorV2.overview.viewDetails': '查看详情',
@@ -22,6 +22,7 @@ vi.mock('vue-i18n', async (importOriginal) => ({
         'channelMonitorV2.overview.status.insufficient': '样本不足',
       }
       if (key === 'channelMonitorV2.overview.openDetailsFor') return `查看 ${params?.name} 的详细分析`
+      if (key === 'channelMonitorV2.overview.userRate') return `用户倍率 ${params?.rate}`
       if (key === 'channelMonitorV2.overview.noTrafficAt') return `${params?.time} · 暂无流量`
       if (key === 'channelMonitorV2.overview.insufficientSamplesAt') return `${params?.time} · 有流量，样本不足`
       if (key === 'channelMonitorV2.metrics.successRateValue') return `成功率 ${params?.value}`
@@ -106,7 +107,7 @@ describe('ChannelHealthCard', () => {
 
     expect(wrapper.text()).toContain('全球高速')
     expect(wrapper.text()).toContain('OpenAI')
-    expect(wrapper.text()).toContain('×1.25')
+    expect(wrapper.text()).toContain('用户倍率 1.25x')
     expect(wrapper.text()).toContain('95.0%')
     expect(wrapper.text()).toContain('72.0%')
     expect(wrapper.text()).toContain('420ms')
@@ -174,7 +175,7 @@ describe('ChannelHealthCard', () => {
     expect(wrapper.text()).toContain('420ms')
   })
 
-  it('does not borrow a green bucket when aggregate health is still insufficient', () => {
+  it('uses the real success rate for the compact status before the scoring sample is met', () => {
     const base = row()
     const bucketedRow = row({
       health: { ...base.health, overall: 'unknown' },
@@ -195,8 +196,8 @@ describe('ChannelHealthCard', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('样本不足')
-    expect(wrapper.text()).not.toContain('运行良好')
+    expect(wrapper.text()).toContain('运行良好')
+    expect(wrapper.text()).not.toContain('样本不足')
     expect(wrapper.text()).toContain('95.0%')
   })
 
@@ -221,20 +222,21 @@ describe('ChannelHealthCard', () => {
 
 describe('ChannelHealthTimeline', () => {
   it.each([
-    ['90m', '2026-08-30T00:00:00.000Z', '2026-08-30T01:30:00.000Z', 300],
-    ['24h', '2026-08-30T00:00:00.000Z', '2026-08-31T00:00:00.000Z', 3600],
-    ['7d', '2026-08-24T00:00:00.000Z', '2026-08-31T00:00:00.000Z', 43200],
-    ['30d', '2026-08-01T00:00:00.000Z', '2026-08-31T00:00:00.000Z', 86400],
-  ])('hides empty %s intervals instead of drawing placeholder blocks', (_, start, end, seconds) => {
+    ['90m', '2026-08-30T00:00:00.000Z', '2026-08-30T01:30:00.000Z', 300, 18],
+    ['24h', '2026-08-30T00:00:00.000Z', '2026-08-31T00:00:00.000Z', 3600, 24],
+    ['7d', '2026-08-24T00:00:00.000Z', '2026-08-31T00:00:00.000Z', 43200, 14],
+    ['30d', '2026-08-01T00:00:00.000Z', '2026-08-31T00:00:00.000Z', 86400, 30],
+  ])('draws aligned no-traffic placeholders for the %s range', (_, start, end, seconds, expected) => {
     const wrapper = mount(ChannelHealthTimeline, {
       props: { buckets: [], coverage: coverage(start, end, seconds) },
     })
 
-    expect(wrapper.findAll('.health-timeline__bar')).toHaveLength(0)
-    expect(wrapper.attributes('style')).toContain('grid-template-columns: none')
+    expect(wrapper.findAll('.health-timeline__bar')).toHaveLength(expected)
+    expect(wrapper.findAll('.health-timeline__missing')).toHaveLength(expected)
+    expect(wrapper.find('.health-timeline__missing').attributes('title')).toContain('暂无流量')
   })
 
-  it('keeps every traffic bucket in chronological order without empty gaps', () => {
+  it('keeps traffic buckets in chronological slots and restores empty gaps', () => {
     const base = row()
     const buckets = [20, 5].map((minute) => ({
       bucket_start: `2026-08-30T00:${String(minute).padStart(2, '0')}:00.000Z`,
@@ -253,9 +255,11 @@ describe('ChannelHealthTimeline', () => {
     })
     const bars = wrapper.findAll('.health-timeline__bar')
 
-    expect(bars).toHaveLength(2)
-    expect(bars[0].attributes('title').localeCompare(bars[1].attributes('title'))).toBeLessThan(0)
-    expect(wrapper.findAll('.health-timeline__missing')).toHaveLength(0)
+    const trafficBars = bars.filter((bar) => !bar.classes().includes('health-timeline__missing'))
+    expect(bars).toHaveLength(6)
+    expect(trafficBars).toHaveLength(2)
+    expect(trafficBars[0].attributes('title').localeCompare(trafficBars[1].attributes('title'))).toBeLessThan(0)
+    expect(wrapper.findAll('.health-timeline__missing')).toHaveLength(4)
   })
 
   it('ignores buckets outside historical coverage, in the future, or off-grid', () => {
@@ -286,9 +290,11 @@ describe('ChannelHealthTimeline', () => {
     })
     const bars = wrapper.findAll('.health-timeline__bar')
 
-    expect(bars).toHaveLength(1)
-    expect(bars[0].classes()).toContain('health-score9')
-    expect(bars[0].attributes('title')).toContain('成功率')
+    const trafficBars = bars.filter((bar) => !bar.classes().includes('health-timeline__missing'))
+    expect(bars).toHaveLength(3)
+    expect(trafficBars).toHaveLength(1)
+    expect(trafficBars[0].classes()).toContain('health-score9')
+    expect(trafficBars[0].attributes('title')).toContain('成功率')
   })
 
   it('caps malformed high-density traffic while keeping the newest 48 buckets', () => {
@@ -363,7 +369,7 @@ describe('ChannelHealthTimeline', () => {
     expect(bar?.attributes('title')).not.toContain('暂无流量')
   })
 
-  it('renders low-sample traffic distinctly and explains both success-rate semantics', () => {
+  it('colors low-sample traffic from its real success rate and explains both semantics', () => {
     const base = row()
     const wrapper = mount(ChannelHealthTimeline, {
       props: {
@@ -388,9 +394,9 @@ describe('ChannelHealthTimeline', () => {
     })
     const bar = wrapper.find('.health-timeline__bar')
 
-    expect(bar.classes()).toContain('health-insufficient')
+    expect(bar.classes()).toContain('health-score3')
     expect((bar.element as HTMLElement).style.height).toBe('67%')
-    expect(bar.attributes('title')).toContain('有流量，样本不足')
+    expect(bar.attributes('title')).not.toContain('样本不足')
     expect(bar.attributes('title')).toContain('成功率 33.0%')
     expect(bar.attributes('title')).toContain('健康口径成功率 100.0%')
   })

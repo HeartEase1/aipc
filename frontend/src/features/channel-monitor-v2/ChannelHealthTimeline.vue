@@ -5,12 +5,12 @@
     :style="timelineStyle"
   >
     <span
-      v-for="bucket in visibleBuckets"
-      :key="bucket.bucket_start"
+      v-for="slot in visibleSlots"
+      :key="slot.start"
       class="health-timeline__bar"
-      :class="bucketClass(bucket)"
-      :style="bucketStyle(bucket)"
-      :title="bucketTitle(bucket)"
+      :class="slot.bucket ? bucketClass(slot.bucket) : 'health-timeline__missing'"
+      :style="slot.bucket ? bucketStyle(slot.bucket) : { height: '12%' }"
+      :title="slot.bucket ? bucketTitle(slot.bucket) : noTrafficTitle(slot.start)"
     />
   </div>
 </template>
@@ -26,6 +26,7 @@ import {
   monitorMetricHasTraffic,
   monitorMetricHealthSuccessRate,
   monitorMetricSuccessRate,
+  scoreToBand,
 } from './monitorFormat'
 
 const props = defineProps<{
@@ -39,7 +40,9 @@ const { t, locale } = useI18n()
 // malformed payload from creating an unbounded number of compact DOM nodes.
 const MAX_COMPACT_SLOTS = 48
 
-const visibleBuckets = computed<MonitorMatrixBucket[]>(() => {
+type TimelineSlot = { start: string; bucket?: MonitorMatrixBucket }
+
+const visibleSlots = computed<TimelineSlot[]>(() => {
   const requestedStart = Date.parse(props.coverage.requested_start)
   const requestedEnd = Date.parse(props.coverage.requested_end || props.coverage.data_through)
   const coverageStart = Date.parse(props.coverage.coverage_start)
@@ -64,21 +67,37 @@ const visibleBuckets = computed<MonitorMatrixBucket[]>(() => {
     : requestedEnd
   const bucketStep = bucketSeconds * 1000
 
-  return (props.buckets || [])
-    .filter((bucket) => {
-      const bucketStart = Date.parse(bucket.bucket_start)
-      return Number.isFinite(bucketStart) &&
-        bucketStart >= coveredStart &&
-        bucketStart < coveredEnd &&
-        Math.abs(bucketStart - Math.round(bucketStart / bucketStep) * bucketStep) <= 1 &&
-        monitorMetricHasTraffic(bucket.metrics)
-    })
-    .sort((left, right) => Date.parse(left.bucket_start) - Date.parse(right.bucket_start))
-    .slice(-MAX_COMPACT_SLOTS)
+  const bucketsByStart = new Map<number, MonitorMatrixBucket>()
+  for (const bucket of props.buckets || []) {
+    const bucketStart = Date.parse(bucket.bucket_start)
+    if (
+      Number.isFinite(bucketStart) &&
+      bucketStart >= coveredStart &&
+      bucketStart < coveredEnd &&
+      Math.abs(bucketStart - Math.round(bucketStart / bucketStep) * bucketStep) <= 1 &&
+      monitorMetricHasTraffic(bucket.metrics)
+    ) {
+      bucketsByStart.set(Math.round(bucketStart / bucketStep) * bucketStep, bucket)
+    }
+  }
+
+  const starts: number[] = []
+  for (
+    let start = Math.ceil(coveredStart / bucketStep) * bucketStep;
+    start < coveredEnd;
+    start += bucketStep
+  ) {
+    starts.push(start)
+  }
+
+  return starts.slice(-MAX_COMPACT_SLOTS).map((start) => ({
+    start: new Date(start).toISOString(),
+    bucket: bucketsByStart.get(start),
+  }))
 })
 
 const timelineStyle = computed(() => {
-  const count = visibleBuckets.value.length
+  const count = visibleSlots.value.length
   if (count === 0) return { gridTemplateColumns: 'none' }
   const compact = count < 12
   return {
@@ -92,7 +111,7 @@ const timelineStyle = computed(() => {
 
 function bucketClass(bucket: MonitorMatrixBucket) {
   if (bucket.health.overall === 'unknown' && bucket.health.score == null) {
-    return 'health-insufficient'
+    return `health-${scoreToBand(monitorMetricSuccessRate(bucket.metrics) * 100)}`
   }
   return healthScoreClass(bucket.health, 'overall', Math.max(1, bucket.metrics.request_count))
 }
@@ -106,21 +125,11 @@ function bucketStyle(bucket: MonitorMatrixBucket) {
 }
 
 function bucketTitle(bucket: MonitorMatrixBucket) {
-  const time = new Intl.DateTimeFormat(locale.value || undefined, {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(bucket.bucket_start))
-  if (!monitorMetricHasTraffic(bucket.metrics)) {
-    return t('channelMonitorV2.overview.noTrafficAt', { time })
-  }
+  const time = formatBucketTime(bucket.bucket_start)
   const successRate = monitorMetricSuccessRate(bucket.metrics)
   const healthSuccessRate = monitorMetricHealthSuccessRate(bucket.metrics)
   const lines = [
-    bucket.health.overall === 'unknown'
-      ? t('channelMonitorV2.overview.insufficientSamplesAt', { time })
-      : time,
+    time,
     t('channelMonitorV2.metrics.successRateValue', {
       value: formatMonitorPercent(successRate),
     }),
@@ -139,6 +148,19 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
     }),
   )
   return lines.join(' · ')
+}
+
+function noTrafficTitle(start: string) {
+  return t('channelMonitorV2.overview.noTrafficAt', { time: formatBucketTime(start) })
+}
+
+function formatBucketTime(value: string) {
+  return new Intl.DateTimeFormat(locale.value || undefined, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 </script>
 
@@ -179,19 +201,15 @@ function bucketTitle(bucket: MonitorMatrixBucket) {
 .health-healthy { background: #22c55e; }
 .health-warning { background: #f59e0b; }
 .health-unknown { background: #d1d5db; }
-.health-insufficient { background: #60a5fa; }
 .health-timeline__missing {
-  height: 18%;
-  background: rgb(226 232 240 / 0.72);
-  opacity: 0.62;
+  background: #cbd5e1;
+  opacity: 0.9;
 }
 
 :global(.dark) .health-timeline__missing,
 :global(.dark) .health-unknown {
   background: #475569;
 }
-
-:global(.dark) .health-insufficient { background: #60a5fa; }
 
 @media (prefers-reduced-motion: reduce) {
   .health-timeline__bar {

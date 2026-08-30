@@ -6,7 +6,7 @@
  * request/error/token counts in user-facing surfaces.
  */
 
-import type { HealthScoreBand, MonitorHealth, MonitorMetric } from '@/api/channelMonitorV2'
+import type { HealthScoreBand, HealthState, MonitorHealth, MonitorMetric } from '@/api/channelMonitorV2'
 import { formatCompactNumber } from '@/utils/format'
 
 export function monitorIntlLocale(): string {
@@ -104,6 +104,20 @@ export function monitorMetricHasTraffic(metrics: MonitorMetric): boolean {
     metrics.ttft.p50_ms != null ||
     metrics.duration.p50_ms != null
   )
+}
+
+/**
+ * User-facing cards react from the first real request. The backend keeps its
+ * larger minimum sample for operational scoring and alerts; until that score
+ * exists, the compact overview uses the true request success rate.
+ */
+export function monitorDisplayHealthState(metrics: MonitorMetric, health: MonitorHealth): HealthState {
+  if (!monitorMetricHasTraffic(metrics)) return 'unknown'
+  if (health.overall !== 'unknown') return health.overall
+  const successRate = monitorMetricSuccessRate(metrics)
+  if (successRate >= 0.8) return 'healthy'
+  if (successRate >= 0.5) return 'warning'
+  return 'critical'
 }
 
 /**
