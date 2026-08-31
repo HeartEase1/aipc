@@ -1951,9 +1951,6 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		if msg == "" {
 			msg = "Upstream compact response failed"
 		}
-		if compactErr := newOpenAICompactFallbackSignal(c, terminalPayload, msg); compactErr != nil {
-			return nil, compactErr
-		}
 		if failoverErr := s.nonStreamingTerminalFailureFailover(c, resp, account, true, terminalType, terminalPayload, msg); failoverErr != nil {
 			return nil, failoverErr
 		}

@@ -173,7 +173,7 @@ func TestNonStreamingSSEToJSON_BareErrorEventUsesConservativeClassifier(t *testi
 	t.Run("transient_fails_over", func(t *testing.T) {
 		c, _ := newNonStreamingFailoverContext(t)
 		svc := newNonStreamingFailoverService()
-		data := `{"type":"error","error":{"message":"Temporary upstream failure, please retry"}}`
+		data := `{"type":"error","error":{"message":"The server is overloaded, please retry"}}`
 
 		result, err := svc.handleSSEToJSON(newNonStreamingSSEResponse(), c,
 			newNonStreamingFailoverAccount(), sseTerminalBody("error", data), "model", "model")
