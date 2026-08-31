@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -139,11 +138,101 @@ func TestOpenAIGatewayService_Forward_HTTPPatchPathKeepsLargeInputRaw(t *testing
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, upstream.lastReq)
-	// 合成路径默认 instructions 现按模型填入真实 Codex base prompt（此处 inbound model=gpt-5）。
-	encodedInstr, _ := json.Marshal(defaultCodexSynthInstructions("gpt-5"))
-	expectedBody := fmt.Sprintf(`{"model":"gpt-5","stream":false,"reasoning":{"effort":"none"},"instructions":%s,"input":[{"type":"message","content":[{"type":"input_text","text":"hi","nonce":9007199254740993}]}]}`, string(encodedInstr))
+	// 标准 API Key Responses 上游不依赖 ChatGPT Codex 的内置提示词。
+	expectedBody := `{"model":"gpt-5","stream":false,"reasoning":{"effort":"none"},"input":[{"type":"message","content":[{"type":"input_text","text":"hi","nonce":9007199254740993}]}]}`
 	require.JSONEq(t, expectedBody, string(upstream.lastBody))
 	require.Equal(t, "9007199254740993", gjson.GetBytes(upstream.lastBody, "input.0.content.0.nonce").Raw)
+}
+
+func TestOpenAIGatewayService_Forward_DefaultInstructionsScopedToOpenAIOAuth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name             string
+		account          *Account
+		instructions     string
+		wantInstructions string
+		wantPresent      bool
+	}{
+		{
+			name: "api key without instructions stays absent",
+			account: &Account{
+				ID: 11, Name: "openai-apikey", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
+				Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://example.com"},
+				Extra:       map[string]any{"openai_responses_supported": true},
+			},
+			wantPresent: false,
+		},
+		{
+			name: "api key preserves explicit instructions",
+			account: &Account{
+				ID: 12, Name: "openai-apikey", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
+				Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://example.com"},
+				Extra:       map[string]any{"openai_responses_supported": true},
+			},
+			instructions:     "Use the caller's policy.",
+			wantInstructions: "Use the caller's policy.",
+			wantPresent:      true,
+		},
+		{
+			name: "oauth without instructions receives codex default",
+			account: &Account{
+				ID: 13, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1,
+				Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
+			},
+			wantInstructions: defaultCodexSynthInstructions("gpt-5"),
+			wantPresent:      true,
+		},
+		{
+			name: "oauth preserves explicit instructions",
+			account: &Account{
+				ID: 14, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Concurrency: 1,
+				Credentials: map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-account"},
+			},
+			instructions:     "Keep this exact instruction.",
+			wantInstructions: "Keep this exact instruction.",
+			wantPresent:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body: io.NopCloser(strings.NewReader(
+					`{"id":"resp_instructions","object":"response","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`,
+				)),
+			}}
+			cfg := &config.Config{}
+			cfg.Security.URLAllowlist.Enabled = false
+			svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
+
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+			SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+
+			body := `{"model":"gpt-5","stream":false,"input":"hello"`
+			if tt.instructions != "" {
+				encoded, err := json.Marshal(tt.instructions)
+				require.NoError(t, err)
+				body += `,"instructions":` + string(encoded)
+			}
+			body += `}`
+
+			result, err := svc.Forward(context.Background(), c, tt.account, []byte(body))
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.NotNil(t, upstream.lastReq)
+
+			got := gjson.GetBytes(upstream.lastBody, "instructions")
+			require.Equal(t, tt.wantPresent, got.Exists())
+			if tt.wantPresent {
+				require.Equal(t, tt.wantInstructions, got.String())
+			}
+		})
+	}
 }
 
 func TestOpenAIGatewayService_Forward_DecodedMutationKeepsLaterFieldDeletes(t *testing.T) {
