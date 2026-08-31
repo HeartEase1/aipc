@@ -14,7 +14,7 @@ var CodexCLIUserAgentPrefixes = []string{
 
 // codexOfficialClientUAPrefixes：Codex 官方客户端家族 User-Agent 前缀（均含下划线/连字符，
 // 每项都是确定字面量；不含会被 TrimSpace 退化成裸 "codex" 的空格前缀）。
-// 用途：OpenAI OAuth `codex_cli_only` 访问限制判定 + passthrough 的「非官方 UA 安全兜底」
+// 用途：OpenAI OAuth/API Key `codex_cli_only` 访问限制判定 + passthrough 的「非官方 UA 安全兜底」
 // （IsCodexOfficialClientRequest 命中即视为官方真实 UA，逐字透传、不改写）。
 //
 // Cursor/VSCode 扩展两种 UA：默认 `codex_vscode/`、GitHub Copilot 集成模式 `codex_vscode_copilot/`

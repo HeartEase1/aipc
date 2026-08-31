@@ -257,6 +257,24 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(true)
   })
 
+  it('allows OpenAI API Key accounts to enable Codex official-client restriction', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+
+    const toggle = wrapper.get('[data-testid="create-openai-codex-cli-only-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('false')
+    await toggle.trigger('click')
+
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Restricted upstream')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.codex_cli_only).toBe(true)
+  })
+
   it('waits for the initial upstream billing probe before refreshing the account list', async () => {
     let resolveProbe: (() => void) | undefined
     probeUpstreamBillingMock.mockImplementationOnce(

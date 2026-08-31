@@ -32,6 +32,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	logCodexCLIOnlyDetection(ctx, c, account, apiKeyID, restrictionResult, body)
 	if restrictionResult.Enabled && !restrictionResult.Matched {
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalPolicyDenied)
+		MarkResponseCommitted(c)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
 				"type":    "forbidden_error",

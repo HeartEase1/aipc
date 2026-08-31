@@ -316,6 +316,21 @@ describe('EditAccountModal', () => {
     authIsSimpleMode.value = true
   })
 
+  it('allows OpenAI API Key accounts to save Codex official-client restriction', async () => {
+    const account = buildAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="edit-openai-codex-cli-only-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('false')
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_cli_only).toBe(true)
+  })
+
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
