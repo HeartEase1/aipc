@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -396,6 +397,7 @@ func (s *PricingService) downloadPricingData() error {
 		return fmt.Errorf("parse pricing data: %w", err)
 	}
 	data = s.mergeFallbackPricingData(data)
+	data = s.mergeOverrideOnlyModels(data)
 
 	// 保存到本地文件
 	pricingFile := s.getPricingFilePath()
@@ -433,6 +435,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 	if err := json.Unmarshal(body, &rawData); err != nil {
 		return nil, fmt.Errorf("parse raw JSON: %w", err)
 	}
+	rawData = s.applyPricingOverrides(rawData)
 
 	result := make(map[string]*LiteLLMModelPricing)
 	skipped := 0
@@ -703,6 +706,7 @@ func (s *PricingService) loadPricingData(filePath string) error {
 		return fmt.Errorf("parse pricing data: %w", err)
 	}
 	pricingData = s.mergeFallbackPricingData(pricingData)
+	pricingData = s.mergeOverrideOnlyModels(pricingData)
 
 	// 计算哈希
 	hash := sha256.Sum256(data)
@@ -754,6 +758,320 @@ func (s *PricingService) mergeFallbackPricingData(data map[string]*LiteLLMModelP
 		logger.LegacyPrintf("service.pricing", "[Pricing] Merged %d fallback-only models", merged)
 	}
 	return data
+}
+
+const maxPricingOverrideFileSize = 4 << 20
+
+var (
+	pricingOverrideNumericFields = map[string]struct{}{
+		"input_cost_per_token": {}, "input_cost_per_token_priority": {},
+		"output_cost_per_token": {}, "output_cost_per_token_priority": {},
+		"cache_creation_input_token_cost": {}, "cache_creation_input_token_cost_priority": {},
+		"cache_creation_input_token_cost_above_1hr": {},
+		"cache_read_input_token_cost":               {}, "cache_read_input_token_cost_priority": {},
+		"long_context_input_cost_multiplier": {}, "long_context_output_cost_multiplier": {},
+		"output_cost_per_image": {}, "output_cost_per_image_token": {}, "input_cost_per_image_token": {},
+	}
+	pricingOverrideBoolFields = map[string]struct{}{
+		"supports_service_tier": {}, "supports_prompt_caching": {},
+	}
+	pricingOverrideStringFields = map[string]struct{}{
+		"litellm_provider": {}, "mode": {},
+	}
+	pricingOverrideAbovePricePattern = regexp.MustCompile(`^(?:input|output)_cost_per_token_above_\d+k_tokens(?:_[a-z]+)?$`)
+)
+
+// applyPricingOverrides applies validated sparse patches to models already in
+// the current source. Invalid files are ignored as a whole; an invalid effective
+// entry is skipped without changing the base entry.
+func (s *PricingService) applyPricingOverrides(rawData map[string]json.RawMessage) map[string]json.RawMessage {
+	overrides := s.loadPricingOverrideEntries()
+	if len(overrides) == 0 {
+		return rawData
+	}
+	changed := make(map[string][]string)
+	for name, patch := range overrides {
+		base, exists := rawData[name]
+		if !exists {
+			continue
+		}
+		merged, fields, err := mergePricingOverrideEntry(base, patch)
+		if err != nil {
+			logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override for model %q skipped: %v", name, err)
+			continue
+		}
+		if err := validateEffectivePricingOverrideEntry(merged); err != nil {
+			logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override for model %q skipped: %v", name, err)
+			continue
+		}
+		rawData[name] = merged
+		changed[name] = fields
+	}
+	logAppliedPricingOverrides("patched", changed)
+	return rawData
+}
+
+// loadPricingOverrideEntries validates the complete override document before
+// returning any entry, preventing a malformed file from being partially applied.
+func (s *PricingService) loadPricingOverrideEntries() map[string]json.RawMessage {
+	if s == nil || s.cfg == nil {
+		return nil
+	}
+	path := strings.TrimSpace(s.cfg.Pricing.OverrideFile)
+	if path == "" {
+		return nil
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override file ignored: %v", err)
+		return nil
+	}
+	if len(body) > maxPricingOverrideFileSize {
+		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override file ignored: size %d exceeds %d bytes", len(body), maxPricingOverrideFileSize)
+		return nil
+	}
+	var entries map[string]json.RawMessage
+	if err := json.Unmarshal(body, &entries); err != nil || entries == nil {
+		if err == nil {
+			err = fmt.Errorf("top-level value must be a JSON object")
+		}
+		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override file ignored: %v", err)
+		return nil
+	}
+	for name, patch := range entries {
+		if strings.TrimSpace(name) == "" {
+			logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Warning: override file ignored: model name cannot be blank")
+			return nil
+		}
+		if _, _, err := mergePricingOverrideEntry(nil, patch); err != nil {
+			logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override file ignored: model %q: %v", name, err)
+			return nil
+		}
+	}
+	return entries
+}
+
+// mergePricingOverrideEntry performs a shallow JSON-object merge. A null patch
+// value removes the field. It also returns a sorted list of changed field names
+// for operational logs; price values themselves are never logged.
+func mergePricingOverrideEntry(base, patch json.RawMessage) (json.RawMessage, []string, error) {
+	var patchFields map[string]json.RawMessage
+	if err := json.Unmarshal(patch, &patchFields); err != nil || patchFields == nil {
+		return nil, nil, fmt.Errorf("entry must be a JSON object")
+	}
+	if err := validatePricingOverridePatchFields(patchFields); err != nil {
+		return nil, nil, err
+	}
+	merged := make(map[string]json.RawMessage)
+	if len(base) > 0 {
+		if err := json.Unmarshal(base, &merged); err != nil || merged == nil {
+			return nil, nil, fmt.Errorf("base catalog entry is not a JSON object")
+		}
+	}
+	changed := make([]string, 0, len(patchFields))
+	for key, value := range patchFields {
+		changed = append(changed, key)
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			delete(merged, key)
+			continue
+		}
+		merged[key] = value
+	}
+	sort.Strings(changed)
+	out, err := json.Marshal(merged)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode merged entry: %w", err)
+	}
+	return out, changed, nil
+}
+
+func validatePricingOverridePatchFields(fields map[string]json.RawMessage) error {
+	for key, raw := range fields {
+		if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			continue
+		}
+		if key == "long_context_input_token_threshold" {
+			var value float64
+			if err := json.Unmarshal(raw, &value); err != nil || value < 0 || math.Trunc(value) != value || value > float64(int(^uint(0)>>1)) {
+				return fmt.Errorf("field %q must be a non-negative integer", key)
+			}
+			continue
+		}
+		if _, ok := pricingOverrideNumericFields[key]; ok || pricingOverrideAbovePricePattern.MatchString(key) || cacheTierPricePattern.MatchString(key) {
+			var value float64
+			if err := json.Unmarshal(raw, &value); err != nil || value < 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+				return fmt.Errorf("field %q must be a finite non-negative number", key)
+			}
+			continue
+		}
+		if _, ok := pricingOverrideBoolFields[key]; ok {
+			var value bool
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return fmt.Errorf("field %q must be a boolean", key)
+			}
+			continue
+		}
+		if _, ok := pricingOverrideStringFields[key]; ok {
+			var value string
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return fmt.Errorf("field %q must be a string", key)
+			}
+			continue
+		}
+		return fmt.Errorf("unsupported field %q", key)
+	}
+	return nil
+}
+
+func validateEffectivePricingOverrideEntry(raw json.RawMessage) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+		return fmt.Errorf("effective entry must be a JSON object")
+	}
+	for key, value := range fields {
+		if _, ok := pricingOverrideNumericFields[key]; ok || key == "long_context_input_token_threshold" ||
+			pricingOverrideAbovePricePattern.MatchString(key) || cacheTierPricePattern.MatchString(key) {
+			if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+				return fmt.Errorf("effective numeric field %q cannot be null", key)
+			}
+			var number float64
+			if err := json.Unmarshal(value, &number); err != nil || number < 0 || math.IsNaN(number) || math.IsInf(number, 0) {
+				return fmt.Errorf("effective field %q is not a finite non-negative number", key)
+			}
+		}
+	}
+	_, hasInput := fields["input_cost_per_token"]
+	_, hasOutput := fields["output_cost_per_token"]
+	if hasInput != hasOutput {
+		return fmt.Errorf("input_cost_per_token and output_cost_per_token must remain paired")
+	}
+	hasImagePrice := false
+	for _, key := range []string{"output_cost_per_image", "output_cost_per_image_token", "input_cost_per_image_token"} {
+		if _, exists := fields[key]; exists {
+			hasImagePrice = true
+			break
+		}
+	}
+	if !hasInput && !hasImagePrice {
+		return fmt.Errorf("effective entry must retain paired token prices or an image price")
+	}
+	if orphans := orphanCacheTierFields(raw); len(orphans) > 0 {
+		return fmt.Errorf("cache tier fields lack a usable base price: %s", strings.Join(orphans, ","))
+	}
+
+	var entry LiteLLMRawEntry
+	if err := json.Unmarshal(raw, &entry); err != nil {
+		return fmt.Errorf("decode effective pricing entry: %w", err)
+	}
+	hasExplicitLongContext := entry.LongContextInputTokenThreshold != nil ||
+		entry.LongContextInputCostMultiplier != nil || entry.LongContextOutputCostMultiplier != nil
+	if entry.LongContextInputTokenThreshold != nil && *entry.LongContextInputTokenThreshold > 0 {
+		if entry.LongContextInputCostMultiplier == nil || entry.LongContextOutputCostMultiplier == nil ||
+			*entry.LongContextInputCostMultiplier < 1 || *entry.LongContextOutputCostMultiplier < 1 {
+			return fmt.Errorf("positive long-context threshold requires complete multipliers >= 1")
+		}
+	}
+	if !hasExplicitLongContext && hasStandardAboveTierFields(raw) {
+		pricing := &LiteLLMModelPricing{}
+		if entry.InputCostPerToken != nil {
+			pricing.InputCostPerToken = *entry.InputCostPerToken
+		}
+		if entry.OutputCostPerToken != nil {
+			pricing.OutputCostPerToken = *entry.OutputCostPerToken
+		}
+		if !deriveLongContextFromAboveTierFields(raw, pricing) {
+			return fmt.Errorf("above-tier prices do not form a complete safe long-context ladder")
+		}
+	}
+	return nil
+}
+
+// mergeOverrideOnlyModels adds self-contained entries which exist in neither
+// the remote catalog nor fallback file. Patch-only unknown names are rejected.
+func (s *PricingService) mergeOverrideOnlyModels(data map[string]*LiteLLMModelPricing) map[string]*LiteLLMModelPricing {
+	overrides := s.loadPricingOverrideEntries()
+	if len(overrides) == 0 {
+		return data
+	}
+	if data == nil {
+		data = make(map[string]*LiteLLMModelPricing)
+	}
+	newEntries := make(map[string]json.RawMessage)
+	for name, patch := range overrides {
+		if _, exists := data[name]; exists {
+			continue
+		}
+		merged, _, err := mergePricingOverrideEntry(nil, patch)
+		if err != nil || validateEffectivePricingOverrideEntry(merged) != nil || !isSelfContainedPricingOverride(merged) {
+			logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override-only model %q ignored: entry must include paired input/output prices or an image price", name)
+			continue
+		}
+		newEntries[name] = merged
+	}
+	if len(newEntries) == 0 {
+		return data
+	}
+	body, err := json.Marshal(newEntries)
+	if err != nil {
+		return data
+	}
+	parsed, err := s.parsePricingData(body)
+	if err != nil {
+		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override-only models ignored: %v", err)
+		return data
+	}
+	maps.Copy(data, parsed)
+	added := make(map[string][]string, len(parsed))
+	for name := range parsed {
+		var fields map[string]json.RawMessage
+		_ = json.Unmarshal(newEntries[name], &fields)
+		for field := range fields {
+			added[name] = append(added[name], field)
+		}
+		sort.Strings(added[name])
+	}
+	logAppliedPricingOverrides("added", added)
+	return data
+}
+
+func isSelfContainedPricingOverride(raw json.RawMessage) bool {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return false
+	}
+	_, hasInput := fields["input_cost_per_token"]
+	_, hasOutput := fields["output_cost_per_token"]
+	if hasInput && hasOutput {
+		var input, output float64
+		if json.Unmarshal(fields["input_cost_per_token"], &input) == nil &&
+			json.Unmarshal(fields["output_cost_per_token"], &output) == nil &&
+			(input > 0 || output > 0) {
+			return true
+		}
+	}
+	for _, key := range []string{"output_cost_per_image", "output_cost_per_image_token", "input_cost_per_image_token"} {
+		if rawValue, ok := fields[key]; ok {
+			var value float64
+			if json.Unmarshal(rawValue, &value) == nil && value > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func logAppliedPricingOverrides(action string, changed map[string][]string) {
+	if len(changed) == 0 {
+		return
+	}
+	models := make([]string, 0, len(changed))
+	for model := range changed {
+		models = append(models, model)
+	}
+	sort.Strings(models)
+	for _, model := range models {
+		logger.LegacyPrintf("service.pricing", "[Pricing] Override %s model %q fields: %s", action, model, strings.Join(changed[model], ","))
+	}
 }
 
 // warnDroppedLongContextLadders reports catalog regressions while keeping the

@@ -1039,6 +1039,9 @@ pricing:
   # Fallback pricing file
   # 备用定价文件
   fallback_file: "./resources/model-pricing/model_prices_and_context_window.json"
+  # Optional local JSON patch. Invalid files are rejected and never replace base pricing.
+  # 可选的本地 JSON 价格补丁；校验失败时整份忽略，不会覆盖基础价格
+  override_file: ""
   # Update interval in hours
   # 更新间隔（小时）
   update_interval_hours: 24

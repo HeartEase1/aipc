@@ -196,6 +196,153 @@ func TestDefaultCatalogSnapshotHasCompleteGeminiCachePricing(t *testing.T) {
 	}
 }
 
+func TestPricingOverrideAppliesValidatedSparsePatch(t *testing.T) {
+	dir := t.TempDir()
+	overrideFile := filepath.Join(dir, "pricing-override.json")
+	require.NoError(t, os.WriteFile(overrideFile, []byte(`{
+		"model-a": {
+			"input_cost_per_token": 0.000003,
+			"cache_read_input_token_cost": null,
+			"long_context_input_token_threshold": 0
+		}
+	}`), 0600))
+
+	svc := &PricingService{cfg: &config.Config{Pricing: config.PricingConfig{OverrideFile: overrideFile}}}
+	data, err := svc.parsePricingData([]byte(`{
+		"model-a": {
+			"input_cost_per_token": 0.000001,
+			"output_cost_per_token": 0.000002,
+			"cache_read_input_token_cost": 0.0000001,
+			"input_cost_per_token_above_200k_tokens": 0.000002,
+			"output_cost_per_token_above_200k_tokens": 0.000004
+		}
+	}`))
+	require.NoError(t, err)
+	require.InDelta(t, 0.000003, data["model-a"].InputCostPerToken, 1e-15)
+	require.InDelta(t, 0.000002, data["model-a"].OutputCostPerToken, 1e-15)
+	require.Zero(t, data["model-a"].CacheReadInputTokenCost)
+	require.Zero(t, data["model-a"].LongContextInputTokenThreshold, "explicit zero must suppress above-tier derivation")
+}
+
+func TestPricingOverrideInvalidDocumentIsIgnoredAtomically(t *testing.T) {
+	dir := t.TempDir()
+	overrideFile := filepath.Join(dir, "pricing-override.json")
+	require.NoError(t, os.WriteFile(overrideFile, []byte(`{
+		"model-a": {"input_cost_per_token": 0.000009},
+		"model-b": {"output_cost_per_token": -1}
+	}`), 0600))
+
+	svc := &PricingService{cfg: &config.Config{Pricing: config.PricingConfig{OverrideFile: overrideFile}}}
+	data, err := svc.parsePricingData([]byte(`{
+		"model-a": {"input_cost_per_token": 0.000001, "output_cost_per_token": 0.000002},
+		"model-b": {"input_cost_per_token": 0.000003, "output_cost_per_token": 0.000004}
+	}`))
+	require.NoError(t, err)
+	require.InDelta(t, 0.000001, data["model-a"].InputCostPerToken, 1e-15)
+	require.InDelta(t, 0.000004, data["model-b"].OutputCostPerToken, 1e-15)
+}
+
+func TestPricingOverrideRejectsUnknownFields(t *testing.T) {
+	dir := t.TempDir()
+	overrideFile := filepath.Join(dir, "pricing-override.json")
+	require.NoError(t, os.WriteFile(overrideFile, []byte(`{
+		"model-a": {"input_cost_per_tokne": 0.000009}
+	}`), 0600))
+
+	svc := &PricingService{cfg: &config.Config{Pricing: config.PricingConfig{OverrideFile: overrideFile}}}
+	data, err := svc.parsePricingData([]byte(`{
+		"model-a": {"input_cost_per_token": 0.000001, "output_cost_per_token": 0.000002}
+	}`))
+	require.NoError(t, err)
+	require.InDelta(t, 0.000001, data["model-a"].InputCostPerToken, 1e-15)
+}
+
+func TestPricingOverrideOnlyModelsRequireSelfContainedPricing(t *testing.T) {
+	dir := t.TempDir()
+	overrideFile := filepath.Join(dir, "pricing-override.json")
+	require.NoError(t, os.WriteFile(overrideFile, []byte(`{
+		"complete-model": {
+			"input_cost_per_token": 0.000003,
+			"output_cost_per_token": 0.000004,
+			"litellm_provider": "custom",
+			"mode": "chat"
+		},
+		"patch-only-typo": {"input_cost_per_token": 0.000009}
+	}`), 0600))
+
+	svc := &PricingService{cfg: &config.Config{Pricing: config.PricingConfig{OverrideFile: overrideFile}}}
+	data, err := svc.parsePricingData([]byte(`{
+		"base-model": {"input_cost_per_token": 0.000001, "output_cost_per_token": 0.000002}
+	}`))
+	require.NoError(t, err)
+	data = svc.mergeOverrideOnlyModels(data)
+	require.NotNil(t, data["complete-model"])
+	require.InDelta(t, 0.000003, data["complete-model"].InputCostPerToken, 1e-15)
+	require.Nil(t, data["patch-only-typo"])
+}
+
+func TestPricingOverrideCannotDeleteOneSideOfTokenPricing(t *testing.T) {
+	dir := t.TempDir()
+	overrideFile := filepath.Join(dir, "pricing-override.json")
+	require.NoError(t, os.WriteFile(overrideFile, []byte(`{
+		"model-a": {"output_cost_per_token": null}
+	}`), 0600))
+
+	svc := &PricingService{cfg: &config.Config{Pricing: config.PricingConfig{OverrideFile: overrideFile}}}
+	data, err := svc.parsePricingData([]byte(`{
+		"model-a": {"input_cost_per_token": 0.000001, "output_cost_per_token": 0.000002}
+	}`))
+	require.NoError(t, err)
+	require.InDelta(t, 0.000002, data["model-a"].OutputCostPerToken, 1e-15)
+}
+
+func TestPricingOverrideCannotCreateUnsafeTierContracts(t *testing.T) {
+	tests := []struct {
+		name     string
+		override string
+	}{
+		{
+			name:     "orphan cache tier",
+			override: `{"cache_creation_input_token_cost": null}`,
+		},
+		{
+			name:     "incomplete above tier",
+			override: `{"output_cost_per_token_above_200k_tokens": null}`,
+		},
+		{
+			name:     "partial explicit multipliers",
+			override: `{"long_context_input_token_threshold": 200000, "long_context_input_cost_multiplier": 2}`,
+		},
+		{
+			name:     "remove all token pricing",
+			override: `{"input_cost_per_token": null, "output_cost_per_token": null}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			overrideFile := filepath.Join(dir, "pricing-override.json")
+			require.NoError(t, os.WriteFile(overrideFile, []byte(`{"model-a": `+tt.override+`}`), 0600))
+
+			svc := &PricingService{cfg: &config.Config{Pricing: config.PricingConfig{OverrideFile: overrideFile}}}
+			data, err := svc.parsePricingData([]byte(`{
+				"model-a": {
+					"input_cost_per_token": 0.000001,
+					"output_cost_per_token": 0.000002,
+					"cache_creation_input_token_cost": 0.000001,
+					"cache_creation_input_token_cost_above_200k_tokens": 0.000002,
+					"input_cost_per_token_above_200k_tokens": 0.000002,
+					"output_cost_per_token_above_200k_tokens": 0.000004
+				}
+			}`))
+			require.NoError(t, err)
+			require.InDelta(t, 0.000001, data["model-a"].CacheCreationInputTokenCost, 1e-15)
+			require.Equal(t, 200000, data["model-a"].LongContextInputTokenThreshold)
+			require.InDelta(t, 2.0, data["model-a"].LongContextOutputCostMultiplier, 1e-12)
+		})
+	}
+}
+
 func TestBillingService_GPT56CacheWritePricingUsesOfficialMultiplier(t *testing.T) {
 	tests := []struct {
 		model             string
