@@ -2,6 +2,7 @@ package admin
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -632,4 +633,66 @@ func (h *ChannelHandler) SyncPricingModels(c *gin.Context) {
 
 	models := h.pricingService.ListModelNamesByProvider(provider)
 	response.Success(c, gin.H{"models": models})
+}
+
+// GetPricingCatalogStatus returns the exact local snapshot used by live billing.
+func (h *ChannelHandler) GetPricingCatalogStatus(c *gin.Context) {
+	if h.pricingService == nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "pricing service is unavailable", "PRICING_SERVICE_UNAVAILABLE", nil)
+		return
+	}
+	response.Success(c, h.pricingService.GetPricingCatalogStatus())
+}
+
+// CheckPricingCatalog downloads a strictly verified candidate. It does not
+// change the catalog used by requests until an administrator activates it.
+func (h *ChannelHandler) CheckPricingCatalog(c *gin.Context) {
+	if h.pricingService == nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "pricing service is unavailable", "PRICING_SERVICE_UNAVAILABLE", nil)
+		return
+	}
+	preview, err := h.pricingService.CheckRemoteCatalog()
+	if err != nil {
+		response.ErrorWithDetails(c, http.StatusBadGateway, err.Error(), "PRICING_CATALOG_CHECK_FAILED", nil)
+		return
+	}
+	response.Success(c, preview)
+}
+
+type activatePricingCatalogRequest struct {
+	CandidateHash string `json:"candidate_hash" binding:"required"`
+}
+
+// ActivateRemotePricingCatalog atomically promotes the reviewed candidate.
+func (h *ChannelHandler) ActivateRemotePricingCatalog(c *gin.Context) {
+	if h.pricingService == nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "pricing service is unavailable", "PRICING_SERVICE_UNAVAILABLE", nil)
+		return
+	}
+	var req activatePricingCatalogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithDetails(c, http.StatusBadRequest, "candidate_hash is required", "INVALID_PRICING_CATALOG_REQUEST", nil)
+		return
+	}
+	status, err := h.pricingService.ActivateRemoteCatalog(req.CandidateHash)
+	if err != nil {
+		response.ErrorWithDetails(c, http.StatusConflict, err.Error(), "PRICING_CATALOG_ACTIVATION_FAILED", nil)
+		return
+	}
+	response.Success(c, status)
+}
+
+// ActivateBundledPricingCatalog switches live billing back to the immutable
+// catalog bundled with the running AIPC release.
+func (h *ChannelHandler) ActivateBundledPricingCatalog(c *gin.Context) {
+	if h.pricingService == nil {
+		response.ErrorWithDetails(c, http.StatusServiceUnavailable, "pricing service is unavailable", "PRICING_SERVICE_UNAVAILABLE", nil)
+		return
+	}
+	status, err := h.pricingService.ActivateBundledCatalog()
+	if err != nil {
+		response.ErrorWithDetails(c, http.StatusInternalServerError, "failed to activate bundled pricing catalog", "PRICING_CATALOG_ACTIVATION_FAILED", nil)
+		return
+	}
+	response.Success(c, status)
 }

@@ -304,6 +304,173 @@
 
         <!-- Tab: Gateway -->
         <div v-show="activeTab === 'gateway'" class="space-y-6">
+          <!-- Administrator-managed pricing catalog -->
+          <div class="card" data-testid="pricing-catalog-card">
+            <div class="flex flex-col gap-4 border-b border-gray-100 px-6 py-4 dark:border-dark-700 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex min-w-0 items-start gap-3">
+                <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300">
+                  <Icon name="database" size="md" />
+                </span>
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ localText("模型价格目录", "Model pricing catalog") }}
+                  </h2>
+                  <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+                    {{ localText(
+                      "价格表不会自动联网更新。检查更新只保存候选表，核对差异并通过 2FA 确认后才影响后续请求计费。",
+                      "Pricing never updates in the background. Checking only saves a candidate; live billing changes only after you review it and confirm with 2FA.",
+                    ) }}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm flex-shrink-0"
+                :disabled="pricingCatalogChecking || pricingCatalogOperating"
+                @click="checkRemotePricingCatalog"
+              >
+                <Icon name="refresh" size="sm" :class="pricingCatalogChecking && 'animate-spin'" />
+                {{ pricingCatalogChecking
+                  ? localText("正在校验...", "Checking...")
+                  : localText("检查远端价格", "Check remote catalog") }}
+              </button>
+            </div>
+
+            <div class="space-y-5 p-6">
+              <div v-if="pricingCatalogLoading" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary-600"></span>
+                {{ localText("正在读取生效状态...", "Loading active catalog...") }}
+              </div>
+
+              <template v-else-if="pricingCatalogStatus">
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("当前计费来源", "Active billing source") }}</p>
+                    <div class="mt-2 flex items-center gap-2">
+                      <span :class="[
+                        'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
+                        pricingCatalogStatus.active_source === 'remote'
+                          ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
+                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+                      ]">
+                        {{ pricingCatalogStatus.active_source === "remote"
+                          ? localText("已确认远端快照", "Approved remote snapshot")
+                          : localText("随版本内置表", "Bundled release catalog") }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("可计费模型", "Billable models") }}</p>
+                    <p class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{{ pricingCatalogStatus.active_model_count }}</p>
+                  </div>
+                  <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("启用时间", "Activated at") }}</p>
+                    <p class="mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogDate(pricingCatalogStatus.active_updated_at) }}</p>
+                    <code class="mt-1 block truncate text-[11px] text-gray-500 dark:text-gray-400" :title="pricingCatalogStatus.active_hash">
+                      SHA256 {{ shortPricingHash(pricingCatalogStatus.active_hash) }}
+                    </code>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/60 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">{{ localText("切换价格会影响后续请求扣费", "Switching catalogs affects subsequent request charges") }}</p>
+                    <p class="mt-1 text-xs text-amber-800/80 dark:text-amber-300/80">
+                      {{ localText("已开始或已完成的用量记录不会重算；下载或校验失败时继续使用当前表。", "Existing usage is not recalculated; download or validation failures keep the current catalog active.") }}
+                    </p>
+                  </div>
+                  <button
+                    v-if="pricingCatalogStatus.active_source === 'remote'"
+                    type="button"
+                    class="btn btn-secondary btn-sm flex-shrink-0"
+                    :disabled="pricingCatalogOperating"
+                    @click="activateBundledPricingCatalog"
+                  >
+                    {{ localText("切回内置表", "Use bundled catalog") }}
+                  </button>
+                </div>
+              </template>
+
+              <div v-if="pricingCatalogPreview" class="space-y-4 rounded-lg border border-primary-200 bg-primary-50/40 p-4 dark:border-primary-900/60 dark:bg-primary-950/10">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ localText("候选价格差异", "Candidate price differences") }}</h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("候选表已通过 SHA256 和结构校验，但数值仍需人工确认。", "The candidate passed SHA-256 and structural validation, but price values still require review.") }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm flex-shrink-0"
+                    :disabled="pricingCatalogOperating || pricingCandidateIsActive"
+                    @click="activateRemotePricingCatalog"
+                  >
+                    {{ pricingCandidateIsActive
+                      ? localText("当前已在使用", "Already active")
+                      : pricingCatalogOperating
+                        ? localText("正在切换...", "Switching...")
+                        : localText("确认并启用候选表", "Approve and activate") }}
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("新增模型", "Added") }}</p>
+                    <p class="mt-1 font-semibold text-emerald-600">+{{ pricingCatalogPreview.added_models }}</p>
+                  </div>
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("价格变更模型", "Changed") }}</p>
+                    <p class="mt-1 font-semibold text-amber-600">{{ pricingCatalogPreview.changed_models }}</p>
+                  </div>
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("目录移除", "Removed") }}</p>
+                    <p class="mt-1 font-semibold text-red-600">-{{ pricingCatalogPreview.removed_models }}</p>
+                  </div>
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("字段变化", "Field changes") }}</p>
+                    <p class="mt-1 font-semibold text-gray-900 dark:text-white">{{ pricingCatalogPreview.price_changes.length }}{{ pricingCatalogPreview.truncated ? "+" : "" }}</p>
+                  </div>
+                </div>
+
+                <div v-if="pricingCatalogPreview.price_changes.length" class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800">
+                  <div class="max-h-80 overflow-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-left text-xs dark:divide-dark-600">
+                      <thead class="sticky top-0 z-10 bg-gray-50 text-gray-500 dark:bg-dark-700 dark:text-gray-300">
+                        <tr>
+                          <th class="px-3 py-2 font-medium">{{ localText("模型", "Model") }}</th>
+                          <th class="px-3 py-2 font-medium">{{ localText("价格字段", "Price field") }}</th>
+                          <th class="px-3 py-2 text-right font-medium">{{ localText("当前", "Current") }}</th>
+                          <th class="px-3 py-2 text-right font-medium">{{ localText("候选", "Candidate") }}</th>
+                          <th class="px-3 py-2 text-right font-medium">{{ localText("变化", "Change") }}</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
+                        <tr v-for="change in pricingCatalogPreview.price_changes" :key="`${change.model}:${change.field}`">
+                          <td class="max-w-52 truncate px-3 py-2 font-medium text-gray-800 dark:text-gray-100" :title="change.model">{{ change.model }}</td>
+                          <td class="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-gray-400">{{ pricingCatalogFieldLabel(change.field) }}</td>
+                          <td class="whitespace-nowrap px-3 py-2 text-right text-gray-600 dark:text-gray-300">{{ formatPricingCatalogValue(change.field, change.current) }}</td>
+                          <td class="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogValue(change.field, change.candidate) }}</td>
+                          <td :class="[
+                            'whitespace-nowrap px-3 py-2 text-right font-semibold',
+                            change.direction === 'decrease' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
+                          ]">
+                            {{ formatPricingCatalogChange(change.change_percent) }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p v-if="pricingCatalogPreview.truncated" class="border-t border-gray-100 px-3 py-2 text-xs text-amber-700 dark:border-dark-700 dark:text-amber-300">
+                    {{ localText("变化过多，仅显示前 300 项；请结合远端提交记录复核。", "More than 300 fields changed; review the upstream commit before activation.") }}
+                  </p>
+                </div>
+                <p v-else class="rounded-md bg-white px-3 py-3 text-sm text-gray-600 dark:bg-dark-800 dark:text-gray-300">
+                  {{ localText("候选表与当前生效价格字段一致。", "The candidate has the same effective pricing fields as the active catalog.") }}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- Overload Cooldown (529) Settings -->
           <div class="card">
             <div
@@ -8935,6 +9102,8 @@ import type {
   DefaultSubscriptionSetting,
   DefaultPlatformQuotasMap,
   OpenAIFastPolicyRule,
+  PricingCatalogPreview,
+  PricingCatalogStatus,
   WeChatConnectMode,
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
@@ -8996,6 +9165,187 @@ const isZhLocale = computed(() => locale.value.startsWith("zh"));
 
 function localText(zh: string, en: string): string {
   return isZhLocale.value ? zh : en;
+}
+
+const pricingCatalogStatus = ref<PricingCatalogStatus | null>(null);
+const pricingCatalogPreview = ref<PricingCatalogPreview | null>(null);
+const pricingCatalogLoading = ref(false);
+const pricingCatalogChecking = ref(false);
+const pricingCatalogOperating = ref(false);
+const pricingCandidateIsActive = computed(() => {
+  const candidateHash = pricingCatalogPreview.value?.status.candidate_hash;
+  return Boolean(
+    candidateHash &&
+      pricingCatalogStatus.value?.active_source === "remote" &&
+      candidateHash === pricingCatalogStatus.value.active_hash,
+  );
+});
+
+async function loadPricingCatalogStatus(): Promise<void> {
+  pricingCatalogLoading.value = true;
+  try {
+    pricingCatalogStatus.value =
+      await adminAPI.settings.getPricingCatalogStatus();
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("读取价格目录状态失败", "Failed to load pricing catalog status"),
+      ),
+    );
+  } finally {
+    pricingCatalogLoading.value = false;
+  }
+}
+
+async function checkRemotePricingCatalog(): Promise<void> {
+  pricingCatalogChecking.value = true;
+  try {
+    const preview = await adminAPI.settings.checkPricingCatalog();
+    pricingCatalogPreview.value = preview;
+    pricingCatalogStatus.value = preview.status;
+    appStore.showSuccess(
+      localText(
+        "候选价格表已下载并校验，请核对差异后再启用",
+        "Candidate catalog verified. Review the differences before activation.",
+      ),
+    );
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("检查远端价格失败", "Failed to check remote pricing"),
+      ),
+    );
+  } finally {
+    pricingCatalogChecking.value = false;
+  }
+}
+
+function handlePricingCatalogStepUpError(error: unknown): boolean {
+  if (isStepUpCancelled(error)) return true;
+  if (isStepUpBlocked(error)) {
+    appStore.showError(
+      stepUpBlockReason(error) === "STEP_UP_ADMIN_API_KEY_FORBIDDEN"
+        ? t("stepUp.adminApiKeyForbidden")
+        : t("stepUp.notEnabled"),
+    );
+    return true;
+  }
+  return false;
+}
+
+async function activateRemotePricingCatalog(): Promise<void> {
+  const candidateHash = pricingCatalogPreview.value?.status.candidate_hash;
+  if (!candidateHash) return;
+  if (
+    !confirm(
+      localText(
+        "确认启用这份候选价格表？启用后，后续请求将按新价格计算，已有记录不会重算。",
+        "Activate this candidate catalog? Subsequent requests will use its prices; existing usage will not be recalculated.",
+      ),
+    )
+  ) return;
+  pricingCatalogOperating.value = true;
+  try {
+    pricingCatalogStatus.value = await settingsStepUp.run(() =>
+      adminAPI.settings.activateRemotePricingCatalog(candidateHash),
+    );
+    appStore.showSuccess(
+      localText("候选价格表已启用", "Candidate pricing catalog activated"),
+    );
+  } catch (error: unknown) {
+    if (handlePricingCatalogStepUpError(error)) return;
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("启用价格表失败", "Failed to activate pricing catalog"),
+      ),
+    );
+  } finally {
+    pricingCatalogOperating.value = false;
+  }
+}
+
+async function activateBundledPricingCatalog(): Promise<void> {
+  if (
+    !confirm(
+      localText(
+        "确认切回当前版本内置的价格表？后续请求会立即使用内置价格。",
+        "Switch to the catalog bundled with this release? Subsequent requests will immediately use bundled prices.",
+      ),
+    )
+  ) return;
+  pricingCatalogOperating.value = true;
+  try {
+    pricingCatalogStatus.value = await settingsStepUp.run(() =>
+      adminAPI.settings.activateBundledPricingCatalog(),
+    );
+    appStore.showSuccess(
+      localText("已切回内置价格表", "Bundled pricing catalog activated"),
+    );
+  } catch (error: unknown) {
+    if (handlePricingCatalogStepUpError(error)) return;
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("切换价格表失败", "Failed to switch pricing catalog"),
+      ),
+    );
+  } finally {
+    pricingCatalogOperating.value = false;
+  }
+}
+
+function shortPricingHash(hash?: string): string {
+  if (!hash) return "-";
+  return `${hash.slice(0, 10)}...${hash.slice(-6)}`;
+}
+
+function formatPricingCatalogDate(value?: string): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+const pricingCatalogFieldLabels: Record<string, [string, string]> = {
+  input_cost_per_token: ["输入 / 百万 Token", "Input / MTok"],
+  input_cost_per_token_priority: ["Priority 输入 / 百万 Token", "Priority input / MTok"],
+  output_cost_per_token: ["输出 / 百万 Token", "Output / MTok"],
+  output_cost_per_token_priority: ["Priority 输出 / 百万 Token", "Priority output / MTok"],
+  cache_creation_input_token_cost: ["缓存写入 / 百万 Token", "Cache write / MTok"],
+  cache_creation_input_token_cost_priority: ["Priority 缓存写入 / 百万 Token", "Priority cache write / MTok"],
+  cache_creation_input_token_cost_above_1hr: ["1 小时缓存写入 / 百万 Token", "1h cache write / MTok"],
+  cache_read_input_token_cost: ["缓存读取 / 百万 Token", "Cache read / MTok"],
+  cache_read_input_token_cost_priority: ["Priority 缓存读取 / 百万 Token", "Priority cache read / MTok"],
+  long_context_input_token_threshold: ["长上下文阈值", "Long-context threshold"],
+  long_context_input_cost_multiplier: ["长上下文输入倍率", "Long-context input multiplier"],
+  long_context_output_cost_multiplier: ["长上下文输出倍率", "Long-context output multiplier"],
+  output_cost_per_image: ["每张图片", "Per image"],
+  output_cost_per_image_token: ["图片输出 / 百万 Token", "Image output / MTok"],
+  input_cost_per_image_token: ["图片输入 / 百万 Token", "Image input / MTok"],
+};
+
+function pricingCatalogFieldLabel(field: string): string {
+  const label = pricingCatalogFieldLabels[field];
+  return label ? localText(label[0], label[1]) : field;
+}
+
+function formatPricingCatalogValue(field: string, value?: number): string {
+  if (value === undefined || value === null) return "-";
+  if (field === "long_context_input_token_threshold") {
+    return `${Math.round(value).toLocaleString()} tokens`;
+  }
+  if (field.endsWith("_multiplier")) return `${value.toFixed(3).replace(/\.?0+$/, "")}x`;
+  if (field === "output_cost_per_image") return `$${value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
+  const perMillion = value * 1_000_000;
+  return `$${perMillion.toLocaleString(undefined, { maximumFractionDigits: 6 })}`;
+}
+
+function formatPricingCatalogChange(value?: number): string {
+  if (value === undefined || !Number.isFinite(value)) return localText("已变化", "Changed");
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${value.toFixed(1)}%`;
 }
 
 const paymentGuideHref = computed(() =>
@@ -12748,6 +13098,7 @@ async function handleDeleteProvider() {
 
 onMounted(() => {
   loadSettings();
+  loadPricingCatalogStatus();
   loadSubscriptionGroups();
   loadAdminApiKey();
   loadWebAccessRegionSettings();

@@ -1,15 +1,45 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
+
+type pricingCatalogRemoteStub struct {
+	body []byte
+	hash string
+	err  error
+}
+
+func (s *pricingCatalogRemoteStub) FetchPricingJSON(context.Context, string) ([]byte, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return append([]byte(nil), s.body...), nil
+}
+
+func (s *pricingCatalogRemoteStub) FetchHashText(context.Context, string) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.hash, nil
+}
+
+func writePricingCatalogTestFile(t *testing.T, path string, input, output float64) []byte {
+	t.Helper()
+	body := []byte(fmt.Sprintf(`{"model-a":{"input_cost_per_token":%g,"output_cost_per_token":%g,"litellm_provider":"test"}}`, input, output))
+	require.NoError(t, os.WriteFile(path, body, 0600))
+	return body
+}
 
 func TestPricingSchedulerBlankRemoteURLDoesNotStart(t *testing.T) {
 	svc := NewPricingService(&config.Config{Pricing: config.PricingConfig{RemoteURL: "  \t  "}}, nil)
@@ -39,6 +69,121 @@ func TestPricingNonEmptyInvalidRemoteURLStillReturnsValidationError(t *testing.T
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid pricing url")
+}
+
+func TestPricingCatalogCheckDoesNotActivateUntilConfirmedAndPersists(t *testing.T) {
+	dir := t.TempDir()
+	fallback := filepath.Join(dir, "bundled.json")
+	writePricingCatalogTestFile(t, fallback, 1e-6, 2e-6)
+	remoteBody := []byte(`{"model-a":{"input_cost_per_token":0.000003,"output_cost_per_token":0.000004,"litellm_provider":"test"}}`)
+	remoteHash := pricingCatalogHash(remoteBody)
+	cfg := &config.Config{Pricing: config.PricingConfig{
+		RemoteURL: "https://example.com/pricing.json", HashURL: "https://example.com/pricing.sha256",
+		DataDir: dir, FallbackFile: fallback,
+	}}
+	svc := NewPricingService(cfg, &pricingCatalogRemoteStub{body: remoteBody, hash: remoteHash})
+	require.NoError(t, svc.Initialize())
+	require.Equal(t, PricingCatalogSourceBundled, svc.GetPricingCatalogStatus().ActiveSource)
+	require.InDelta(t, 1e-6, svc.GetModelPricing("model-a").InputCostPerToken, 1e-15)
+
+	preview, err := svc.CheckRemoteCatalog()
+	require.NoError(t, err)
+	require.Equal(t, remoteHash, preview.Status.CandidateHash)
+	require.Equal(t, 1, preview.ChangedModels)
+	require.InDelta(t, 1e-6, svc.GetModelPricing("model-a").InputCostPerToken, 1e-15, "checking must not affect live billing")
+
+	status, err := svc.ActivateRemoteCatalog(remoteHash)
+	require.NoError(t, err)
+	require.Equal(t, PricingCatalogSourceRemote, status.ActiveSource)
+	require.InDelta(t, 3e-6, svc.GetModelPricing("model-a").InputCostPerToken, 1e-15)
+
+	restarted := NewPricingService(cfg, nil)
+	require.NoError(t, restarted.Initialize())
+	require.Equal(t, PricingCatalogSourceRemote, restarted.GetPricingCatalogStatus().ActiveSource)
+	require.InDelta(t, 3e-6, restarted.GetModelPricing("model-a").InputCostPerToken, 1e-15)
+
+	status, err = restarted.ActivateBundledCatalog()
+	require.NoError(t, err)
+	require.Equal(t, PricingCatalogSourceBundled, status.ActiveSource)
+	require.InDelta(t, 1e-6, restarted.GetModelPricing("model-a").InputCostPerToken, 1e-15)
+}
+
+func TestPricingCatalogApprovedSnapshotsRemainRecoverableAcrossSelectionWrites(t *testing.T) {
+	dir := t.TempDir()
+	fallback := filepath.Join(dir, "bundled.json")
+	writePricingCatalogTestFile(t, fallback, 1e-6, 2e-6)
+	firstBody := []byte(`{"model-a":{"input_cost_per_token":0.000003,"output_cost_per_token":0.000004,"litellm_provider":"test"}}`)
+	secondBody := []byte(`{"model-a":{"input_cost_per_token":0.000005,"output_cost_per_token":0.000006,"litellm_provider":"test"}}`)
+	client := &pricingCatalogRemoteStub{body: firstBody, hash: pricingCatalogHash(firstBody)}
+	cfg := &config.Config{Pricing: config.PricingConfig{
+		RemoteURL: "https://example.com/pricing.json", HashURL: "https://example.com/pricing.sha256",
+		DataDir: dir, FallbackFile: fallback,
+	}}
+	svc := NewPricingService(cfg, client)
+	require.NoError(t, svc.Initialize())
+	_, err := svc.CheckRemoteCatalog()
+	require.NoError(t, err)
+	_, err = svc.ActivateRemoteCatalog(client.hash)
+	require.NoError(t, err)
+	firstHash := client.hash
+
+	client.body = secondBody
+	client.hash = pricingCatalogHash(secondBody)
+	_, err = svc.CheckRemoteCatalog()
+	require.NoError(t, err)
+	_, err = svc.ActivateRemoteCatalog(client.hash)
+	require.NoError(t, err)
+
+	// Simulate an interruption where the durable selection still points at the
+	// previously approved hash. Both content-addressed snapshots must be valid.
+	require.NoError(t, svc.writePricingCatalogState(pricingCatalogStateFile{
+		Source: PricingCatalogSourceRemote, Hash: firstHash, ActivatedAt: time.Now(),
+	}))
+	restarted := NewPricingService(cfg, nil)
+	require.NoError(t, restarted.Initialize())
+	require.Equal(t, PricingCatalogSourceRemote, restarted.GetPricingCatalogStatus().ActiveSource)
+	require.Equal(t, firstHash, restarted.GetPricingCatalogStatus().ActiveHash)
+	require.InDelta(t, 3e-6, restarted.GetModelPricing("model-a").InputCostPerToken, 1e-15)
+}
+
+func TestPricingCatalogHashMismatchKeepsCurrentCatalog(t *testing.T) {
+	dir := t.TempDir()
+	fallback := filepath.Join(dir, "bundled.json")
+	writePricingCatalogTestFile(t, fallback, 1e-6, 2e-6)
+	remoteBody := []byte(`{"model-a":{"input_cost_per_token":0.000003,"output_cost_per_token":0.000004}}`)
+	cfg := &config.Config{Pricing: config.PricingConfig{
+		RemoteURL: "https://example.com/pricing.json", HashURL: "https://example.com/pricing.sha256",
+		DataDir: dir, FallbackFile: fallback,
+	}}
+	svc := NewPricingService(cfg, &pricingCatalogRemoteStub{body: remoteBody, hash: strings.Repeat("0", 64)})
+	require.NoError(t, svc.Initialize())
+
+	_, err := svc.CheckRemoteCatalog()
+	require.ErrorContains(t, err, "hash mismatch")
+	require.False(t, svc.GetPricingCatalogStatus().CandidateAvailable)
+	require.InDelta(t, 1e-6, svc.GetModelPricing("model-a").InputCostPerToken, 1e-15)
+	_, statErr := os.Stat(svc.getCandidateCatalogPath())
+	require.True(t, os.IsNotExist(statErr))
+}
+
+func TestPricingCatalogActivationRejectsStaleCandidateHash(t *testing.T) {
+	dir := t.TempDir()
+	fallback := filepath.Join(dir, "bundled.json")
+	writePricingCatalogTestFile(t, fallback, 1e-6, 2e-6)
+	remoteBody := []byte(`{"model-a":{"input_cost_per_token":0.000003,"output_cost_per_token":0.000004}}`)
+	remoteHash := pricingCatalogHash(remoteBody)
+	cfg := &config.Config{Pricing: config.PricingConfig{
+		RemoteURL: "https://example.com/pricing.json", HashURL: "https://example.com/pricing.sha256",
+		DataDir: dir, FallbackFile: fallback,
+	}}
+	svc := NewPricingService(cfg, &pricingCatalogRemoteStub{body: remoteBody, hash: remoteHash})
+	require.NoError(t, svc.Initialize())
+	_, err := svc.CheckRemoteCatalog()
+	require.NoError(t, err)
+
+	_, err = svc.ActivateRemoteCatalog(strings.Repeat("f", 64))
+	require.ErrorContains(t, err, "candidate changed")
+	require.Equal(t, PricingCatalogSourceBundled, svc.GetPricingCatalogStatus().ActiveSource)
 }
 
 func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {

@@ -77,7 +77,7 @@ func RegisterAdminRoutes(
 		registerPromoCodeRoutes(admin, h)
 
 		// 系统设置
-		registerSettingsRoutes(admin, h)
+		registerSettingsRoutes(admin, h, stepUpAuth)
 
 		// 数据管理
 		registerDataManagementRoutes(admin, h, stepUpAuth)
@@ -573,7 +573,7 @@ func registerPromoCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
-func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	adminSettings := admin.Group("/settings")
 	{
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
@@ -615,6 +615,11 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.PUT("/web-search-emulation", h.Admin.Setting.UpdateWebSearchEmulationConfig)
 		adminSettings.POST("/web-search-emulation/test", h.Admin.Setting.TestWebSearchEmulation)
 		adminSettings.POST("/web-search-emulation/reset-usage", h.Admin.Setting.ResetWebSearchUsage)
+		// 计费价格目录：检查只生成候选；切换生效源属于敏感操作，要求 step-up 2FA。
+		adminSettings.GET("/pricing-catalog", h.Admin.Channel.GetPricingCatalogStatus)
+		adminSettings.POST("/pricing-catalog/check", h.Admin.Channel.CheckPricingCatalog)
+		adminSettings.POST("/pricing-catalog/activate-remote", gin.HandlerFunc(stepUpAuth), h.Admin.Channel.ActivateRemotePricingCatalog)
+		adminSettings.POST("/pricing-catalog/activate-bundled", gin.HandlerFunc(stepUpAuth), h.Admin.Channel.ActivateBundledPricingCatalog)
 	}
 }
 

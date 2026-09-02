@@ -1581,6 +1581,68 @@ export async function resetWebSearchUsage(payload: {
   );
 }
 
+export type PricingCatalogSource = "bundled" | "remote";
+
+export interface PricingCatalogStatus {
+  active_source: PricingCatalogSource;
+  active_hash: string;
+  active_updated_at: string;
+  active_model_count: number;
+  candidate_available: boolean;
+  candidate_hash?: string;
+  candidate_updated_at?: string;
+  candidate_model_count?: number;
+}
+
+export interface PricingCatalogChange {
+  model: string;
+  field: string;
+  current?: number;
+  candidate?: number;
+  change_percent?: number;
+  direction: "increase" | "decrease" | "changed";
+}
+
+export interface PricingCatalogPreview {
+  status: PricingCatalogStatus;
+  added_models: number;
+  removed_models: number;
+  changed_models: number;
+  price_changes: PricingCatalogChange[];
+  truncated: boolean;
+}
+
+export async function getPricingCatalogStatus(): Promise<PricingCatalogStatus> {
+  const { data } = await apiClient.get<PricingCatalogStatus>(
+    "/admin/settings/pricing-catalog",
+  );
+  return data;
+}
+
+export async function checkPricingCatalog(): Promise<PricingCatalogPreview> {
+  const { data } = await apiClient.post<PricingCatalogPreview>(
+    "/admin/settings/pricing-catalog/check",
+  );
+  return data;
+}
+
+export async function activateRemotePricingCatalog(
+  candidateHash: string,
+): Promise<PricingCatalogStatus> {
+  const { data } = await apiClient.post<PricingCatalogStatus>(
+    "/admin/settings/pricing-catalog/activate-remote",
+    { candidate_hash: candidateHash },
+  );
+  return data;
+}
+
+export async function activateBundledPricingCatalog(): Promise<PricingCatalogStatus> {
+  const { data } = await apiClient.post<PricingCatalogStatus>(
+    "/admin/settings/pricing-catalog/activate-bundled",
+  );
+  return data;
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -1612,6 +1674,10 @@ export const settingsAPI = {
   updateWebSearchEmulationConfig,
   testWebSearchEmulation,
   resetWebSearchUsage,
+  getPricingCatalogStatus,
+  checkPricingCatalog,
+  activateRemotePricingCatalog,
+  activateBundledPricingCatalog,
 };
 
 export default settingsAPI;

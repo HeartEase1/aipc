@@ -173,12 +173,17 @@ type LiteLLMRawEntry struct {
 
 // PricingService 动态价格服务
 type PricingService struct {
-	cfg          *config.Config
-	remoteClient PricingRemoteClient
-	mu           sync.RWMutex
-	pricingData  map[string]*LiteLLMModelPricing
-	lastUpdated  time.Time
-	localHash    string
+	cfg                 *config.Config
+	remoteClient        PricingRemoteClient
+	mu                  sync.RWMutex
+	catalogMu           sync.Mutex
+	pricingData         map[string]*LiteLLMModelPricing
+	lastUpdated         time.Time
+	localHash           string
+	activeSource        string
+	candidateHash       string
+	candidateUpdatedAt  time.Time
+	candidateModelCount int
 
 	// 停止信号
 	stopCh chan struct{}
@@ -203,19 +208,240 @@ func (s *PricingService) Initialize() error {
 		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to create data directory: %v", err)
 	}
 
-	// 首次加载价格数据
-	if err := s.checkAndUpdatePricing(); err != nil {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Initial load failed, using fallback: %v", err)
-		if err := s.useFallbackPricing(); err != nil {
-			return fmt.Errorf("failed to load pricing data: %w", err)
-		}
+	// 价格表是计费信任边界。启动时只加载管理员已确认的本地快照，
+	// 远端目录必须在管理端手动检查并确认后才会生效。
+	if err := s.loadSelectedPricingCatalog(); err != nil {
+		return fmt.Errorf("failed to load pricing data: %w", err)
 	}
-
-	// 启动定时更新
-	s.startUpdateScheduler()
 
 	logger.LegacyPrintf("service.pricing", "[Pricing] Service initialized with %d models", len(s.pricingData))
 	return nil
+}
+
+const (
+	PricingCatalogSourceBundled = "bundled"
+	PricingCatalogSourceRemote  = "remote"
+	maxRemotePricingCatalogSize = 16 << 20
+)
+
+type pricingCatalogStateFile struct {
+	Source      string    `json:"source"`
+	Hash        string    `json:"hash"`
+	ActivatedAt time.Time `json:"activated_at"`
+}
+
+// PricingCatalogStatus is safe to expose to administrators. Hashes identify
+// exact local snapshots; URLs and file-system paths deliberately stay server-side.
+type PricingCatalogStatus struct {
+	ActiveSource        string    `json:"active_source"`
+	ActiveHash          string    `json:"active_hash"`
+	ActiveUpdatedAt     time.Time `json:"active_updated_at"`
+	ActiveModelCount    int       `json:"active_model_count"`
+	CandidateAvailable  bool      `json:"candidate_available"`
+	CandidateHash       string    `json:"candidate_hash,omitempty"`
+	CandidateUpdatedAt  time.Time `json:"candidate_updated_at,omitempty"`
+	CandidateModelCount int       `json:"candidate_model_count,omitempty"`
+}
+
+type PricingCatalogChange struct {
+	Model         string   `json:"model"`
+	Field         string   `json:"field"`
+	Current       *float64 `json:"current,omitempty"`
+	Candidate     *float64 `json:"candidate,omitempty"`
+	ChangePercent *float64 `json:"change_percent,omitempty"`
+	Direction     string   `json:"direction"`
+}
+
+type PricingCatalogPreview struct {
+	Status        PricingCatalogStatus   `json:"status"`
+	AddedModels   int                    `json:"added_models"`
+	RemovedModels int                    `json:"removed_models"`
+	ChangedModels int                    `json:"changed_models"`
+	PriceChanges  []PricingCatalogChange `json:"price_changes"`
+	Truncated     bool                   `json:"truncated"`
+}
+
+func (s *PricingService) loadSelectedPricingCatalog() error {
+	state, stateErr := s.readPricingCatalogState()
+	if stateErr == nil {
+		switch state.Source {
+		case PricingCatalogSourceRemote:
+			if err := s.loadRemoteCatalogSnapshot(state); err == nil {
+				s.loadCandidateCatalogMetadata()
+				return nil
+			} else {
+				logger.LegacyPrintf("service.pricing", "[Pricing] Confirmed remote snapshot unavailable, falling back to bundled catalog: %v", err)
+			}
+		case PricingCatalogSourceBundled:
+			if err := s.loadCatalogSnapshot(s.cfg.Pricing.FallbackFile, PricingCatalogSourceBundled, "", time.Time{}); err == nil {
+				s.mu.RLock()
+				currentHash := s.localHash
+				activatedAt := s.lastUpdated
+				s.mu.RUnlock()
+				_ = s.writePricingCatalogState(pricingCatalogStateFile{Source: PricingCatalogSourceBundled, Hash: currentHash, ActivatedAt: activatedAt})
+				s.loadCandidateCatalogMetadata()
+				return nil
+			} else {
+				return err
+			}
+		default:
+			logger.LegacyPrintf("service.pricing", "[Pricing] Unknown catalog source %q, using bundled catalog", state.Source)
+		}
+	} else if !os.IsNotExist(stateErr) {
+		logger.LegacyPrintf("service.pricing", "[Pricing] Invalid catalog state, using bundled catalog: %v", stateErr)
+	}
+
+	// One-time compatibility migration: preserve the already active catalog from
+	// older releases, but copy it away from the new candidate path first.
+	if os.IsNotExist(stateErr) {
+		if body, err := os.ReadFile(s.getPricingFilePath()); err == nil {
+			if bundled, bundledErr := os.ReadFile(s.cfg.Pricing.FallbackFile); bundledErr == nil &&
+				pricingCatalogHash(body) == pricingCatalogHash(bundled) {
+				if err := s.activateBundledCatalogLocked(); err == nil {
+					s.loadCandidateCatalogMetadata()
+					logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Migrated existing bundled catalog to administrator-managed selection")
+					return nil
+				}
+			}
+			data, parseErr := s.parseEffectivePricingCatalog(body)
+			if parseErr == nil {
+				hash := pricingCatalogHash(body)
+				activatedAt := time.Now()
+				if err := writeFileReplace(s.getRemoteCatalogSnapshotPath(hash), body, 0644); err == nil {
+					if err := s.writePricingCatalogState(pricingCatalogStateFile{Source: PricingCatalogSourceRemote, Hash: hash, ActivatedAt: activatedAt}); err == nil {
+						s.setActivePricingCatalog(data, PricingCatalogSourceRemote, hash, activatedAt)
+						s.loadCandidateCatalogMetadata()
+						logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Migrated existing local catalog to administrator-managed snapshot")
+						return nil
+					}
+				}
+			}
+		}
+	}
+
+	if err := s.activateBundledCatalogLocked(); err != nil {
+		return err
+	}
+	s.loadCandidateCatalogMetadata()
+	return nil
+}
+
+func (s *PricingService) loadRemoteCatalogSnapshot(state pricingCatalogStateFile) error {
+	hash, err := normalizePricingCatalogHash(state.Hash)
+	if err != nil {
+		return err
+	}
+	if err := s.loadCatalogSnapshot(s.getRemoteCatalogSnapshotPath(hash), PricingCatalogSourceRemote, hash, state.ActivatedAt); err == nil {
+		return nil
+	}
+
+	// Compatibility with the first administrator-managed implementation, which
+	// stored every approved catalog in one replaceable file.
+	return s.loadCatalogSnapshot(s.getActiveRemoteCatalogPath(), PricingCatalogSourceRemote, hash, state.ActivatedAt)
+}
+
+func (s *PricingService) loadCatalogSnapshot(path, source, expectedHash string, activatedAt time.Time) error {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	hash := pricingCatalogHash(body)
+	if expectedHash != "" && !strings.EqualFold(expectedHash, hash) {
+		return fmt.Errorf("catalog snapshot hash mismatch")
+	}
+	data, err := s.parseEffectivePricingCatalog(body)
+	if err != nil {
+		return err
+	}
+	if activatedAt.IsZero() {
+		activatedAt = time.Now()
+		if info, statErr := os.Stat(path); statErr == nil {
+			activatedAt = info.ModTime()
+		}
+	}
+	s.setActivePricingCatalog(data, source, hash, activatedAt)
+	return nil
+}
+
+func (s *PricingService) parseEffectivePricingCatalog(body []byte) (map[string]*LiteLLMModelPricing, error) {
+	data, err := s.parsePricingData(body)
+	if err != nil {
+		return nil, err
+	}
+	data = s.mergeFallbackPricingData(data)
+	data = s.mergeOverrideOnlyModels(data)
+	return data, nil
+}
+
+func (s *PricingService) setActivePricingCatalog(data map[string]*LiteLLMModelPricing, source, hash string, updatedAt time.Time) {
+	s.mu.Lock()
+	warnDroppedLongContextLadders(s.pricingData, data)
+	s.pricingData = data
+	s.activeSource = source
+	s.localHash = hash
+	s.lastUpdated = updatedAt
+	s.mu.Unlock()
+}
+
+func (s *PricingService) readPricingCatalogState() (pricingCatalogStateFile, error) {
+	var state pricingCatalogStateFile
+	body, err := os.ReadFile(s.getPricingCatalogStatePath())
+	if err != nil {
+		return state, err
+	}
+	if err := json.Unmarshal(body, &state); err != nil {
+		return state, err
+	}
+	if state.Source != PricingCatalogSourceBundled && state.Source != PricingCatalogSourceRemote {
+		return state, fmt.Errorf("invalid pricing catalog source %q", state.Source)
+	}
+	return state, nil
+}
+
+func (s *PricingService) writePricingCatalogState(state pricingCatalogStateFile) error {
+	body, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileReplace(s.getPricingCatalogStatePath(), append(body, '\n'), 0644)
+}
+
+func writeFileReplace(path string, body []byte, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".pricing-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(body); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err == nil {
+		return nil
+	}
+	// Windows cannot replace an existing file with os.Rename. Production Linux
+	// uses the atomic path above; this fallback keeps local development usable.
+	return os.WriteFile(path, body, mode)
+}
+
+func pricingCatalogHash(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
 }
 
 // Stop 停止价格服务
@@ -227,205 +453,7 @@ func (s *PricingService) Stop() {
 
 // startUpdateScheduler 启动定时更新调度器
 func (s *PricingService) startUpdateScheduler() {
-	if s == nil || s.cfg == nil || strings.TrimSpace(s.cfg.Pricing.RemoteURL) == "" {
-		logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Remote sync disabled: pricing remote URL is empty")
-		return
-	}
-
-	// 定期检查哈希更新
-	hashInterval := time.Duration(s.cfg.Pricing.HashCheckIntervalMinutes) * time.Minute
-	if hashInterval < time.Minute {
-		hashInterval = 10 * time.Minute
-	}
-
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-		ticker := time.NewTicker(hashInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ticker.C:
-				if err := s.syncWithRemote(); err != nil {
-					logger.LegacyPrintf("service.pricing", "[Pricing] Sync failed: %v", err)
-				}
-			case <-s.stopCh:
-				return
-			}
-		}
-	}()
-
-	logger.LegacyPrintf("service.pricing", "[Pricing] Update scheduler started (check every %v)", hashInterval)
-}
-
-// checkAndUpdatePricing 检查并更新价格数据
-func (s *PricingService) checkAndUpdatePricing() error {
-	pricingFile := s.getPricingFilePath()
-
-	// 检查本地文件是否存在
-	if _, err := os.Stat(pricingFile); os.IsNotExist(err) {
-		logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Local pricing file not found, downloading...")
-		return s.downloadPricingData()
-	}
-
-	// 先加载本地文件（确保服务可用），再检查是否需要更新
-	if err := s.loadPricingData(pricingFile); err != nil {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to load local file, downloading: %v", err)
-		return s.downloadPricingData()
-	}
-
-	// 如果配置了哈希URL，通过远程哈希检查是否有更新
-	if s.cfg.Pricing.HashURL != "" {
-		remoteHash, err := s.fetchRemoteHash()
-		if err != nil {
-			logger.LegacyPrintf("service.pricing", "[Pricing] Failed to fetch remote hash on startup: %v", err)
-			return nil // 已加载本地文件，哈希获取失败不影响启动
-		}
-
-		s.mu.RLock()
-		localHash := s.localHash
-		s.mu.RUnlock()
-
-		if localHash == "" || remoteHash != localHash {
-			logger.LegacyPrintf("service.pricing", "[Pricing] Remote hash differs on startup (local=%s remote=%s), downloading...",
-				localHash[:min(8, len(localHash))], remoteHash[:min(8, len(remoteHash))])
-			if err := s.downloadPricingData(); err != nil {
-				logger.LegacyPrintf("service.pricing", "[Pricing] Download failed, using existing file: %v", err)
-			}
-		}
-		return nil
-	}
-
-	// 没有哈希URL时，基于文件年龄检查
-	info, err := os.Stat(pricingFile)
-	if err != nil {
-		return nil // 已加载本地文件
-	}
-
-	fileAge := time.Since(info.ModTime())
-	maxAge := time.Duration(s.cfg.Pricing.UpdateIntervalHours) * time.Hour
-
-	if fileAge > maxAge {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Local file is %v old, updating...", fileAge.Round(time.Hour))
-		if err := s.downloadPricingData(); err != nil {
-			logger.LegacyPrintf("service.pricing", "[Pricing] Download failed, using existing file: %v", err)
-		}
-	}
-
-	return nil
-}
-
-// syncWithRemote 与远程同步（基于哈希校验）
-func (s *PricingService) syncWithRemote() error {
-	// 如果配置了哈希URL，从远程获取哈希进行比对
-	if s.cfg.Pricing.HashURL != "" {
-		remoteHash, err := s.fetchRemoteHash()
-		if err != nil {
-			logger.LegacyPrintf("service.pricing", "[Pricing] Failed to fetch remote hash: %v", err)
-			return nil // 哈希获取失败不影响正常使用
-		}
-
-		s.mu.RLock()
-		localHash := s.localHash
-		s.mu.RUnlock()
-
-		if localHash == "" || remoteHash != localHash {
-			logger.LegacyPrintf("service.pricing", "[Pricing] Remote hash differs (local=%s remote=%s), downloading new version...",
-				localHash[:min(8, len(localHash))], remoteHash[:min(8, len(remoteHash))])
-			return s.downloadPricingData()
-		}
-		logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Hash check passed, no update needed")
-		return nil
-	}
-
-	// 没有哈希URL时，基于时间检查
-	pricingFile := s.getPricingFilePath()
-	info, err := os.Stat(pricingFile)
-	if err != nil {
-		return s.downloadPricingData()
-	}
-
-	fileAge := time.Since(info.ModTime())
-	maxAge := time.Duration(s.cfg.Pricing.UpdateIntervalHours) * time.Hour
-
-	if fileAge > maxAge {
-		logger.LegacyPrintf("service.pricing", "[Pricing] File is %v old, downloading...", fileAge.Round(time.Hour))
-		return s.downloadPricingData()
-	}
-
-	return nil
-}
-
-// downloadPricingData 从远程下载价格数据
-func (s *PricingService) downloadPricingData() error {
-	remoteURL, err := s.validatePricingURL(s.cfg.Pricing.RemoteURL)
-	if err != nil {
-		return err
-	}
-	logger.LegacyPrintf("service.pricing", "[Pricing] Downloading from %s", remoteURL)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// 获取远程哈希（用于同步锚点，不作为完整性校验）
-	var remoteHash string
-	if strings.TrimSpace(s.cfg.Pricing.HashURL) != "" {
-		remoteHash, err = s.fetchRemoteHash()
-		if err != nil {
-			logger.LegacyPrintf("service.pricing", "[Pricing] Failed to fetch remote hash (continuing): %v", err)
-		}
-	}
-
-	body, err := s.remoteClient.FetchPricingJSON(ctx, remoteURL)
-	if err != nil {
-		return fmt.Errorf("download failed: %w", err)
-	}
-
-	// 哈希校验：不匹配时仅告警，不阻止更新
-	// 远程哈希文件可能与数据文件不同步（如维护者更新了数据但未更新哈希文件）
-	dataHash := sha256.Sum256(body)
-	dataHashStr := hex.EncodeToString(dataHash[:])
-	if remoteHash != "" && !strings.EqualFold(remoteHash, dataHashStr) {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Hash mismatch warning: remote=%s data=%s (hash file may be out of sync)",
-			remoteHash[:min(8, len(remoteHash))], dataHashStr[:8])
-	}
-
-	// 解析JSON数据（使用灵活的解析方式）
-	data, err := s.parsePricingData(body)
-	if err != nil {
-		return fmt.Errorf("parse pricing data: %w", err)
-	}
-	data = s.mergeFallbackPricingData(data)
-	data = s.mergeOverrideOnlyModels(data)
-
-	// 保存到本地文件
-	pricingFile := s.getPricingFilePath()
-	if err := os.WriteFile(pricingFile, body, 0644); err != nil {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to save file: %v", err)
-	}
-
-	// 使用远程哈希作为同步锚点，防止重复下载
-	// 当远程哈希不可用时，回退到数据本身的哈希
-	syncHash := dataHashStr
-	if remoteHash != "" {
-		syncHash = remoteHash
-	}
-	hashFile := s.getHashFilePath()
-	if err := os.WriteFile(hashFile, []byte(syncHash+"\n"), 0644); err != nil {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to save hash: %v", err)
-	}
-
-	// 更新内存数据
-	s.mu.Lock()
-	warnDroppedLongContextLadders(s.pricingData, data)
-	s.pricingData = data
-	s.lastUpdated = time.Now()
-	s.localHash = syncHash
-	s.mu.Unlock()
-
-	logger.LegacyPrintf("service.pricing", "[Pricing] Downloaded %d models successfully", len(data))
-	return nil
+	logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Automatic remote sync disabled; use the administrator pricing catalog controls")
 }
 
 // parsePricingData 解析价格数据（处理各种格式）
@@ -1125,17 +1153,6 @@ func (s *PricingService) useFallbackPricing() error {
 
 	logger.LegacyPrintf("service.pricing", "[Pricing] Using fallback file: %s", fallbackFile)
 
-	// 复制到数据目录
-	data, err := os.ReadFile(fallbackFile)
-	if err != nil {
-		return fmt.Errorf("read fallback failed: %w", err)
-	}
-
-	pricingFile := s.getPricingFilePath()
-	if err := os.WriteFile(pricingFile, data, 0644); err != nil {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to copy fallback: %v", err)
-	}
-
 	return s.loadPricingData(fallbackFile)
 }
 
@@ -1617,21 +1634,331 @@ func (s *PricingService) generateOpenAIModelVariants(model string, datePattern *
 	return variants
 }
 
-// GetStatus 获取服务状态
-func (s *PricingService) GetStatus() map[string]any {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// CheckRemoteCatalog downloads and validates a candidate without changing the
+// pricing map used by live requests.
+func (s *PricingService) CheckRemoteCatalog() (*PricingCatalogPreview, error) {
+	if s == nil || s.cfg == nil {
+		return nil, fmt.Errorf("pricing remote client is unavailable")
+	}
+	s.catalogMu.Lock()
+	defer s.catalogMu.Unlock()
 
-	return map[string]any{
-		"model_count":  len(s.pricingData),
-		"last_updated": s.lastUpdated,
-		"local_hash":   s.localHash[:min(8, len(s.localHash))],
+	remoteURL, err := s.validatePricingURL(s.cfg.Pricing.RemoteURL)
+	if err != nil {
+		return nil, err
+	}
+	if s.remoteClient == nil {
+		return nil, fmt.Errorf("pricing remote client is unavailable")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	body, err := s.remoteClient.FetchPricingJSON(ctx, remoteURL)
+	if err != nil {
+		return nil, fmt.Errorf("download pricing catalog: %w", err)
+	}
+	if len(body) == 0 || len(body) > maxRemotePricingCatalogSize {
+		return nil, fmt.Errorf("remote pricing catalog size %d is outside the allowed range", len(body))
+	}
+	expectedHash, err := s.fetchRemoteHash()
+	if err != nil {
+		return nil, fmt.Errorf("download pricing catalog hash: %w", err)
+	}
+	expectedHash, err = normalizePricingCatalogHash(expectedHash)
+	if err != nil {
+		return nil, err
+	}
+	actualHash := pricingCatalogHash(body)
+	if !strings.EqualFold(expectedHash, actualHash) {
+		return nil, fmt.Errorf("remote pricing catalog hash mismatch; keeping the current catalog")
+	}
+	if err := validateRemotePricingCatalogNumbers(body); err != nil {
+		return nil, err
+	}
+	candidate, err := s.parseEffectivePricingCatalog(body)
+	if err != nil {
+		return nil, fmt.Errorf("parse remote pricing catalog: %w", err)
+	}
+	if len(candidate) == 0 {
+		return nil, fmt.Errorf("remote pricing catalog contains no usable models")
+	}
+	if err := writeFileReplace(s.getCandidateCatalogPath(), body, 0644); err != nil {
+		return nil, fmt.Errorf("save pricing catalog candidate: %w", err)
+	}
+	now := time.Now()
+	s.mu.Lock()
+	s.candidateHash = actualHash
+	s.candidateUpdatedAt = now
+	s.candidateModelCount = len(candidate)
+	s.mu.Unlock()
+	return s.buildPricingCatalogPreview(candidate), nil
+}
+
+func normalizePricingCatalogHash(raw string) (string, error) {
+	hash := strings.ToLower(strings.TrimSpace(raw))
+	if len(hash) != sha256.Size*2 {
+		return "", fmt.Errorf("remote pricing catalog hash is not a SHA-256 value")
+	}
+	if _, err := hex.DecodeString(hash); err != nil {
+		return "", fmt.Errorf("remote pricing catalog hash is invalid")
+	}
+	return hash, nil
+}
+
+func validateRemotePricingCatalogNumbers(body []byte) error {
+	var entries map[string]json.RawMessage
+	if err := json.Unmarshal(body, &entries); err != nil || len(entries) == 0 {
+		return fmt.Errorf("remote pricing catalog must be a non-empty JSON object")
+	}
+	for model, raw := range entries {
+		if model == "sample_spec" {
+			continue
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+			return fmt.Errorf("remote pricing entry %q is not a JSON object", model)
+		}
+		for field, value := range fields {
+			isNumeric := field == "long_context_input_token_threshold" ||
+				strings.Contains(field, "cost_per_token") ||
+				strings.Contains(field, "price_per_token") ||
+				strings.HasPrefix(field, "output_cost_per_image") ||
+				field == "input_cost_per_image_token" ||
+				field == "long_context_input_cost_multiplier" ||
+				field == "long_context_output_cost_multiplier"
+			if !isNumeric || bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+				continue
+			}
+			var number float64
+			if err := json.Unmarshal(value, &number); err != nil || number < 0 || math.IsNaN(number) || math.IsInf(number, 0) {
+				return fmt.Errorf("remote pricing entry %q has invalid numeric field %q", model, field)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *PricingService) ActivateRemoteCatalog(expectedHash string) (PricingCatalogStatus, error) {
+	if s == nil || s.cfg == nil {
+		return PricingCatalogStatus{}, fmt.Errorf("pricing service is unavailable")
+	}
+	s.catalogMu.Lock()
+	defer s.catalogMu.Unlock()
+	expectedHash, err := normalizePricingCatalogHash(expectedHash)
+	if err != nil {
+		return PricingCatalogStatus{}, err
+	}
+	body, err := os.ReadFile(s.getCandidateCatalogPath())
+	if err != nil {
+		return PricingCatalogStatus{}, fmt.Errorf("pricing catalog candidate is unavailable")
+	}
+	actualHash := pricingCatalogHash(body)
+	if !strings.EqualFold(expectedHash, actualHash) {
+		return PricingCatalogStatus{}, fmt.Errorf("pricing catalog candidate changed; check for updates again")
+	}
+	if err := validateRemotePricingCatalogNumbers(body); err != nil {
+		return PricingCatalogStatus{}, err
+	}
+	data, err := s.parseEffectivePricingCatalog(body)
+	if err != nil {
+		return PricingCatalogStatus{}, err
+	}
+	// Keep approved snapshots content-addressed. The state file is replaced only
+	// after this immutable snapshot is durable, so an interruption can leave the
+	// old or new selection active but never a mismatched half-update.
+	if err := writeFileReplace(s.getRemoteCatalogSnapshotPath(actualHash), body, 0644); err != nil {
+		return PricingCatalogStatus{}, fmt.Errorf("save active pricing catalog: %w", err)
+	}
+	now := time.Now()
+	state := pricingCatalogStateFile{Source: PricingCatalogSourceRemote, Hash: actualHash, ActivatedAt: now}
+	if err := s.writePricingCatalogState(state); err != nil {
+		return PricingCatalogStatus{}, fmt.Errorf("save pricing catalog selection: %w", err)
+	}
+	s.setActivePricingCatalog(data, PricingCatalogSourceRemote, actualHash, now)
+	return s.GetPricingCatalogStatus(), nil
+}
+
+func (s *PricingService) ActivateBundledCatalog() (PricingCatalogStatus, error) {
+	if s == nil || s.cfg == nil {
+		return PricingCatalogStatus{}, fmt.Errorf("pricing service is unavailable")
+	}
+	s.catalogMu.Lock()
+	defer s.catalogMu.Unlock()
+	if err := s.activateBundledCatalogLocked(); err != nil {
+		return PricingCatalogStatus{}, err
+	}
+	return s.GetPricingCatalogStatus(), nil
+}
+
+func (s *PricingService) activateBundledCatalogLocked() error {
+	body, err := os.ReadFile(s.cfg.Pricing.FallbackFile)
+	if err != nil {
+		return fmt.Errorf("read bundled pricing catalog: %w", err)
+	}
+	data, err := s.parseEffectivePricingCatalog(body)
+	if err != nil {
+		return fmt.Errorf("parse bundled pricing catalog: %w", err)
+	}
+	hash := pricingCatalogHash(body)
+	now := time.Now()
+	if err := s.writePricingCatalogState(pricingCatalogStateFile{Source: PricingCatalogSourceBundled, Hash: hash, ActivatedAt: now}); err != nil {
+		return fmt.Errorf("save pricing catalog selection: %w", err)
+	}
+	s.setActivePricingCatalog(data, PricingCatalogSourceBundled, hash, now)
+	return nil
+}
+
+func (s *PricingService) loadCandidateCatalogMetadata() {
+	body, err := os.ReadFile(s.getCandidateCatalogPath())
+	if err != nil {
+		return
+	}
+	data, err := s.parseEffectivePricingCatalog(body)
+	if err != nil {
+		return
+	}
+	updatedAt := time.Time{}
+	if info, statErr := os.Stat(s.getCandidateCatalogPath()); statErr == nil {
+		updatedAt = info.ModTime()
+	}
+	s.mu.Lock()
+	s.candidateHash = pricingCatalogHash(body)
+	s.candidateUpdatedAt = updatedAt
+	s.candidateModelCount = len(data)
+	s.mu.Unlock()
+}
+
+func (s *PricingService) buildPricingCatalogPreview(candidate map[string]*LiteLLMModelPricing) *PricingCatalogPreview {
+	s.mu.RLock()
+	current := maps.Clone(s.pricingData)
+	s.mu.RUnlock()
+	preview := &PricingCatalogPreview{Status: s.GetPricingCatalogStatus()}
+	changedModels := make(map[string]struct{})
+	const maxChanges = 300
+	for model, next := range candidate {
+		previous, exists := current[model]
+		if !exists {
+			preview.AddedModels++
+			continue
+		}
+		changes := diffPricingCatalogModel(model, previous, next)
+		if len(changes) > 0 {
+			changedModels[model] = struct{}{}
+		}
+		for _, change := range changes {
+			if len(preview.PriceChanges) >= maxChanges {
+				preview.Truncated = true
+				break
+			}
+			preview.PriceChanges = append(preview.PriceChanges, change)
+		}
+	}
+	for model := range current {
+		if _, exists := candidate[model]; !exists {
+			preview.RemovedModels++
+		}
+	}
+	preview.ChangedModels = len(changedModels)
+	sort.Slice(preview.PriceChanges, func(i, j int) bool {
+		if preview.PriceChanges[i].Model == preview.PriceChanges[j].Model {
+			return preview.PriceChanges[i].Field < preview.PriceChanges[j].Field
+		}
+		return preview.PriceChanges[i].Model < preview.PriceChanges[j].Model
+	})
+	return preview
+}
+
+func diffPricingCatalogModel(model string, current, candidate *LiteLLMModelPricing) []PricingCatalogChange {
+	currentFields := pricingCatalogComparableFields(current)
+	candidateFields := pricingCatalogComparableFields(candidate)
+	keys := make([]string, 0, len(currentFields)+len(candidateFields))
+	seen := make(map[string]struct{}, len(currentFields)+len(candidateFields))
+	for key := range currentFields {
+		seen[key] = struct{}{}
+		keys = append(keys, key)
+	}
+	for key := range candidateFields {
+		if _, ok := seen[key]; !ok {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	changes := make([]PricingCatalogChange, 0)
+	for _, field := range keys {
+		before := currentFields[field]
+		after := candidateFields[field]
+		if before == after {
+			continue
+		}
+		beforeCopy, afterCopy := before, after
+		change := PricingCatalogChange{Model: model, Field: field, Current: &beforeCopy, Candidate: &afterCopy, Direction: "changed"}
+		if before != 0 {
+			percent := (after - before) / math.Abs(before) * 100
+			change.ChangePercent = &percent
+		}
+		if field == "long_context_input_token_threshold" {
+			if after > before {
+				change.Direction = "decrease"
+			} else {
+				change.Direction = "increase"
+			}
+		} else if after > before {
+			change.Direction = "increase"
+		} else {
+			change.Direction = "decrease"
+		}
+		changes = append(changes, change)
+	}
+	return changes
+}
+
+func pricingCatalogComparableFields(pricing *LiteLLMModelPricing) map[string]float64 {
+	if pricing == nil {
+		return map[string]float64{}
+	}
+	return map[string]float64{
+		"input_cost_per_token":                      pricing.InputCostPerToken,
+		"input_cost_per_token_priority":             pricing.InputCostPerTokenPriority,
+		"output_cost_per_token":                     pricing.OutputCostPerToken,
+		"output_cost_per_token_priority":            pricing.OutputCostPerTokenPriority,
+		"cache_creation_input_token_cost":           pricing.CacheCreationInputTokenCost,
+		"cache_creation_input_token_cost_priority":  pricing.CacheCreationInputTokenCostPriority,
+		"cache_creation_input_token_cost_above_1hr": pricing.CacheCreationInputTokenCostAbove1hr,
+		"cache_read_input_token_cost":               pricing.CacheReadInputTokenCost,
+		"cache_read_input_token_cost_priority":      pricing.CacheReadInputTokenCostPriority,
+		"long_context_input_token_threshold":        float64(pricing.LongContextInputTokenThreshold),
+		"long_context_input_cost_multiplier":        pricing.LongContextInputCostMultiplier,
+		"long_context_output_cost_multiplier":       pricing.LongContextOutputCostMultiplier,
+		"output_cost_per_image":                     pricing.OutputCostPerImage,
+		"output_cost_per_image_token":               pricing.OutputCostPerImageToken,
+		"input_cost_per_image_token":                pricing.InputCostPerImageToken,
 	}
 }
 
-// ForceUpdate 强制更新
+func (s *PricingService) GetPricingCatalogStatus() PricingCatalogStatus {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return PricingCatalogStatus{
+		ActiveSource: s.activeSource, ActiveHash: s.localHash, ActiveUpdatedAt: s.lastUpdated,
+		ActiveModelCount: len(s.pricingData), CandidateAvailable: s.candidateHash != "",
+		CandidateHash: s.candidateHash, CandidateUpdatedAt: s.candidateUpdatedAt,
+		CandidateModelCount: s.candidateModelCount,
+	}
+}
+
+// GetStatus keeps the existing diagnostics contract while exposing the source.
+func (s *PricingService) GetStatus() map[string]any {
+	status := s.GetPricingCatalogStatus()
+	return map[string]any{
+		"model_count": status.ActiveModelCount, "last_updated": status.ActiveUpdatedAt,
+		"local_hash": status.ActiveHash[:min(8, len(status.ActiveHash))], "active_source": status.ActiveSource,
+	}
+}
+
+// ForceUpdate now refreshes the administrator-review candidate only. It never
+// changes live billing; callers must explicitly activate the returned hash.
 func (s *PricingService) ForceUpdate() error {
-	return s.downloadPricingData()
+	_, err := s.CheckRemoteCatalog()
+	return err
 }
 
 // getPricingFilePath 获取价格文件路径
@@ -1639,9 +1966,20 @@ func (s *PricingService) getPricingFilePath() string {
 	return filepath.Join(s.cfg.Pricing.DataDir, "model_pricing.json")
 }
 
-// getHashFilePath 获取哈希文件路径
-func (s *PricingService) getHashFilePath() string {
-	return filepath.Join(s.cfg.Pricing.DataDir, "model_pricing.sha256")
+func (s *PricingService) getCandidateCatalogPath() string {
+	return filepath.Join(s.cfg.Pricing.DataDir, "model_pricing.candidate.json")
+}
+
+func (s *PricingService) getActiveRemoteCatalogPath() string {
+	return filepath.Join(s.cfg.Pricing.DataDir, "model_pricing.active.json")
+}
+
+func (s *PricingService) getRemoteCatalogSnapshotPath(hash string) string {
+	return filepath.Join(s.cfg.Pricing.DataDir, "model_pricing.remote."+hash+".json")
+}
+
+func (s *PricingService) getPricingCatalogStatePath() string {
+	return filepath.Join(s.cfg.Pricing.DataDir, "model_pricing.source.json")
 }
 
 // ListModelNamesByProvider returns all model names in the catalog whose

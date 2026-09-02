@@ -643,9 +643,9 @@ type TokenRefreshConfig struct {
 }
 
 type PricingConfig struct {
-	// 价格数据远程URL（默认使用LiteLLM镜像）
+	// 管理员手动检查价格更新时使用的远程目录 URL
 	RemoteURL string `mapstructure:"remote_url"`
-	// 哈希校验文件URL
+	// 远程目录的 SHA256 文件 URL；不匹配时拒绝候选表
 	HashURL string `mapstructure:"hash_url"`
 	// 本地数据目录
 	DataDir string `mapstructure:"data_dir"`
@@ -653,9 +653,9 @@ type PricingConfig struct {
 	FallbackFile string `mapstructure:"fallback_file"`
 	// 本地价格覆盖文件（可选）；仅在完整校验通过后应用
 	OverrideFile string `mapstructure:"override_file"`
-	// 更新间隔（小时）
+	// 已弃用：价格目录不再后台自动更新
 	UpdateIntervalHours int `mapstructure:"update_interval_hours"`
-	// 哈希校验间隔（分钟）
+	// 已弃用：价格目录不再后台自动检查哈希
 	HashCheckIntervalMinutes int `mapstructure:"hash_check_interval_minutes"`
 }
 
@@ -2260,7 +2260,7 @@ func setDefaults() {
 	viper.SetDefault("rate_limit.overload_cooldown_minutes", 10)
 	viper.SetDefault("rate_limit.oauth_401_cooldown_minutes", 10)
 
-	// Pricing - 从 model-price-repo 同步模型定价和上下文窗口数据（固定到 commit，避免分支漂移）
+	// Pricing - 管理员可从 model-price-repo 手动获取并审核模型定价候选表
 	viper.SetDefault("pricing.remote_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json")
 	viper.SetDefault("pricing.hash_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.sha256")
 	viper.SetDefault("pricing.data_dir", "./data")
