@@ -1186,8 +1186,15 @@ func (s *GatewayService) calculateTokenCost(
 			Resolved:       resolved,
 		})
 	} else if opts.LongContextThreshold > 0 && (apiKey.Group == nil || apiKey.Group.LongContextPricingEnabled) {
-		// 长上下文双倍计费（如 Gemini 200K 阈值）
-		cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, multiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
+		// Prefer a complete catalog tier. Gemini keeps its legacy marginal 200K
+		// rule only as a fallback, so the two mechanisms can never stack.
+		if pricing, pricingErr := s.billingService.GetModelPricing(billingModel); pricingErr == nil && hasUsableLongContextPricing(pricing) {
+			cost, err = s.billingService.CalculateCostWithServiceTier(
+				billingModel, tokens, multiplier, optionalStringValue(result.ServiceTier),
+			)
+		} else {
+			cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, multiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
+		}
 	} else if s.resolver != nil && apiKey.Group != nil {
 		gid := apiKey.Group.ID
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
@@ -1203,6 +1210,11 @@ func (s *GatewayService) calculateTokenCost(
 		return &CostBreakdown{ActualCost: 0}
 	}
 	return cost
+}
+
+func hasUsableLongContextPricing(pricing *ModelPricing) bool {
+	return pricing != nil && pricing.LongContextInputThreshold > 0 &&
+		pricing.LongContextInputMultiplier > 1 && pricing.LongContextOutputMultiplier > 1
 }
 
 // buildRecordUsageLog 构建使用日志并设置计费模式。

@@ -77,6 +77,84 @@ func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {
 	require.True(t, pricing.SupportsServiceTier)
 }
 
+func TestParsePricingData_DerivesCompleteLongContextTier(t *testing.T) {
+	svc := &PricingService{}
+	data, err := svc.parsePricingData([]byte(`{
+		"gemini-pro": {
+			"input_cost_per_token": 0.00000125,
+			"output_cost_per_token": 0.00001,
+			"input_cost_per_token_above_200k_tokens": 0.0000025,
+			"output_cost_per_token_above_200k_tokens": 0.000015,
+			"litellm_provider": "gemini"
+		}
+	}`))
+	require.NoError(t, err)
+
+	pricing := data["gemini-pro"]
+	require.Equal(t, 200000, pricing.LongContextInputTokenThreshold)
+	require.InDelta(t, 2.0, pricing.LongContextInputCostMultiplier, 1e-12)
+	require.InDelta(t, 1.5, pricing.LongContextOutputCostMultiplier, 1e-12)
+
+	billing := NewBillingService(&config.Config{}, &PricingService{pricingData: data})
+	below, err := billing.CalculateCostWithServiceTier("gemini-pro", UsageTokens{InputTokens: 200000, OutputTokens: 10}, 1, "")
+	require.NoError(t, err)
+	above, err := billing.CalculateCostWithServiceTier("gemini-pro", UsageTokens{InputTokens: 200001, OutputTokens: 10}, 1, "")
+	require.NoError(t, err)
+	require.False(t, below.LongContextBillingApplied)
+	require.True(t, above.LongContextBillingApplied)
+	require.InDelta(t, float64(200001)*2.5e-6+10*15e-6, above.TotalCost, 1e-12)
+}
+
+func TestParsePricingData_RejectsIncompleteDerivedTier(t *testing.T) {
+	svc := &PricingService{}
+	data, err := svc.parsePricingData([]byte(`{
+		"gpt-5.4": {
+			"input_cost_per_token": 0.0000025,
+			"output_cost_per_token": 0.000015,
+			"input_cost_per_token_above_272k_tokens": 0.000005
+		}
+	}`))
+	require.NoError(t, err)
+	require.Zero(t, data["gpt-5.4"].LongContextInputTokenThreshold)
+
+	// Known GPT models retain the existing code safeguard when catalog data is incomplete.
+	billing := NewBillingService(&config.Config{}, &PricingService{pricingData: data})
+	pricing, err := billing.GetModelPricing("gpt-5.4")
+	require.NoError(t, err)
+	require.Equal(t, 272000, pricing.LongContextInputThreshold)
+	require.InDelta(t, 2.0, pricing.LongContextInputMultiplier, 1e-12)
+	require.InDelta(t, 1.5, pricing.LongContextOutputMultiplier, 1e-12)
+}
+
+func TestParsePricingData_ExplicitLongContextFieldsOverrideAboveTier(t *testing.T) {
+	svc := &PricingService{}
+	data, err := svc.parsePricingData([]byte(`{
+		"custom-model": {
+			"input_cost_per_token": 0.000001,
+			"output_cost_per_token": 0.000002,
+			"input_cost_per_token_above_200k_tokens": 0.000004,
+			"output_cost_per_token_above_200k_tokens": 0.000008,
+			"long_context_input_token_threshold": 0,
+			"long_context_input_cost_multiplier": 1,
+			"long_context_output_cost_multiplier": 1
+		}
+	}`))
+	require.NoError(t, err)
+	require.Zero(t, data["custom-model"].LongContextInputTokenThreshold)
+	require.InDelta(t, 1.0, data["custom-model"].LongContextInputCostMultiplier, 1e-12)
+	require.InDelta(t, 1.0, data["custom-model"].LongContextOutputCostMultiplier, 1e-12)
+}
+
+func TestHasUsableLongContextPricingRequiresCompleteSurcharge(t *testing.T) {
+	require.False(t, hasUsableLongContextPricing(nil))
+	require.False(t, hasUsableLongContextPricing(&ModelPricing{LongContextInputThreshold: 200000, LongContextInputMultiplier: 2}))
+	require.True(t, hasUsableLongContextPricing(&ModelPricing{
+		LongContextInputThreshold:   200000,
+		LongContextInputMultiplier:  2,
+		LongContextOutputMultiplier: 1.5,
+	}))
+}
+
 func TestBillingService_GPT56CacheWritePricingUsesOfficialMultiplier(t *testing.T) {
 	tests := []struct {
 		model             string

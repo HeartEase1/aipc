@@ -1,15 +1,18 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,8 +25,11 @@ import (
 )
 
 var (
-	openAIModelDatePattern     = regexp.MustCompile(`-\d{8}$`)
-	openAIModelBasePattern     = regexp.MustCompile(`^(gpt-\d+(?:\.\d+)?)(?:-|$)`)
+	openAIModelDatePattern = regexp.MustCompile(`-\d{8}$`)
+	openAIModelBasePattern = regexp.MustCompile(`^(gpt-\d+(?:\.\d+)?)(?:-|$)`)
+	// Only standard input/output prices define the session long-context tier.
+	// Service-tier and cache variants are validated separately and never create a second ladder.
+	aboveTierPricePattern      = regexp.MustCompile(`^(input|output)_cost_per_token_above_(\d+)k_tokens$`)
 	openAIGPT54FallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:               2.5e-06, // $2.5 per MTok
 		OutputCostPerToken:              1.5e-05, // $15 per MTok
@@ -408,6 +414,7 @@ func (s *PricingService) downloadPricingData() error {
 
 	// 更新内存数据
 	s.mu.Lock()
+	warnDroppedLongContextLadders(s.pricingData, data)
 	s.pricingData = data
 	s.lastUpdated = time.Now()
 	s.localHash = syncHash
@@ -427,6 +434,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 
 	result := make(map[string]*LiteLLMModelPricing)
 	skipped := 0
+	var rejectedLongContextLadders []string
 
 	for modelName, rawEntry := range rawData {
 		// 跳过 sample_spec 等文档条目
@@ -500,18 +508,136 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 			pricing.InputCostPerImageToken = *entry.InputCostPerImageToken
 		}
 
+		hasExplicitLongContext := entry.LongContextInputTokenThreshold != nil ||
+			entry.LongContextInputCostMultiplier != nil ||
+			entry.LongContextOutputCostMultiplier != nil
+		if !hasExplicitLongContext && hasStandardAboveTierFields(rawEntry) &&
+			!deriveLongContextFromAboveTierFields(rawEntry, pricing) {
+			rejectedLongContextLadders = append(rejectedLongContextLadders, modelName)
+		}
+
 		result[modelName] = pricing
 	}
 
 	if skipped > 0 {
 		logger.LegacyPrintf("service.pricing", "[Pricing] Skipped %d invalid entries", skipped)
 	}
+	warnRejectedLongContextLadders(rejectedLongContextLadders)
 
 	if len(result) == 0 {
 		return nil, fmt.Errorf("no valid pricing entries found")
 	}
 
 	return result, nil
+}
+
+// deriveLongContextFromAboveTierFields converts LiteLLM's absolute
+// *_above_XXXk_tokens prices into the threshold/multiplier form used by AIPC.
+// A derived tier is accepted only when both input and output prices are present,
+// finite, and strictly above their base prices. Incomplete catalog changes are
+// therefore observable but cannot silently replace the existing fallback rules.
+func deriveLongContextFromAboveTierFields(rawEntry json.RawMessage, pricing *LiteLLMModelPricing) bool {
+	if pricing == nil ||
+		pricing.LongContextInputTokenThreshold > 0 ||
+		pricing.LongContextInputCostMultiplier > 0 ||
+		pricing.LongContextOutputCostMultiplier > 0 ||
+		!bytes.Contains(rawEntry, []byte("_above_")) {
+		return false
+	}
+
+	var fields map[string]any
+	if err := json.Unmarshal(rawEntry, &fields); err != nil {
+		return false
+	}
+	type tierPrices struct {
+		input  float64
+		output float64
+	}
+	tiers := make(map[int]*tierPrices)
+	for key, value := range fields {
+		match := aboveTierPricePattern.FindStringSubmatch(key)
+		if match == nil {
+			continue
+		}
+		price, ok := value.(float64)
+		if !ok || !isFinitePositivePrice(price) {
+			continue
+		}
+		thousands, err := strconv.Atoi(match[2])
+		if err != nil || thousands <= 0 || thousands > int(^uint(0)>>1)/1000 {
+			continue
+		}
+		threshold := thousands * 1000
+		tier := tiers[threshold]
+		if tier == nil {
+			tier = &tierPrices{}
+			tiers[threshold] = tier
+		}
+		if match[1] == "input" {
+			tier.input = price
+		} else {
+			tier.output = price
+		}
+	}
+
+	thresholds := make([]int, 0, len(tiers))
+	for threshold := range tiers {
+		thresholds = append(thresholds, threshold)
+	}
+	sort.Ints(thresholds)
+	for _, threshold := range thresholds {
+		tier := tiers[threshold]
+		if !isFinitePositivePrice(pricing.InputCostPerToken) ||
+			!isFinitePositivePrice(pricing.OutputCostPerToken) ||
+			!isFinitePositivePrice(tier.input) ||
+			!isFinitePositivePrice(tier.output) {
+			continue
+		}
+		inputMultiplier := tier.input / pricing.InputCostPerToken
+		outputMultiplier := tier.output / pricing.OutputCostPerToken
+		if !isFinitePositivePrice(inputMultiplier) || !isFinitePositivePrice(outputMultiplier) ||
+			inputMultiplier <= 1 || outputMultiplier <= 1 {
+			continue
+		}
+		pricing.LongContextInputTokenThreshold = threshold
+		pricing.LongContextInputCostMultiplier = inputMultiplier
+		pricing.LongContextOutputCostMultiplier = outputMultiplier
+		return true
+	}
+	return false
+}
+
+func isFinitePositivePrice(value float64) bool {
+	return value > 0 && !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func hasStandardAboveTierFields(rawEntry json.RawMessage) bool {
+	if !bytes.Contains(rawEntry, []byte("_above_")) {
+		return false
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(rawEntry, &fields); err != nil {
+		return false
+	}
+	for key := range fields {
+		if aboveTierPricePattern.MatchString(key) {
+			return true
+		}
+	}
+	return false
+
+}
+
+func warnRejectedLongContextLadders(models []string) {
+	if len(models) == 0 {
+		return
+	}
+	sort.Strings(models)
+	total := len(models)
+	if total > 20 {
+		models = append(models[:20], "...")
+	}
+	logger.LegacyPrintf("service.pricing", "[Pricing] Warning: rejected incomplete or unsafe long-context ladder for %d model(s): %s; existing fallback rules remain unchanged", total, strings.Join(models, ", "))
 }
 
 // loadPricingData 从本地文件加载价格数据
@@ -533,6 +659,7 @@ func (s *PricingService) loadPricingData(filePath string) error {
 	hashStr := hex.EncodeToString(hash[:])
 
 	s.mu.Lock()
+	warnDroppedLongContextLadders(s.pricingData, pricingData)
 	s.pricingData = pricingData
 	s.localHash = hashStr
 
@@ -577,6 +704,34 @@ func (s *PricingService) mergeFallbackPricingData(data map[string]*LiteLLMModelP
 		logger.LegacyPrintf("service.pricing", "[Pricing] Merged %d fallback-only models", merged)
 	}
 	return data
+}
+
+// warnDroppedLongContextLadders reports catalog regressions while keeping the
+// last-resort code safeguards available for known GPT models.
+// The caller must hold s.mu for writing.
+func warnDroppedLongContextLadders(old, next map[string]*LiteLLMModelPricing) {
+	if len(old) == 0 {
+		return
+	}
+	var dropped []string
+	for name, previous := range old {
+		if previous == nil || previous.LongContextInputTokenThreshold <= 0 {
+			continue
+		}
+		current, exists := next[name]
+		if exists && (current == nil || current.LongContextInputTokenThreshold <= 0) {
+			dropped = append(dropped, name)
+		}
+	}
+	if len(dropped) == 0 {
+		return
+	}
+	sort.Strings(dropped)
+	total := len(dropped)
+	if total > 20 {
+		dropped = append(dropped[:20], "...")
+	}
+	logger.LegacyPrintf("service.pricing", "[Pricing] Warning: long-context ladder dropped for %d model(s) after reload: %s; existing model safeguards remain available where defined", total, strings.Join(dropped, ", "))
 }
 
 // useFallbackPricing 使用回退价格文件
