@@ -155,6 +155,47 @@ func TestHasUsableLongContextPricingRequiresCompleteSurcharge(t *testing.T) {
 	}))
 }
 
+func TestOrphanCacheTierFieldsFollowsBillingFallbackChain(t *testing.T) {
+	orphan := orphanCacheTierFields(json.RawMessage(`{
+		"cache_creation_input_token_cost_above_200k_tokens_priority": 0.000025
+	}`))
+	require.Equal(t, []string{"cache_creation_input_token_cost_above_200k_tokens_priority"}, orphan)
+
+	complete := orphanCacheTierFields(json.RawMessage(`{
+		"cache_creation_input_token_cost": 0.000005,
+		"cache_creation_input_token_cost_above_200k_tokens_priority": 0.000025,
+		"cache_creation_input_token_cost_above_1hr_above_200k_tokens": 0.00003
+	}`))
+	require.Empty(t, complete)
+}
+
+func TestDefaultCatalogSnapshotHasCompleteGeminiCachePricing(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+	require.NoError(t, err)
+
+	var rawEntries map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(body, &rawEntries))
+	for name, raw := range rawEntries {
+		require.Empty(t, orphanCacheTierFields(raw), "catalog entry %s has an orphan cache tier", name)
+	}
+
+	svc := &PricingService{}
+	data, err := svc.parsePricingData(body)
+	require.NoError(t, err)
+	for _, model := range []string{
+		"gemini-2.5-pro", "gemini-3-pro-preview", "gemini-3.1-pro-preview",
+		"gemini-3.1-pro-high", "gemini-3.1-pro-low", "gemini-3.1-pro-preview-customtools",
+	} {
+		pricing := data[model]
+		require.NotNil(t, pricing, model)
+		require.InDelta(t, pricing.InputCostPerToken, pricing.CacheCreationInputTokenCost, 1e-15, model)
+		require.Equal(t, 200000, pricing.LongContextInputTokenThreshold, model)
+		if pricing.InputCostPerTokenPriority > 0 {
+			require.InDelta(t, pricing.InputCostPerTokenPriority, pricing.CacheCreationInputTokenCostPriority, 1e-15, model)
+		}
+	}
+}
+
 func TestBillingService_GPT56CacheWritePricingUsesOfficialMultiplier(t *testing.T) {
 	tests := []struct {
 		model             string

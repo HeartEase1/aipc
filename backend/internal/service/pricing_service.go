@@ -29,7 +29,9 @@ var (
 	openAIModelBasePattern = regexp.MustCompile(`^(gpt-\d+(?:\.\d+)?)(?:-|$)`)
 	// Only standard input/output prices define the session long-context tier.
 	// Service-tier and cache variants are validated separately and never create a second ladder.
-	aboveTierPricePattern      = regexp.MustCompile(`^(input|output)_cost_per_token_above_(\d+)k_tokens$`)
+	aboveTierPricePattern = regexp.MustCompile(`^(input|output)_cost_per_token_above_(\d+)k_tokens$`)
+	// Groups: base field stem, optional 1h cache duration, optional service tier.
+	cacheTierPricePattern      = regexp.MustCompile(`^(cache_(?:creation|read)_input_token_cost)(_above_1hr)?_above_\d+k_tokens((?:_[a-z]+)?)$`)
 	openAIGPT54FallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:               2.5e-06, // $2.5 per MTok
 		OutputCostPerToken:              1.5e-05, // $15 per MTok
@@ -435,6 +437,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 	result := make(map[string]*LiteLLMModelPricing)
 	skipped := 0
 	var rejectedLongContextLadders []string
+	var orphanCacheTiers []string
 
 	for modelName, rawEntry := range rawData {
 		// 跳过 sample_spec 等文档条目
@@ -515,6 +518,9 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 			!deriveLongContextFromAboveTierFields(rawEntry, pricing) {
 			rejectedLongContextLadders = append(rejectedLongContextLadders, modelName)
 		}
+		if orphans := orphanCacheTierFields(rawEntry); len(orphans) > 0 {
+			orphanCacheTiers = append(orphanCacheTiers, modelName+"("+strings.Join(orphans, ",")+")")
+		}
 
 		result[modelName] = pricing
 	}
@@ -523,6 +529,7 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		logger.LegacyPrintf("service.pricing", "[Pricing] Skipped %d invalid entries", skipped)
 	}
 	warnRejectedLongContextLadders(rejectedLongContextLadders)
+	warnOrphanCacheTierFields(orphanCacheTiers)
 
 	if len(result) == 0 {
 		return nil, fmt.Errorf("no valid pricing entries found")
@@ -638,6 +645,49 @@ func warnRejectedLongContextLadders(models []string) {
 		models = append(models[:20], "...")
 	}
 	logger.LegacyPrintf("service.pricing", "[Pricing] Warning: rejected incomplete or unsafe long-context ladder for %d model(s): %s; existing fallback rules remain unchanged", total, strings.Join(models, ", "))
+}
+
+// orphanCacheTierFields returns high-context cache price fields which cannot
+// fall back to any corresponding base cache price. Such a field is ineffective
+// in the current multiplier-based billing contract and would otherwise bill at zero.
+func orphanCacheTierFields(rawEntry json.RawMessage) []string {
+	if !bytes.Contains(rawEntry, []byte("_above_")) {
+		return nil
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(rawEntry, &fields); err != nil {
+		return nil
+	}
+	positive := func(key string) bool {
+		price, ok := fields[key].(float64)
+		return ok && isFinitePositivePrice(price)
+	}
+	var orphans []string
+	for key := range fields {
+		match := cacheTierPricePattern.FindStringSubmatch(key)
+		if match == nil || !positive(key) {
+			continue
+		}
+		stem, hourly, tier := match[1], match[2], match[3]
+		if positive(stem+hourly+tier) || positive(stem+hourly) || positive(stem+tier) || positive(stem) {
+			continue
+		}
+		orphans = append(orphans, key)
+	}
+	sort.Strings(orphans)
+	return orphans
+}
+
+func warnOrphanCacheTierFields(entries []string) {
+	if len(entries) == 0 {
+		return
+	}
+	sort.Strings(entries)
+	total := len(entries)
+	if total > 20 {
+		entries = append(entries[:20], "...")
+	}
+	logger.LegacyPrintf("service.pricing", "[Pricing] Warning: %d model(s) have high-context cache prices without a usable base cache price: %s; affected cache items remain at the existing base/fallback price", total, strings.Join(entries, ", "))
 }
 
 // loadPricingData 从本地文件加载价格数据
