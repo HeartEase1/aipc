@@ -1022,7 +1022,8 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					}
 				}
 				replayCollector.AddEvent(eventType, upstreamMessage)
-				if err := writeClientMessage(upstreamMessage); err != nil {
+				clientMessage := openAIWSIngressMessageForClient(eventType, upstreamMessage)
+				if err := writeClientMessage(clientMessage); err != nil {
 					if isOpenAIWSClientDisconnectError(err) {
 						clientDisconnected = true
 						closeStatus, closeReason := summarizeOpenAIWSReadCloseError(err)
@@ -1753,4 +1754,17 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		turn++
 	}
+}
+
+// openAIWSIngressMessageForClient keeps the original upstream payload intact
+// for account-state and failover decisions while making capacity shedding
+// retryable by Codex clients on the ctx_pool direct-write path.
+func openAIWSIngressMessageForClient(eventType string, upstreamMessage []byte) []byte {
+	if eventType != "error" && eventType != "response.failed" {
+		return upstreamMessage
+	}
+	if rewritten, changed := sanitizeOpenAICapacityShedErrorCodeForClient(upstreamMessage); changed {
+		return rewritten
+	}
+	return upstreamMessage
 }
