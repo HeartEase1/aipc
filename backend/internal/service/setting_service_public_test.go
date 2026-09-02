@@ -101,6 +101,19 @@ func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T
 	require.False(t, missingSettings.CompactHomeEnabled)
 }
 
+func TestSettingService_GetPublicSettings_ExposesOnlyCommunityAvailability(t *testing.T) {
+	repo := &settingPublicRepoStub{values: map[string]string{
+		SettingKeyCommunityGroupsEnabled: "true",
+	}}
+	settings, err := NewSettingService(repo, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, settings.CommunityGroupsEnabled)
+
+	disabled, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, disabled.CommunityGroupsEnabled)
+}
+
 func TestSettingService_GetPublicSettings_NormalizesConsoleUIMode(t *testing.T) {
 	tests := []struct {
 		name string

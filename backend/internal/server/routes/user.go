@@ -26,6 +26,7 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
 		authenticated.GET("/leaderboard", h.Leaderboard.Get)
+		authenticated.GET("/community-groups", h.Setting.GetCommunityGroups)
 
 		// 用户接口
 		user := authenticated.Group("/user")

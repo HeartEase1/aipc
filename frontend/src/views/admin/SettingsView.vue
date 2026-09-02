@@ -6770,6 +6770,145 @@
                 </p>
               </div>
 
+              <!-- Community Groups -->
+              <section class="border-t border-gray-100 pt-6 dark:border-dark-700">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div class="min-w-0">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t("admin.settings.site.communityGroups.title") }}
+                    </h3>
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.site.communityGroups.description") }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm shrink-0"
+                    :disabled="form.community_groups.length >= 12"
+                    @click="addCommunityGroup"
+                  >
+                    <Icon name="plus" size="sm" />
+                    {{ t("admin.settings.site.communityGroups.add") }}
+                  </button>
+                </div>
+
+                <div
+                  v-if="form.community_groups.length === 0"
+                  class="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-5 text-sm text-gray-500 dark:border-dark-600 dark:bg-dark-800/40 dark:text-gray-400"
+                >
+                  <Icon name="chatBubble" size="md" class="shrink-0 text-primary-500" />
+                  <span>{{ t("admin.settings.site.communityGroups.empty") }}</span>
+                </div>
+
+                <div v-else class="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-dark-700 dark:border-dark-600">
+                  <div
+                    v-for="(group, index) in form.community_groups"
+                    :key="index"
+                    class="p-4 sm:p-5"
+                  >
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-xs font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                          {{ index + 1 }}
+                        </span>
+                        <span class="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {{ group.name || t("admin.settings.site.communityGroups.unnamed") }}
+                        </span>
+                      </div>
+                      <div class="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon h-8 w-8"
+                          :disabled="index === 0"
+                          :title="t('admin.settings.site.communityGroups.moveUp')"
+                          @click="moveCommunityGroup(index, -1)"
+                        >
+                          <Icon name="arrowUp" size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon h-8 w-8"
+                          :disabled="index === form.community_groups.length - 1"
+                          :title="t('admin.settings.site.communityGroups.moveDown')"
+                          @click="moveCommunityGroup(index, 1)"
+                        >
+                          <Icon name="arrowDown" size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          :title="t('common.remove')"
+                          @click="removeCommunityGroup(index)"
+                        >
+                          <Icon name="trash" size="sm" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.name") }}
+                        </label>
+                        <input
+                          v-model="group.name"
+                          type="text"
+                          maxlength="64"
+                          class="input"
+                          :placeholder="t('admin.settings.site.communityGroups.namePlaceholder')"
+                        />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.number") }}
+                        </label>
+                        <input
+                          v-model="group.group_number"
+                          type="text"
+                          maxlength="80"
+                          class="input"
+                          :placeholder="t('admin.settings.site.communityGroups.numberPlaceholder')"
+                        />
+                      </div>
+                      <div class="md:col-span-2">
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.joinUrl") }}
+                          <span class="font-normal text-gray-400">({{ t("common.optional") }})</span>
+                        </label>
+                        <input
+                          v-model="group.join_url"
+                          type="url"
+                          maxlength="2048"
+                          class="input font-mono text-sm"
+                          :placeholder="t('admin.settings.site.communityGroups.joinUrlPlaceholder')"
+                        />
+                      </div>
+                      <div class="md:col-span-2">
+                        <label class="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.qrCode") }}
+                          <span class="font-normal text-gray-400">({{ t("common.optional") }})</span>
+                        </label>
+                        <ImageUpload
+                          v-model="group.qr_code_image"
+                          mode="image"
+                          size="sm"
+                          accept="image/png,image/jpeg,image/webp"
+                          :allowed-mime-types="['image/png', 'image/jpeg', 'image/webp']"
+                          :upload-label="t('admin.settings.site.communityGroups.uploadQrCode')"
+                          :remove-label="t('common.remove')"
+                          :hint="t('admin.settings.site.communityGroups.qrCodeHint')"
+                          :max-size="300 * 1024"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p v-if="form.community_groups.length >= 12" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  {{ t("admin.settings.site.communityGroups.limitReached") }}
+                </p>
+              </section>
+
               <!-- Doc URL -->
               <div>
                 <label
@@ -9111,6 +9250,7 @@ import type {
 } from "@/api/admin/settings";
 import type {
   AdminGroup,
+  CommunityGroup,
   LoginAgreementDocument,
   NotifyEmailEntry,
   Proxy,
@@ -10070,6 +10210,7 @@ const form = reactive<SettingsForm>({
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
+  community_groups: [] as CommunityGroup[],
   doc_url: "",
   home_content: "",
   compact_home_enabled: false,
@@ -11117,6 +11258,30 @@ function removeEndpoint(index: number) {
   form.custom_endpoints.splice(index, 1);
 }
 
+function addCommunityGroup() {
+  if (form.community_groups.length >= 12) return;
+  form.community_groups.push({
+    name: "",
+    group_number: "",
+    qr_code_image: "",
+    join_url: "",
+  });
+}
+
+function removeCommunityGroup(index: number) {
+  form.community_groups.splice(index, 1);
+}
+
+function moveCommunityGroup(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.community_groups.length) return;
+  const current = form.community_groups[index];
+  const target = form.community_groups[targetIndex];
+  if (!current || !target) return;
+  form.community_groups[index] = target;
+  form.community_groups[targetIndex] = current;
+}
+
 function addLoginAgreementDocument() {
   form.login_agreement_documents.push({
     id: `custom-${Date.now().toString(36)}`,
@@ -11708,6 +11873,7 @@ async function saveSettings() {
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
+      community_groups: form.community_groups,
       doc_url: form.doc_url,
       home_content: form.home_content,
       compact_home_enabled: form.compact_home_enabled,

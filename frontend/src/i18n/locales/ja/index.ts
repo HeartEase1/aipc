@@ -5,6 +5,24 @@ import discountCampaigns from './admin/discountCampaigns'
 // screens, while the leaderboard copy is translated locally.
 export default {
   ...en,
+  communityGroups: {
+    button: 'お問い合わせ',
+    buttonLabel: '公式コミュニティを見る',
+    title: '公式コミュニティ',
+    subtitle: '重要なお知らせやサービス情報をコミュニティで配信します',
+    available: '参加可能',
+    groupNumber: 'グループ番号',
+    copyNumber: '番号をコピー',
+    scanTitle: 'スキャンして参加',
+    scanHint: 'QRコードを読み取るか、下のボタンから参加してください',
+    join: 'コミュニティに参加',
+    copied: 'グループ番号をコピーしました',
+    footer: 'お困りの場合は、コミュニティのお知らせを確認するかサポートへお問い合わせください。',
+    loading: 'コミュニティ情報を読み込んでいます...',
+    empty: '現在参加できるコミュニティはありません',
+    loadFailed: 'コミュニティ情報を読み込めませんでした',
+    retry: '再読み込み'
+  },
   nav: {
     ...en.nav,
     leaderboard: 'ランキング',
@@ -216,6 +234,25 @@ export default {
       ...en.admin.settings,
       site: {
         ...en.admin.settings.site,
+        communityGroups: {
+          title: '公式コミュニティ',
+          description: 'ログインユーザーがトップバーから確認できるコミュニティを設定します。QR画像はダイアログを開いた時だけ読み込みます。最大12件です。',
+          add: 'コミュニティを追加',
+          empty: 'コミュニティは未設定です。追加すると「お問い合わせ」が表示されます。',
+          unnamed: '名称未設定',
+          name: 'コミュニティ名',
+          namePlaceholder: '例：公式コミュニティ',
+          number: 'グループ番号',
+          numberPlaceholder: '例：123456789',
+          joinUrl: '参加リンク',
+          joinUrlPlaceholder: 'https://...',
+          qrCode: 'QRコード',
+          uploadQrCode: 'QRコードをアップロード',
+          qrCodeHint: 'PNG、JPEG、WebP、1枚最大300KB。',
+          moveUp: '上へ',
+          moveDown: '下へ',
+          limitReached: '最大12件まで設定できます。'
+        },
         consoleUiMode: 'コンソール画面',
         consoleUiModeHint: 'すべてのログインユーザーに表示する画面を選択します。ランディングページは変更されません。',
         consoleUiModeModern: 'モダンコンソール',

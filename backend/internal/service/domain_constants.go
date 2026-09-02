@@ -352,6 +352,8 @@ const (
 	SettingKeySiteSubtitle                = "site_subtitle"                   // 网站副标题
 	SettingKeyAPIBaseURL                  = "api_base_url"                    // API端点地址（用于客户端配置和导入）
 	SettingKeyContactInfo                 = "contact_info"                    // 客服联系方式
+	SettingKeyCommunityGroups             = "community_groups"                // 用户交流群配置（JSON 数组）
+	SettingKeyCommunityGroupsEnabled      = "community_groups_enabled"        // 是否存在可展示的用户交流群
 	SettingKeyDocURL                      = "doc_url"                         // 文档链接
 	SettingKeyHomeContent                 = "home_content"                    // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
 	SettingKeyCompactHomeEnabled          = "compact_home_enabled"            // 是否启用内置简洁首页

@@ -110,6 +110,25 @@ export default {
     }
   },
 
+  communityGroups: {
+    button: 'Contact Us',
+    buttonLabel: 'View official communities',
+    title: 'Official Communities',
+    subtitle: 'Important notices and service updates are shared in our communities',
+    available: 'Open',
+    groupNumber: 'Group number',
+    copyNumber: 'Copy number',
+    scanTitle: 'Scan to join',
+    scanHint: 'Scan the QR code or use the button below to join',
+    join: 'Join community',
+    copied: 'Group number copied',
+    footer: 'For help, check announcements in the community or contact support.',
+    loading: 'Loading community information...',
+    empty: 'No communities are currently available',
+    loadFailed: 'Unable to load community information',
+    retry: 'Try again'
+  },
+
   adminCompliance: {
     title: 'Deployment and Operation Compliance Acknowledgment',
     blockingNotice: 'Deployment and operation compliance acknowledgment is required before continuing to use the console.',

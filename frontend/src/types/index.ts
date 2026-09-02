@@ -204,6 +204,13 @@ export interface LoginAgreementDocument {
   content_md: string
 }
 
+export interface CommunityGroup {
+  name: string
+  group_number: string
+  qr_code_image: string
+  join_url: string
+}
+
 export interface PublicSettings {
   registration_enabled: boolean
   email_verify_enabled: boolean
@@ -233,6 +240,7 @@ export interface PublicSettings {
   site_subtitle: string
   api_base_url: string
   contact_info: string
+  community_groups_enabled: boolean
   doc_url: string
   home_content: string
   compact_home_enabled: boolean

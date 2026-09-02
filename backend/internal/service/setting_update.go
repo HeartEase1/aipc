@@ -341,6 +341,12 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeySiteSubtitle] = settings.SiteSubtitle
 	updates[SettingKeyAPIBaseURL] = settings.APIBaseURL
 	updates[SettingKeyContactInfo] = settings.ContactInfo
+	communityGroupsJSON, err := MarshalCommunityGroups(settings.CommunityGroups)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_COMMUNITY_GROUPS", err.Error())
+	}
+	updates[SettingKeyCommunityGroups] = communityGroupsJSON
+	updates[SettingKeyCommunityGroupsEnabled] = strconv.FormatBool(len(settings.CommunityGroups) > 0)
 	updates[SettingKeyDocURL] = settings.DocURL
 	updates[SettingKeyHomeContent] = settings.HomeContent
 	updates[SettingKeyCompactHomeEnabled] = strconv.FormatBool(settings.CompactHomeEnabled)

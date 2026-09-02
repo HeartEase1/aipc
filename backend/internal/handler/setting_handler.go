@@ -73,6 +73,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		SiteSubtitle:                        settings.SiteSubtitle,
 		APIBaseURL:                          settings.APIBaseURL,
 		ContactInfo:                         settings.ContactInfo,
+		CommunityGroupsEnabled:              settings.CommunityGroupsEnabled,
 		DocURL:                              settings.DocURL,
 		HomeContent:                         settings.HomeContent,
 		CompactHomeEnabled:                  settings.CompactHomeEnabled,
@@ -124,6 +125,19 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
 	})
+}
+
+// GetCommunityGroups returns administrator-configured communities to an
+// authenticated console user. QR images are intentionally excluded from the
+// public settings payload and fetched only when the user opens the dialog.
+// GET /api/v1/community-groups
+func (h *SettingHandler) GetCommunityGroups(c *gin.Context) {
+	groups, err := h.settingService.GetCommunityGroups(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, groups)
 }
 
 // UnsubscribeNotificationEmail handles optional notification email opt-outs.

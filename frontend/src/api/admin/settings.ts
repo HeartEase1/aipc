@@ -7,6 +7,7 @@ import { apiClient } from "../client";
 import type {
   CustomEndpoint,
   CustomMenuItem,
+  CommunityGroup,
   LoginAgreementDocument,
   NotifyEmailEntry,
 } from "@/types";
@@ -477,6 +478,7 @@ export interface SystemSettings {
   site_subtitle: string;
   api_base_url: string;
   contact_info: string;
+  community_groups: CommunityGroup[];
   doc_url: string;
   home_content: string;
   compact_home_enabled: boolean;
@@ -820,6 +822,7 @@ export interface UpdateSettingsRequest {
   site_subtitle?: string;
   api_base_url?: string;
   contact_info?: string;
+  community_groups?: CommunityGroup[];
   doc_url?: string;
   home_content?: string;
   compact_home_enabled?: boolean;

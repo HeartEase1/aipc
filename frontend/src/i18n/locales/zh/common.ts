@@ -110,6 +110,25 @@ export default {
     }
   },
 
+  communityGroups: {
+    button: '联系我们',
+    buttonLabel: '查看官方群聊',
+    title: '官方群聊',
+    subtitle: '重要通知与服务动态将在群内发布',
+    available: '可加入',
+    groupNumber: '群号',
+    copyNumber: '复制群号',
+    scanTitle: '扫码加入',
+    scanHint: '扫描二维码或点击下方按钮加入群聊',
+    join: '加入群聊',
+    copied: '群号已复制',
+    footer: '遇到问题时，可以先在群内查看公告或咨询客服。',
+    loading: '正在加载群聊信息...',
+    empty: '暂未配置可加入的群聊',
+    loadFailed: '群聊信息加载失败',
+    retry: '重新加载'
+  },
+
   adminCompliance: {
     title: '部署与运营合规确认',
     blockingNotice: '继续使用控制台前，须完成部署与运营合规确认。',

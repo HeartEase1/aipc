@@ -63,6 +63,36 @@ func TestUpdateSettingsPartialPayloadPreservesConsoleUIMode(t *testing.T) {
 	require.Equal(t, service.ConsoleUIModeModern, repo.values[service.SettingKeyConsoleUIMode])
 }
 
+func TestUpdateSettingsPartialPayloadPreservesCommunityGroups(t *testing.T) {
+	const stored = `[{"name":"Official","group_number":"123","qr_code_image":"","join_url":"https://example.com/join"}]`
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyCommunityGroups: stored,
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, stored, repo.values[service.SettingKeyCommunityGroups])
+	require.Equal(t, "true", repo.values[service.SettingKeyCommunityGroupsEnabled])
+}
+
+func TestUpdateSettingsCommunityGroupsRejectsUnsafeLink(t *testing.T) {
+	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
+		service.SettingKeyCommunityGroups:        `[]`,
+		service.SettingKeyCommunityGroupsEnabled: "false",
+	})
+
+	rec := doUpdateSettings(t, h, map[string]any{
+		"community_groups": []map[string]any{{
+			"name":         "Unsafe",
+			"group_number": "123",
+			"join_url":     "javascript:alert(1)",
+		}},
+	}, nil)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.JSONEq(t, `[]`, repo.values[service.SettingKeyCommunityGroups])
+	require.Equal(t, "false", repo.values[service.SettingKeyCommunityGroupsEnabled])
+}
+
 func TestUpdateSettingsConsoleUIModeRejectsInvalidValue(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
 		service.SettingKeyConsoleUIMode: service.ConsoleUIModeModern,
