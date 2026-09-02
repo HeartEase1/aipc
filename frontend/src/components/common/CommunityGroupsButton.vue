@@ -2,8 +2,10 @@
   <div>
     <button
       type="button"
-      class="group inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary-200/80 bg-primary-50/80 px-2.5 text-sm font-semibold text-primary-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:bg-primary-100/80 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 dark:border-primary-800/70 dark:bg-primary-900/20 dark:text-primary-300 dark:hover:border-primary-700 dark:hover:bg-primary-900/35 dark:focus-visible:ring-offset-dark-900 sm:px-3"
+      class="group inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-gray-600 transition-all duration-200 hover:scale-105 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-2 dark:text-gray-400 dark:hover:bg-dark-800 dark:hover:text-white dark:focus-visible:ring-offset-dark-900"
+      :class="dialogOpen && 'bg-gray-100 text-gray-900 dark:bg-dark-800 dark:text-white'"
       :aria-label="t('communityGroups.buttonLabel')"
+      :aria-expanded="dialogOpen"
       :title="t('communityGroups.buttonLabel')"
       data-testid="community-groups-button"
       @click="openDialog"

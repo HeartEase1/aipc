@@ -60,7 +60,7 @@ func TestOpenAIGatewayService_GetCodexClientRestrictionDetector(t *testing.T) {
 	})
 }
 
-func TestOpenAIGatewayService_Forward_VersionGateMessage(t *testing.T) {
+func TestOpenAIGatewayService_Forward_VersionGateFailover(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	newCtx := func() (*httptest.ResponseRecorder, *gin.Context) {
@@ -85,11 +85,16 @@ func TestOpenAIGatewayService_Forward_VersionGateMessage(t *testing.T) {
 		}}}
 
 		_, err := svc.Forward(context.Background(), c, account(), body)
-		require.Error(t, err)
-		require.Equal(t, http.StatusForbidden, rec.Code)
-		require.True(t, IsResponseCommitted(c))
-		require.Contains(t, rec.Body.String(), "Your Codex version (0.39.0) is below the minimum required version (0.42.0)")
-		require.NotContains(t, rec.Body.String(), "This account only allows Codex official clients")
+		var failoverErr *UpstreamFailoverError
+		require.ErrorAs(t, err, &failoverErr)
+		require.True(t, failoverErr.ShouldRetryNextAccount())
+		require.False(t, failoverErr.RetryableOnSameAccount)
+		require.False(t, failoverErr.ShouldReportAccountScheduleFailure())
+		require.True(t, failoverErr.IsOpenAICodexClientRestriction())
+		require.Equal(t, http.StatusForbidden, failoverErr.ClientStatusCode)
+		require.Contains(t, failoverErr.ClientMessage, "Your Codex version (0.39.0) is below the minimum required version (0.42.0)")
+		require.False(t, IsResponseCommitted(c))
+		require.Empty(t, rec.Body.String())
 	})
 
 	t.Run("未命中官方：仍返回通用兜底文案", func(t *testing.T) {
@@ -101,11 +106,37 @@ func TestOpenAIGatewayService_Forward_VersionGateMessage(t *testing.T) {
 		}}}
 
 		_, err := svc.Forward(context.Background(), c, account(), body)
-		require.Error(t, err)
-		require.Equal(t, http.StatusForbidden, rec.Code)
-		require.True(t, IsResponseCommitted(c))
-		require.Contains(t, rec.Body.String(), "This account only allows Codex official clients")
+		var failoverErr *UpstreamFailoverError
+		require.ErrorAs(t, err, &failoverErr)
+		require.True(t, failoverErr.ShouldRetryNextAccount())
+		require.False(t, failoverErr.ShouldReportAccountScheduleFailure())
+		require.Equal(t, CodexOfficialClientsOnlyMessage, failoverErr.ClientMessage)
+		require.False(t, IsResponseCommitted(c))
+		require.Empty(t, rec.Body.String())
 	})
+}
+
+func TestOpenAIGatewayService_ForwardAsChatCompletions_CodexRestrictionAllowsFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(nil))
+	svc := &OpenAIGatewayService{codexDetector: &stubCodexRestrictionDetector{result: CodexClientRestrictionDetectionResult{
+		Enabled: true,
+		Matched: false,
+		Reason:  CodexClientRestrictionReasonNotMatchedUA,
+	}}}
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Extra: map[string]any{"codex_cli_only": true}}
+
+	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, []byte(`{"model":"gpt-5.6-sol","messages":[]}`), "", "")
+
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.True(t, failoverErr.IsOpenAICodexClientRestriction())
+	require.True(t, failoverErr.ShouldRetryNextAccount())
+	require.False(t, failoverErr.ShouldReportAccountScheduleFailure())
+	require.False(t, IsResponseCommitted(c))
+	require.Empty(t, rec.Body.String())
 }
 
 func TestGetAPIKeyIDFromContext(t *testing.T) {

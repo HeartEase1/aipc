@@ -2154,7 +2154,7 @@ func TestOpenAIGatewayService_CodexFingerprintMessagesBridgeDoesNotInjectBodyPro
 	require.Equal(t, wantSession, upstream.lastReq.Header.Get("session_id"))
 }
 
-func TestOpenAIGatewayService_CodexCLIOnly_RejectsNonCodexClient(t *testing.T) {
+func TestOpenAIGatewayService_CodexCLIOnly_ReturnsFailoverForNonCodexClient(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	inputBody := []byte(`{"model":"gpt-5.2","stream":false,"store":true,"input":[{"type":"text","text":"hi"}]}`)
 
@@ -2186,10 +2186,15 @@ func TestOpenAIGatewayService_CodexCLIOnly_RejectsNonCodexClient(t *testing.T) {
 			}
 
 			_, err := svc.Forward(context.Background(), c, account, inputBody)
-			require.Error(t, err)
-			require.Equal(t, http.StatusForbidden, rec.Code)
-			require.True(t, IsResponseCommitted(c))
-			require.Contains(t, rec.Body.String(), "Codex official clients")
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.True(t, failoverErr.IsOpenAICodexClientRestriction())
+			require.True(t, failoverErr.ShouldRetryNextAccount())
+			require.False(t, failoverErr.ShouldReportAccountScheduleFailure())
+			require.Equal(t, http.StatusForbidden, failoverErr.ClientStatusCode)
+			require.Contains(t, failoverErr.ClientMessage, "Codex official clients")
+			require.False(t, IsResponseCommitted(c))
+			require.Empty(t, rec.Body.String())
 		})
 	}
 }

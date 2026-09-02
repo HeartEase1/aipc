@@ -108,6 +108,58 @@ func TestPricingCatalogCheckDoesNotActivateUntilConfirmedAndPersists(t *testing.
 	require.InDelta(t, 1e-6, restarted.GetModelPricing("model-a").InputCostPerToken, 1e-15)
 }
 
+func TestPricingCatalogPreviewSerializesNoChangesAsEmptyArray(t *testing.T) {
+	dir := t.TempDir()
+	fallback := filepath.Join(dir, "bundled.json")
+	remoteBody := writePricingCatalogTestFile(t, fallback, 1e-6, 2e-6)
+	remoteHash := pricingCatalogHash(remoteBody)
+	cfg := &config.Config{Pricing: config.PricingConfig{
+		RemoteURL: "https://example.com/pricing.json", HashURL: "https://example.com/pricing.sha256",
+		DataDir: dir, FallbackFile: fallback,
+	}}
+	svc := NewPricingService(cfg, &pricingCatalogRemoteStub{body: remoteBody, hash: remoteHash})
+	require.NoError(t, svc.Initialize())
+
+	preview, err := svc.CheckRemoteCatalog()
+	require.NoError(t, err)
+	require.NotNil(t, preview.PriceChanges)
+	require.Empty(t, preview.PriceChanges)
+	require.NotNil(t, preview.AddedModelNames)
+	require.Empty(t, preview.AddedModelNames)
+	require.NotNil(t, preview.RemovedModelNames)
+	require.Empty(t, preview.RemovedModelNames)
+	encoded, err := json.Marshal(preview)
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"price_changes":[]`)
+	require.NotContains(t, string(encoded), `"price_changes":null`)
+	require.Contains(t, string(encoded), `"added_model_names":[]`)
+	require.Contains(t, string(encoded), `"removed_model_names":[]`)
+}
+
+func TestPricingCatalogPreviewIncludesSortedAddedAndRemovedModelNames(t *testing.T) {
+	unchanged := &LiteLLMModelPricing{InputCostPerToken: 1e-6, OutputCostPerToken: 2e-6}
+	svc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"model-stable":  unchanged,
+		"model-removed": {InputCostPerToken: 3e-6, OutputCostPerToken: 4e-6},
+	}}
+	candidate := map[string]*LiteLLMModelPricing{
+		"model-stable":  unchanged,
+		"model-added-z": {InputCostPerToken: 5e-6, OutputCostPerToken: 6e-6},
+		"model-added-a": {InputCostPerToken: 7e-6, OutputCostPerToken: 8e-6},
+	}
+
+	preview := svc.buildPricingCatalogPreview(candidate)
+
+	require.Equal(t, 2, preview.AddedModels)
+	require.Equal(t, []string{"model-added-a", "model-added-z"}, preview.AddedModelNames)
+	require.False(t, preview.AddedModelsTruncated)
+	require.Equal(t, 1, preview.RemovedModels)
+	require.Equal(t, []string{"model-removed"}, preview.RemovedModelNames)
+	require.False(t, preview.RemovedModelsTruncated)
+	require.Zero(t, preview.ChangedModels)
+	require.Empty(t, preview.PriceChanges)
+}
+
 func TestPricingCatalogApprovedSnapshotsRemainRecoverableAcrossSelectionWrites(t *testing.T) {
 	dir := t.TempDir()
 	fallback := filepath.Join(dir, "bundled.json")

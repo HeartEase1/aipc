@@ -253,12 +253,16 @@ type PricingCatalogChange struct {
 }
 
 type PricingCatalogPreview struct {
-	Status        PricingCatalogStatus   `json:"status"`
-	AddedModels   int                    `json:"added_models"`
-	RemovedModels int                    `json:"removed_models"`
-	ChangedModels int                    `json:"changed_models"`
-	PriceChanges  []PricingCatalogChange `json:"price_changes"`
-	Truncated     bool                   `json:"truncated"`
+	Status                 PricingCatalogStatus   `json:"status"`
+	AddedModels            int                    `json:"added_models"`
+	AddedModelNames        []string               `json:"added_model_names"`
+	AddedModelsTruncated   bool                   `json:"added_models_truncated"`
+	RemovedModels          int                    `json:"removed_models"`
+	RemovedModelNames      []string               `json:"removed_model_names"`
+	RemovedModelsTruncated bool                   `json:"removed_models_truncated"`
+	ChangedModels          int                    `json:"changed_models"`
+	PriceChanges           []PricingCatalogChange `json:"price_changes"`
+	Truncated              bool                   `json:"truncated"`
 }
 
 func (s *PricingService) loadSelectedPricingCatalog() error {
@@ -1782,13 +1786,19 @@ func (s *PricingService) buildPricingCatalogPreview(candidate map[string]*LiteLL
 	s.mu.RLock()
 	current := maps.Clone(s.pricingData)
 	s.mu.RUnlock()
-	preview := &PricingCatalogPreview{Status: s.GetPricingCatalogStatus()}
+	preview := &PricingCatalogPreview{
+		Status:            s.GetPricingCatalogStatus(),
+		AddedModelNames:   make([]string, 0),
+		RemovedModelNames: make([]string, 0),
+		PriceChanges:      make([]PricingCatalogChange, 0),
+	}
 	changedModels := make(map[string]struct{})
-	const maxChanges = 300
+	const maxPreviewItems = 300
 	for model, next := range candidate {
 		previous, exists := current[model]
 		if !exists {
 			preview.AddedModels++
+			preview.AddedModelNames = append(preview.AddedModelNames, model)
 			continue
 		}
 		changes := diffPricingCatalogModel(model, previous, next)
@@ -1796,7 +1806,7 @@ func (s *PricingService) buildPricingCatalogPreview(candidate map[string]*LiteLL
 			changedModels[model] = struct{}{}
 		}
 		for _, change := range changes {
-			if len(preview.PriceChanges) >= maxChanges {
+			if len(preview.PriceChanges) >= maxPreviewItems {
 				preview.Truncated = true
 				break
 			}
@@ -1806,9 +1816,20 @@ func (s *PricingService) buildPricingCatalogPreview(candidate map[string]*LiteLL
 	for model := range current {
 		if _, exists := candidate[model]; !exists {
 			preview.RemovedModels++
+			preview.RemovedModelNames = append(preview.RemovedModelNames, model)
 		}
 	}
 	preview.ChangedModels = len(changedModels)
+	sort.Strings(preview.AddedModelNames)
+	sort.Strings(preview.RemovedModelNames)
+	if len(preview.AddedModelNames) > maxPreviewItems {
+		preview.AddedModelNames = preview.AddedModelNames[:maxPreviewItems]
+		preview.AddedModelsTruncated = true
+	}
+	if len(preview.RemovedModelNames) > maxPreviewItems {
+		preview.RemovedModelNames = preview.RemovedModelNames[:maxPreviewItems]
+		preview.RemovedModelsTruncated = true
+	}
 	sort.Slice(preview.PriceChanges, func(i, j int) bool {
 		if preview.PriceChanges[i].Model == preview.PriceChanges[j].Model {
 			return preview.PriceChanges[i].Field < preview.PriceChanges[j].Field

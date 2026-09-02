@@ -707,6 +707,9 @@ func (e *UpstreamFailoverError) ShouldReportAccountScheduleFailure() bool {
 	if e == nil {
 		return false
 	}
+	if e.IsOpenAICodexClientRestriction() {
+		return false
+	}
 	return !e.IsCredentialFailure() || e.Scope == GatewayFailureScopeAccount
 }
 

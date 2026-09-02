@@ -14,6 +14,11 @@ import (
 // 未命中官方/黑名单/缺指纹/版本无法识别都沿用这句（避免向伪装客户端泄露门控细节）。
 const CodexOfficialClientsOnlyMessage = "This account only allows Codex official clients"
 
+// OpenAICodexClientRestrictionFailureReason identifies a local, account-level
+// compatibility mismatch. The account itself is healthy, so the gateway may
+// try another account without reporting a scheduler-health failure.
+const OpenAICodexClientRestrictionFailureReason GatewayFailureReason = "openai_codex_client_restriction"
+
 const (
 	// CodexClientRestrictionReasonDisabled 表示账号未开启 codex_cli_only。
 	CodexClientRestrictionReasonDisabled = "codex_cli_only_disabled"
@@ -188,4 +193,20 @@ func CodexClientRestrictionMessage(r CodexClientRestrictionDetectionResult) stri
 	default:
 		return CodexOfficialClientsOnlyMessage
 	}
+}
+
+func newOpenAICodexClientRestrictionFailoverError(r CodexClientRestrictionDetectionResult) *UpstreamFailoverError {
+	return &UpstreamFailoverError{
+		StatusCode:        http.StatusForbidden,
+		Stage:             GatewayFailureStageAccountAuth,
+		Scope:             GatewayFailureScopeAccount,
+		Reason:            OpenAICodexClientRestrictionFailureReason,
+		NextAccountAction: NextAccountRetry,
+		ClientStatusCode:  http.StatusForbidden,
+		ClientMessage:     CodexClientRestrictionMessage(r),
+	}
+}
+
+func (e *UpstreamFailoverError) IsOpenAICodexClientRestriction() bool {
+	return e != nil && e.Reason == OpenAICodexClientRestrictionFailureReason
 }

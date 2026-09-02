@@ -160,6 +160,26 @@ func TestSleepWithContext(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestHandleFailoverError_BasicSwitch(t *testing.T) {
+	t.Run("Codex 客户端限制排除当前账号且不触发停调", func(t *testing.T) {
+		mock := &mockTempUnscheduler{}
+		fs := NewFailoverState(3, false)
+		err := &service.UpstreamFailoverError{
+			StatusCode:        http.StatusForbidden,
+			Stage:             service.GatewayFailureStageAccountAuth,
+			Scope:             service.GatewayFailureScopeAccount,
+			Reason:            service.OpenAICodexClientRestrictionFailureReason,
+			NextAccountAction: service.NextAccountRetry,
+		}
+
+		action := fs.HandleFailoverError(context.Background(), mock, 99, service.PlatformOpenAI, maxSameAccountRetries, err)
+
+		require.Equal(t, FailoverContinue, action)
+		require.Equal(t, 1, fs.SwitchCount)
+		require.Contains(t, fs.FailedAccountIDs, int64(99))
+		require.Empty(t, mock.calls)
+		require.False(t, err.ShouldReportAccountScheduleFailure())
+	})
+
 	t.Run("显式停止不切换账号且旧错误默认仍切换", func(t *testing.T) {
 		mock := &mockTempUnscheduler{}
 		fs := NewFailoverState(3, false)

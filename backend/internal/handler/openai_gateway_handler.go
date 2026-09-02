@@ -3009,6 +3009,15 @@ func (h *OpenAIGatewayHandler) handleFailoverExhausted(c *gin.Context, failoverE
 		return
 	}
 	copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+	if failoverErr.IsOpenAICodexClientRestriction() {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalPolicyDenied)
+		message := failoverErr.ClientMessage
+		if strings.TrimSpace(message) == "" {
+			message = service.CodexOfficialClientsOnlyMessage
+		}
+		h.handleStreamingAwareError(c, http.StatusForbidden, "forbidden_error", message, streamStarted)
+		return
+	}
 	if failoverErr.IsCredentialFailure() {
 		status, message := credentialFailoverClientResponse(failoverErr)
 		h.handleStreamingAwareError(c, status, "upstream_error", message, streamStarted)

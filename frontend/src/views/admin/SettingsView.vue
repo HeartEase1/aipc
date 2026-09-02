@@ -323,17 +323,22 @@
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                class="btn btn-primary btn-sm flex-shrink-0"
-                :disabled="pricingCatalogChecking || pricingCatalogOperating"
-                @click="checkRemotePricingCatalog"
-              >
-                <Icon name="refresh" size="sm" :class="pricingCatalogChecking && 'animate-spin'" />
-                {{ pricingCatalogChecking
-                  ? localText("正在校验...", "Checking...")
-                  : localText("检查远端价格", "Check remote catalog") }}
-              </button>
+              <div class="flex flex-shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  :disabled="pricingCatalogChecking || pricingCatalogOperating"
+                  @click="checkRemotePricingCatalog"
+                >
+                  <Icon name="refresh" size="sm" :class="pricingCatalogChecking && 'animate-spin'" />
+                  {{ pricingCatalogChecking
+                    ? localText("正在下载并校验...", "Downloading and checking...")
+                    : localText("下载并比较远端价格", "Download and compare") }}
+                </button>
+                <span class="text-center text-[11px] text-gray-500 dark:text-gray-400 sm:text-right">
+                  {{ localText("只生成候选，不会切换计费", "Creates a candidate only; billing is unchanged") }}
+                </span>
+              </div>
             </div>
 
             <div class="space-y-5 p-6">
@@ -343,28 +348,64 @@
               </div>
 
               <template v-else-if="pricingCatalogStatus">
+                <div :class="[
+                  'flex flex-col gap-4 rounded-xl border-2 p-4 sm:flex-row sm:items-center sm:justify-between',
+                  pricingCatalogStatus.active_source === 'remote'
+                    ? 'border-primary-200 bg-primary-50/70 dark:border-primary-800/70 dark:bg-primary-950/20'
+                    : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/70 dark:bg-emerald-950/20',
+                ]">
+                  <div class="flex min-w-0 items-start gap-3">
+                    <span :class="[
+                      'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
+                      pricingCatalogStatus.active_source === 'remote'
+                        ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+                    ]">
+                      <Icon name="checkCircle" size="md" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        {{ localText("当前正在用于计费", "Currently used for billing") }}
+                      </p>
+                      <h3 class="mt-1 text-base font-semibold text-gray-950 dark:text-white">
+                        {{ pricingCatalogStatus.active_source === "remote"
+                          ? localText("已由管理员确认的远端价格快照", "Administrator-approved remote snapshot")
+                          : localText("当前版本随附的内置价格表", "Pricing catalog bundled with this release") }}
+                      </h3>
+                      <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">
+                        {{ localText(
+                          "所有新请求正在查询这份价格表；检查远端价格不会改变此状态。",
+                          "All new requests currently use this catalog; checking the remote catalog does not change this state.",
+                        ) }}
+                      </p>
+                    </div>
+                  </div>
+                  <span :class="[
+                    'inline-flex w-fit flex-shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold',
+                    pricingCatalogStatus.active_source === 'remote'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-emerald-600 text-white',
+                  ]">
+                    <span class="h-1.5 w-1.5 rounded-full bg-white"></span>
+                    {{ localText("正在生效", "Active") }}
+                  </span>
+                </div>
+
                 <div class="grid gap-3 sm:grid-cols-3">
                   <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("当前计费来源", "Active billing source") }}</p>
-                    <div class="mt-2 flex items-center gap-2">
-                      <span :class="[
-                        'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
-                        pricingCatalogStatus.active_source === 'remote'
-                          ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300'
-                          : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-                      ]">
-                        {{ pricingCatalogStatus.active_source === "remote"
-                          ? localText("已确认远端快照", "Approved remote snapshot")
-                          : localText("随版本内置表", "Bundled release catalog") }}
-                      </span>
-                    </div>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("生效来源", "Active source") }}</p>
+                    <p class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ pricingCatalogStatus.active_source === "remote"
+                        ? localText("远端审核快照", "Approved remote snapshot")
+                        : localText("本版本内置表", "Bundled release catalog") }}
+                    </p>
                   </div>
                   <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("可计费模型", "Billable models") }}</p>
                     <p class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{{ pricingCatalogStatus.active_model_count }}</p>
                   </div>
                   <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("启用时间", "Activated at") }}</p>
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("当前表加载时间", "Active catalog loaded at") }}</p>
                     <p class="mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogDate(pricingCatalogStatus.active_updated_at) }}</p>
                     <code class="mt-1 block truncate text-[11px] text-gray-500 dark:text-gray-400" :title="pricingCatalogStatus.active_hash">
                       SHA256 {{ shortPricingHash(pricingCatalogStatus.active_hash) }}
@@ -372,11 +413,48 @@
                   </div>
                 </div>
 
+                <div v-if="pricingCatalogStatus.candidate_available" class="rounded-lg border border-dashed border-gray-300 bg-gray-50/70 p-4 dark:border-dark-500 dark:bg-dark-800/40">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ localText("已保存的远端候选表", "Saved remote candidate") }}</p>
+                        <span :class="[
+                          'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                          pricingCandidateIsActive
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+                        ]">
+                          {{ pricingCandidateIsActive
+                            ? localText("与当前生效表一致", "Matches active catalog")
+                            : localText("尚未启用", "Not active") }}
+                        </span>
+                      </div>
+                      <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        {{ pricingCandidateIsActive
+                          ? localText("这份候选快照就是当前正在使用的远端价格表。", "This candidate snapshot is the remote catalog currently in use.")
+                          : localText("候选表不会自动参与计费；需重新比较差异并通过 2FA 确认后才可启用。", "The candidate does not affect billing until you compare it and explicitly approve it with 2FA.") }}
+                      </p>
+                    </div>
+                    <div class="grid flex-shrink-0 grid-cols-2 gap-x-5 gap-y-1 text-xs sm:text-right">
+                      <span class="text-gray-500 dark:text-gray-400">{{ localText("模型数", "Models") }}</span>
+                      <span class="font-medium text-gray-900 dark:text-white">{{ pricingCatalogStatus.candidate_model_count ?? "-" }}</span>
+                      <span class="text-gray-500 dark:text-gray-400">{{ localText("检查时间", "Checked at") }}</span>
+                      <span class="font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogDate(pricingCatalogStatus.candidate_updated_at) }}</span>
+                    </div>
+                  </div>
+                  <code class="mt-2 block truncate text-[11px] text-gray-500 dark:text-gray-400" :title="pricingCatalogStatus.candidate_hash">
+                    {{ localText("候选 SHA256", "Candidate SHA256") }} {{ shortPricingHash(pricingCatalogStatus.candidate_hash) }}
+                  </code>
+                </div>
+                <div v-else class="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400">
+                  {{ localText("当前没有远端候选表。点击“下载并比较远端价格”只会生成候选，不会改变计费。", "No remote candidate is saved. Downloading and comparing creates one without changing billing.") }}
+                </div>
+
                 <div class="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/60 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">{{ localText("切换价格会影响后续请求扣费", "Switching catalogs affects subsequent request charges") }}</p>
+                    <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">{{ localText("只有确认切换才会改变后续请求计费", "Only an explicit switch changes subsequent request charges") }}</p>
                     <p class="mt-1 text-xs text-amber-800/80 dark:text-amber-300/80">
-                      {{ localText("已开始或已完成的用量记录不会重算；下载或校验失败时继续使用当前表。", "Existing usage is not recalculated; download or validation failures keep the current catalog active.") }}
+                      {{ localText("检查、下载或校验失败均不会切换；历史用量、余额和已完成扣费不会重算。", "Checking, downloading, or validation failures never switch catalogs; historical usage, balances, and completed charges are not recalculated.") }}
                     </p>
                   </div>
                   <button
@@ -386,7 +464,7 @@
                     :disabled="pricingCatalogOperating"
                     @click="activateBundledPricingCatalog"
                   >
-                    {{ localText("切回内置表", "Use bundled catalog") }}
+                    {{ localText("改用本版本内置价格", "Activate bundled pricing") }}
                   </button>
                 </div>
               </template>
@@ -428,44 +506,113 @@
                   </div>
                   <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("字段变化", "Field changes") }}</p>
-                    <p class="mt-1 font-semibold text-gray-900 dark:text-white">{{ pricingCatalogPreview.price_changes.length }}{{ pricingCatalogPreview.truncated ? "+" : "" }}</p>
+                    <p class="mt-1 font-semibold text-gray-900 dark:text-white">{{ pricingCatalogChanges.length }}{{ pricingCatalogPreview.truncated ? "+" : "" }}</p>
                   </div>
                 </div>
 
-                <div v-if="pricingCatalogPreview.price_changes.length" class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800">
-                  <div class="max-h-80 overflow-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-left text-xs dark:divide-dark-600">
-                      <thead class="sticky top-0 z-10 bg-gray-50 text-gray-500 dark:bg-dark-700 dark:text-gray-300">
-                        <tr>
-                          <th class="px-3 py-2 font-medium">{{ localText("模型", "Model") }}</th>
-                          <th class="px-3 py-2 font-medium">{{ localText("价格字段", "Price field") }}</th>
-                          <th class="px-3 py-2 text-right font-medium">{{ localText("当前", "Current") }}</th>
-                          <th class="px-3 py-2 text-right font-medium">{{ localText("候选", "Candidate") }}</th>
-                          <th class="px-3 py-2 text-right font-medium">{{ localText("变化", "Change") }}</th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
-                        <tr v-for="change in pricingCatalogPreview.price_changes" :key="`${change.model}:${change.field}`">
-                          <td class="max-w-52 truncate px-3 py-2 font-medium text-gray-800 dark:text-gray-100" :title="change.model">{{ change.model }}</td>
-                          <td class="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-gray-400">{{ pricingCatalogFieldLabel(change.field) }}</td>
-                          <td class="whitespace-nowrap px-3 py-2 text-right text-gray-600 dark:text-gray-300">{{ formatPricingCatalogValue(change.field, change.current) }}</td>
-                          <td class="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogValue(change.field, change.candidate) }}</td>
-                          <td :class="[
-                            'whitespace-nowrap px-3 py-2 text-right font-semibold',
-                            change.direction === 'decrease' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
-                          ]">
-                            {{ formatPricingCatalogChange(change.change_percent) }}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                <div
+                  v-if="pricingCatalogPreview.added_models || pricingCatalogPreview.removed_models"
+                  class="grid gap-3 lg:grid-cols-2"
+                >
+                  <section
+                    v-if="pricingCatalogPreview.added_models"
+                    class="overflow-hidden rounded-lg border border-emerald-200 bg-white dark:border-emerald-900/60 dark:bg-dark-800"
+                  >
+                    <div class="flex items-center justify-between border-b border-emerald-100 bg-emerald-50/70 px-3 py-2.5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                      <h4 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                        {{ localText("新增模型明细", "Added model details") }}
+                      </h4>
+                      <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        +{{ pricingCatalogPreview.added_models }}
+                      </span>
+                    </div>
+                    <div v-if="pricingCatalogAddedModels.length" class="max-h-48 divide-y divide-gray-100 overflow-auto dark:divide-dark-700">
+                      <div v-for="model in pricingCatalogAddedModels" :key="model" class="flex min-w-0 items-center gap-2 px-3 py-2 text-xs">
+                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">+</span>
+                        <code class="min-w-0 break-all text-gray-800 dark:text-gray-100">{{ model }}</code>
+                      </div>
+                    </div>
+                    <p v-else class="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("当前响应未包含模型名称，请重新执行检查。", "Model names were not included; run the check again.") }}
+                    </p>
+                    <p v-if="pricingCatalogPreview.added_models_truncated" class="border-t border-emerald-100 px-3 py-2 text-xs text-amber-700 dark:border-emerald-900/50 dark:text-amber-300">
+                      {{ localText(`共 ${pricingCatalogPreview.added_models} 个，仅显示按名称排序后的前 300 个。`, `Showing the first 300 of ${pricingCatalogPreview.added_models}, sorted by name.`) }}
+                    </p>
+                  </section>
+
+                  <section
+                    v-if="pricingCatalogPreview.removed_models"
+                    class="overflow-hidden rounded-lg border border-red-200 bg-white dark:border-red-900/60 dark:bg-dark-800"
+                  >
+                    <div class="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-3 py-2.5 dark:border-red-900/50 dark:bg-red-950/20">
+                      <h4 class="text-sm font-semibold text-red-800 dark:text-red-300">
+                        {{ localText("移除模型明细", "Removed model details") }}
+                      </h4>
+                      <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                        -{{ pricingCatalogPreview.removed_models }}
+                      </span>
+                    </div>
+                    <div v-if="pricingCatalogRemovedModels.length" class="max-h-48 divide-y divide-gray-100 overflow-auto dark:divide-dark-700">
+                      <div v-for="model in pricingCatalogRemovedModels" :key="model" class="flex min-w-0 items-center gap-2 px-3 py-2 text-xs">
+                        <span class="font-semibold text-red-600 dark:text-red-400">-</span>
+                        <code class="min-w-0 break-all text-gray-800 dark:text-gray-100">{{ model }}</code>
+                      </div>
+                    </div>
+                    <p v-else class="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("当前响应未包含模型名称，请重新执行检查。", "Model names were not included; run the check again.") }}
+                    </p>
+                    <p v-if="pricingCatalogPreview.removed_models_truncated" class="border-t border-red-100 px-3 py-2 text-xs text-amber-700 dark:border-red-900/50 dark:text-amber-300">
+                      {{ localText(`共 ${pricingCatalogPreview.removed_models} 个，仅显示按名称排序后的前 300 个。`, `Showing the first 300 of ${pricingCatalogPreview.removed_models}, sorted by name.`) }}
+                    </p>
+                  </section>
+                </div>
+
+                <div v-if="pricingCatalogChanges.length" class="space-y-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ localText("价格字段变化明细", "Price field change details") }}
+                    </h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText(`${pricingCatalogPreview.changed_models} 个模型，${pricingCatalogChanges.length}${pricingCatalogPreview.truncated ? "+" : ""} 项字段`, `${pricingCatalogPreview.changed_models} models, ${pricingCatalogChanges.length}${pricingCatalogPreview.truncated ? "+" : ""} fields`) }}
+                    </span>
                   </div>
-                  <p v-if="pricingCatalogPreview.truncated" class="border-t border-gray-100 px-3 py-2 text-xs text-amber-700 dark:border-dark-700 dark:text-amber-300">
-                    {{ localText("变化过多，仅显示前 300 项；请结合远端提交记录复核。", "More than 300 fields changed; review the upstream commit before activation.") }}
-                  </p>
+                  <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800">
+                    <div class="max-h-80 overflow-auto">
+                      <table class="min-w-full divide-y divide-gray-200 text-left text-xs dark:divide-dark-600">
+                        <thead class="sticky top-0 z-10 bg-gray-50 text-gray-500 dark:bg-dark-700 dark:text-gray-300">
+                          <tr>
+                            <th class="px-3 py-2 font-medium">{{ localText("模型", "Model") }}</th>
+                            <th class="px-3 py-2 font-medium">{{ localText("价格字段", "Price field") }}</th>
+                            <th class="px-3 py-2 text-right font-medium">{{ localText("当前", "Current") }}</th>
+                            <th class="px-3 py-2 text-right font-medium">{{ localText("候选", "Candidate") }}</th>
+                            <th class="px-3 py-2 text-right font-medium">{{ localText("变化", "Change") }}</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
+                          <tr v-for="change in pricingCatalogChanges" :key="`${change.model}:${change.field}`">
+                            <td class="max-w-52 truncate px-3 py-2 font-medium text-gray-800 dark:text-gray-100" :title="change.model">{{ change.model }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-gray-400">{{ pricingCatalogFieldLabel(change.field) }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right text-gray-600 dark:text-gray-300">{{ formatPricingCatalogValue(change.field, change.current) }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogValue(change.field, change.candidate) }}</td>
+                            <td :class="[
+                              'whitespace-nowrap px-3 py-2 text-right font-semibold',
+                              change.direction === 'decrease' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
+                            ]">
+                              {{ formatPricingCatalogChange(change.change_percent) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p v-if="pricingCatalogPreview.truncated" class="border-t border-gray-100 px-3 py-2 text-xs text-amber-700 dark:border-dark-700 dark:text-amber-300">
+                      {{ localText("变化过多，仅显示前 300 项；请结合远端提交记录复核。", "More than 300 fields changed; review the upstream commit before activation.") }}
+                    </p>
+                  </div>
                 </div>
                 <p v-else class="rounded-md bg-white px-3 py-3 text-sm text-gray-600 dark:bg-dark-800 dark:text-gray-300">
-                  {{ localText("候选表与当前生效价格字段一致。", "The candidate has the same effective pricing fields as the active catalog.") }}
+                  {{ pricingCatalogPreview.added_models || pricingCatalogPreview.removed_models
+                    ? localText("已有模型的价格字段未变化；新增和移除模型详见上方清单。", "Existing model price fields are unchanged; added and removed models are listed above.")
+                    : localText("未检测到任何模型或价格字段变化。", "No model or price field changes were detected.") }}
                 </p>
               </div>
             </div>
@@ -9312,8 +9459,23 @@ const pricingCatalogPreview = ref<PricingCatalogPreview | null>(null);
 const pricingCatalogLoading = ref(false);
 const pricingCatalogChecking = ref(false);
 const pricingCatalogOperating = ref(false);
+const pricingCatalogChanges = computed(() =>
+  Array.isArray(pricingCatalogPreview.value?.price_changes)
+    ? pricingCatalogPreview.value.price_changes
+    : [],
+);
+const pricingCatalogAddedModels = computed(() =>
+  Array.isArray(pricingCatalogPreview.value?.added_model_names)
+    ? pricingCatalogPreview.value.added_model_names
+    : [],
+);
+const pricingCatalogRemovedModels = computed(() =>
+  Array.isArray(pricingCatalogPreview.value?.removed_model_names)
+    ? pricingCatalogPreview.value.removed_model_names
+    : [],
+);
 const pricingCandidateIsActive = computed(() => {
-  const candidateHash = pricingCatalogPreview.value?.status.candidate_hash;
+  const candidateHash = pricingCatalogStatus.value?.candidate_hash;
   return Boolean(
     candidateHash &&
       pricingCatalogStatus.value?.active_source === "remote" &&
@@ -9411,8 +9573,8 @@ async function activateBundledPricingCatalog(): Promise<void> {
   if (
     !confirm(
       localText(
-        "确认切回当前版本内置的价格表？后续请求会立即使用内置价格。",
-        "Switch to the catalog bundled with this release? Subsequent requests will immediately use bundled prices.",
+        "确认改用当前版本内置的价格表？确认后，仅后续新请求会立即按内置价格计费；历史用量、余额和已完成扣费不会改变，已保存的远端快照也不会被删除。",
+        "Activate the catalog bundled with this release? Only subsequent new requests will use bundled prices; historical usage, balances, completed charges, and saved remote snapshots remain unchanged.",
       ),
     )
   ) return;

@@ -49,10 +49,12 @@ describe('CommunityGroupsButton', () => {
     const wrapper = mount(CommunityGroupsButton)
 
     expect(getCommunityGroups).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-testid="community-groups-button"]').attributes('aria-expanded')).toBe('false')
     await wrapper.get('[data-testid="community-groups-button"]').trigger('click')
     await flushPromises()
 
     expect(getCommunityGroups).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-testid="community-groups-button"]').attributes('aria-expanded')).toBe('true')
     expect(document.body.querySelectorAll('[data-testid="community-group-card"]')).toHaveLength(2)
     expect(document.body.textContent).toContain('QQ Group')
     expect(document.body.textContent).toContain('654321')

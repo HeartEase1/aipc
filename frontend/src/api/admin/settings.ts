@@ -1609,7 +1609,11 @@ export interface PricingCatalogChange {
 export interface PricingCatalogPreview {
   status: PricingCatalogStatus;
   added_models: number;
+  added_model_names: string[];
+  added_models_truncated: boolean;
   removed_models: number;
+  removed_model_names: string[];
+  removed_models_truncated: boolean;
   changed_models: number;
   price_changes: PricingCatalogChange[];
   truncated: boolean;
@@ -1626,7 +1630,16 @@ export async function checkPricingCatalog(): Promise<PricingCatalogPreview> {
   const { data } = await apiClient.post<PricingCatalogPreview>(
     "/admin/settings/pricing-catalog/check",
   );
-  return data;
+  return {
+    ...data,
+    added_model_names: Array.isArray(data.added_model_names)
+      ? data.added_model_names
+      : [],
+    removed_model_names: Array.isArray(data.removed_model_names)
+      ? data.removed_model_names
+      : [],
+    price_changes: Array.isArray(data.price_changes) ? data.price_changes : [],
+  };
 }
 
 export async function activateRemotePricingCatalog(
