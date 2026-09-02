@@ -259,6 +259,35 @@ func TestRelay_UpstreamDisconnect(t *testing.T) {
 	require.Equal(t, "gpt-4o", result.RequestModel)
 }
 
+func TestRelay_UpstreamDisconnectBeforeTerminalIsFailure(t *testing.T) {
+	t.Parallel()
+
+	clientConn := newPassthroughTestFrameConn(nil, false)
+	upstreamConn := newPassthroughTestFrameConn([]passthroughTestFrame{
+		{
+			msgType: coderws.MessageText,
+			payload: []byte(`{"type":"response.created","response":{"id":"resp_incomplete","status":"in_progress"}}`),
+		},
+		{
+			msgType: coderws.MessageText,
+			payload: []byte(`{"type":"response.in_progress","response":{"id":"resp_incomplete","status":"in_progress"}}`),
+		},
+	}, true)
+
+	firstPayload := []byte(`{"type":"response.create","model":"gpt-5.6-sol","input":[]}`)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	result, relayExit := Relay(ctx, clientConn, upstreamConn, firstPayload, RelayOptions{})
+	require.NotNil(t, relayExit)
+	require.Equal(t, "read_upstream", relayExit.Stage)
+	require.False(t, relayExit.Graceful)
+	require.True(t, relayExit.WroteDownstream)
+	require.ErrorContains(t, relayExit.Err, "upstream websocket closed before terminal event")
+	require.Empty(t, result.TerminalEventType)
+	require.Len(t, clientConn.Writes(), 2)
+}
+
 func TestRelay_ClientDisconnect(t *testing.T) {
 	t.Parallel()
 
