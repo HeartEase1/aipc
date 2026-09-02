@@ -55,6 +55,63 @@ func newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogReposi
 	return svc
 }
 
+func TestGatewayCalculateTokenCostPrefersCatalogLongContextAndKeepsLegacyFallback(t *testing.T) {
+	tests := []struct {
+		name      string
+		catalog   string
+		wantTotal float64
+	}{
+		{
+			name: "complete catalog tier uses whole-session pricing",
+			catalog: `{
+				"gemini-pro": {
+					"input_cost_per_token": 0.000001,
+					"output_cost_per_token": 0.00001,
+					"input_cost_per_token_above_200k_tokens": 0.000002,
+					"output_cost_per_token_above_200k_tokens": 0.000015
+				}
+			}`,
+			wantTotal: float64(200001)*0.000002 + float64(10)*0.000015,
+		},
+		{
+			name: "missing catalog tier uses legacy marginal pricing",
+			catalog: `{
+				"gemini-pro": {
+					"input_cost_per_token": 0.000001,
+					"output_cost_per_token": 0.00001
+				}
+			}`,
+			wantTotal: float64(200000)*0.000001 + 0.000002 + float64(10)*0.00001,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pricingService := &PricingService{}
+			pricingData, err := pricingService.parsePricingData([]byte(tt.catalog))
+			require.NoError(t, err)
+			pricingService.pricingData = pricingData
+			billingService := NewBillingService(&config.Config{}, pricingService)
+			gatewayService := &GatewayService{billingService: billingService}
+
+			cost := gatewayService.calculateTokenCost(
+				context.Background(),
+				&ForwardResult{Usage: ClaudeUsage{InputTokens: 200001, OutputTokens: 10}},
+				&APIKey{},
+				"gemini-pro",
+				1,
+				time.Now(),
+				&recordUsageOpts{LongContextThreshold: 200000, LongContextMultiplier: 2},
+			)
+			require.NotNil(t, cost)
+			// ActualCost is the amount used by balance/subscription deduction. The
+			// legacy marginal helper keeps its extra multiplier outside TotalCost.
+			require.InDelta(t, tt.wantTotal, cost.ActualCost, 1e-12)
+			require.True(t, cost.LongContextBillingApplied)
+		})
+	}
+}
+
 type openAIRecordUsageBestEffortLogRepoStub struct {
 	UsageLogRepository
 
