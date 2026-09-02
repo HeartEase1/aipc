@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -9,6 +10,13 @@ import (
 )
 
 const automationBootstrapPrompt = "Review the project and report any important changes."
+
+func mustJSON(t *testing.T, value string) string {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	require.NoError(t, err)
+	return string(encoded)
+}
 
 func codexAutomationBootstrap(automationID, lastRun, prompt string) string {
 	return "Automation: Scheduled project review\n" +
