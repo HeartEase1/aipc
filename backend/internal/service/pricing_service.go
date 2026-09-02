@@ -721,42 +721,6 @@ func warnOrphanCacheTierFields(entries []string) {
 	logger.LegacyPrintf("service.pricing", "[Pricing] Warning: %d model(s) have high-context cache prices without a usable base cache price: %s; affected cache items remain at the existing base/fallback price", total, strings.Join(entries, ", "))
 }
 
-// loadPricingData 从本地文件加载价格数据
-func (s *PricingService) loadPricingData(filePath string) error {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("read file failed: %w", err)
-	}
-
-	// 使用灵活的解析方式
-	pricingData, err := s.parsePricingData(data)
-	if err != nil {
-		return fmt.Errorf("parse pricing data: %w", err)
-	}
-	pricingData = s.mergeFallbackPricingData(pricingData)
-	pricingData = s.mergeOverrideOnlyModels(pricingData)
-
-	// 计算哈希
-	hash := sha256.Sum256(data)
-	hashStr := hex.EncodeToString(hash[:])
-
-	s.mu.Lock()
-	warnDroppedLongContextLadders(s.pricingData, pricingData)
-	s.pricingData = pricingData
-	s.localHash = hashStr
-
-	info, _ := os.Stat(filePath)
-	if info != nil {
-		s.lastUpdated = info.ModTime()
-	} else {
-		s.lastUpdated = time.Now()
-	}
-	s.mu.Unlock()
-
-	logger.LegacyPrintf("service.pricing", "[Pricing] Loaded %d models from %s", len(pricingData), filePath)
-	return nil
-}
-
 func (s *PricingService) mergeFallbackPricingData(data map[string]*LiteLLMModelPricing) map[string]*LiteLLMModelPricing {
 	if data == nil {
 		data = make(map[string]*LiteLLMModelPricing)
@@ -1141,19 +1105,6 @@ func warnDroppedLongContextLadders(old, next map[string]*LiteLLMModelPricing) {
 		dropped = append(dropped[:20], "...")
 	}
 	logger.LegacyPrintf("service.pricing", "[Pricing] Warning: long-context ladder dropped for %d model(s) after reload: %s; existing model safeguards remain available where defined", total, strings.Join(dropped, ", "))
-}
-
-// useFallbackPricing 使用回退价格文件
-func (s *PricingService) useFallbackPricing() error {
-	fallbackFile := s.cfg.Pricing.FallbackFile
-
-	if _, err := os.Stat(fallbackFile); os.IsNotExist(err) {
-		return fmt.Errorf("fallback file not found: %s", fallbackFile)
-	}
-
-	logger.LegacyPrintf("service.pricing", "[Pricing] Using fallback file: %s", fallbackFile)
-
-	return s.loadPricingData(fallbackFile)
 }
 
 // fetchRemoteHash 从远程获取哈希值
