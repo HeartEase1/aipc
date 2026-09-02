@@ -945,15 +945,28 @@ func validateEffectivePricingOverrideEntry(raw json.RawMessage) error {
 	if hasInput != hasOutput {
 		return fmt.Errorf("input_cost_per_token and output_cost_per_token must remain paired")
 	}
+	positiveBillablePrice := false
+	if hasInput {
+		var input, output float64
+		_ = json.Unmarshal(fields["input_cost_per_token"], &input)
+		_ = json.Unmarshal(fields["output_cost_per_token"], &output)
+		positiveBillablePrice = input > 0 || output > 0
+	}
 	hasImagePrice := false
 	for _, key := range []string{"output_cost_per_image", "output_cost_per_image_token", "input_cost_per_image_token"} {
-		if _, exists := fields[key]; exists {
+		if rawPrice, exists := fields[key]; exists {
 			hasImagePrice = true
-			break
+			var price float64
+			if json.Unmarshal(rawPrice, &price) == nil && price > 0 {
+				positiveBillablePrice = true
+			}
 		}
 	}
 	if !hasInput && !hasImagePrice {
 		return fmt.Errorf("effective entry must retain paired token prices or an image price")
+	}
+	if !positiveBillablePrice {
+		return fmt.Errorf("effective entry must retain at least one positive billable price")
 	}
 	if orphans := orphanCacheTierFields(raw); len(orphans) > 0 {
 		return fmt.Errorf("cache tier fields lack a usable base price: %s", strings.Join(orphans, ","))

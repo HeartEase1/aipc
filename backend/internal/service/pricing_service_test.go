@@ -317,6 +317,10 @@ func TestPricingOverrideCannotCreateUnsafeTierContracts(t *testing.T) {
 			name:     "remove all token pricing",
 			override: `{"input_cost_per_token": null, "output_cost_per_token": null}`,
 		},
+		{
+			name:     "zero all token pricing",
+			override: `{"input_cost_per_token": 0, "output_cost_per_token": 0}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
