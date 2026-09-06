@@ -18,22 +18,26 @@ import (
 )
 
 func (s *OpenAIGatewayService) validateUpstreamBaseURL(raw string) (string, error) {
-	if s.cfg != nil && !s.cfg.Security.URLAllowlist.Enabled {
-		normalized, err := urlvalidator.ValidateURLFormat(raw, s.cfg.Security.URLAllowlist.AllowInsecureHTTP)
-		if err != nil {
-			return "", fmt.Errorf("invalid base_url: %w", err)
-		}
-		return normalized, nil
-	}
-	normalized, err := urlvalidator.ValidateHTTPSURL(raw, urlvalidator.ValidationOptions{
-		AllowedHosts:     s.cfg.Security.URLAllowlist.UpstreamHosts,
-		RequireAllowlist: true,
-		AllowPrivate:     s.cfg.Security.URLAllowlist.AllowPrivateHosts,
-	})
+	normalized, err := s.validateOutboundURL(raw)
 	if err != nil {
 		return "", fmt.Errorf("invalid base_url: %w", err)
 	}
 	return normalized, nil
+}
+
+// validateOutboundURL 按 security.url_allowlist 策略校验网关主动连接的出站 URL。
+func (s *OpenAIGatewayService) validateOutboundURL(raw string) (string, error) {
+	if s.cfg == nil {
+		return urlvalidator.ValidateURLFormat(raw, false)
+	}
+	if !s.cfg.Security.URLAllowlist.Enabled {
+		return urlvalidator.ValidateURLFormat(raw, s.cfg.Security.URLAllowlist.AllowInsecureHTTP)
+	}
+	return urlvalidator.ValidateHTTPSURL(raw, urlvalidator.ValidationOptions{
+		AllowedHosts:     s.cfg.Security.URLAllowlist.UpstreamHosts,
+		RequireAllowlist: true,
+		AllowPrivate:     s.cfg.Security.URLAllowlist.AllowPrivateHosts,
+	})
 }
 
 // buildOpenAIResponsesURL 组装 OpenAI Responses 端点。
@@ -892,12 +896,9 @@ func normalizeOpenAIServiceTier(raw string) *string {
 	if value == "fast" {
 		value = "priority"
 	}
-	// 放过 OpenAI 官方文档定义的所有合法 tier 值：priority/flex/auto/default/scale。
-	// 对 Codex 客户端零影响（Codex 只发 priority 或 flex，见 codex-rs/core/src/client.rs），
-	// 但能让直连 OpenAI SDK 的用户透传 auto/default/scale 以便抓包/调试。
-	// 真未知值仍返回 nil，由 normalizeResponsesBodyServiceTier 从 body 中删除。
+	// Preserve supported API and Codex tiers; unknown values retain existing handling.
 	switch value {
-	case "priority", "flex", "auto", "default", "scale":
+	case "priority", "flex", "auto", "default", "scale", OpenAIFastTierUltrafast:
 		return &value
 	default:
 		return nil
@@ -1539,7 +1540,7 @@ func normalizeOpenAIReasoningEffort(raw string) string {
 }
 
 func normalizeOpenAIReasoningEffortForModel(raw, model string) string {
-	if strings.EqualFold(strings.TrimSpace(raw), "max") && isOpenAIGPT56Model(model) {
+	if strings.EqualFold(strings.TrimSpace(raw), "max") && (isOpenAIGPT56Model(model) || isOpenAIGPT6AstraModel(model)) {
 		return "max"
 	}
 	return normalizeOpenAIReasoningEffort(raw)

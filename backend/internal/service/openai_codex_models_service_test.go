@@ -374,7 +374,7 @@ func TestFetchCodexModelsManifestNotModified(t *testing.T) {
 	if !manifest.NotModified {
 		t.Error("expected NotModified to be true")
 	}
-	if gotIfNoneMatch != `W/"abc123"` {
+	if gotIfNoneMatch != "" {
 		t.Errorf("if-none-match header: got %q", gotIfNoneMatch)
 	}
 }
@@ -948,22 +948,22 @@ func TestFetchCodexModelsManifestAPIKeyCacheBoundsEntriesAndBodySize(t *testing.
 		t.Fatalf("body-size bounded cache calls: got %d, want 3", got)
 	}
 
-	for i := int64(10); i < 75; i++ {
+	for i := int64(10); i < 11+codexModelsManifestCacheMaxEntries; i++ {
 		account := newCodexModelsAPIKeyTestAccount("https://bounded.example")
 		account.ID = i
 		fetch(account)
 	}
 	last := newCodexModelsAPIKeyTestAccount("https://bounded.example")
-	last.ID = 74
+	last.ID = 10 + codexModelsManifestCacheMaxEntries
 	fetch(last)
-	if got := calls.Load(); got != 68 {
-		t.Fatalf("most recent cache entry was not retained: calls=%d, want 68", got)
+	if got := calls.Load(); got != 4+codexModelsManifestCacheMaxEntries {
+		t.Fatalf("most recent cache entry was not retained: calls=%d", got)
 	}
 	first := newCodexModelsAPIKeyTestAccount("https://bounded.example")
 	first.ID = 10
 	fetch(first)
-	if got := calls.Load(); got != 69 {
-		t.Errorf("oldest cache entry was not evicted: calls=%d, want 69", got)
+	if got := calls.Load(); got != 5+codexModelsManifestCacheMaxEntries {
+		t.Errorf("oldest cache entry was not evicted: calls=%d", got)
 	}
 }
 

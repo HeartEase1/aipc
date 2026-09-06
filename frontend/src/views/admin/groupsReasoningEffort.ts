@@ -12,14 +12,16 @@ const openAIReasoningEffortValues = [
 const reasoningEffortValuesForPlatform = (
   platform: GroupPlatform,
 ): readonly string[] =>
-  supportsReasoningEffortPolicyPlatform(platform)
+  platform === "anthropic"
+    ? openAIReasoningEffortValues.slice(1)
+    : supportsReasoningEffortPolicyPlatform(platform)
     ? openAIReasoningEffortValues
     : [];
 
 export function supportsReasoningEffortPolicyPlatform(
   platform: GroupPlatform,
 ): boolean {
-  return platform === "openai" || platform === "composite";
+  return platform === "openai" || platform === "composite" || platform === "anthropic";
 }
 
 export function reasoningEffortOptionsForPlatform(platform: GroupPlatform) {
@@ -39,6 +41,21 @@ export function normalizeReasoningEffortForPlatform(
   )
     ? normalized
     : "";
+}
+
+export function reasoningEffortSourceOptionsForPlatform(platform: GroupPlatform) {
+  return supportsReasoningEffortPolicyPlatform(platform)
+    ? [{ value: "none", label: "none" }, ...reasoningEffortOptionsForPlatform(platform)]
+    : [];
+}
+
+export function normalizeReasoningEffortSourceForPlatform(
+  platform: GroupPlatform,
+  value: string | null | undefined,
+): string {
+  return supportsReasoningEffortPolicyPlatform(platform) && value?.trim().toLowerCase() === "none"
+    ? "none"
+    : normalizeReasoningEffortForPlatform(platform, value);
 }
 
 export interface ReasoningEffortMappingRow extends ReasoningEffortMapping {
@@ -75,7 +92,7 @@ export function reasoningEffortMappingsToRows(
   platform: GroupPlatform = "openai",
 ): ReasoningEffortMappingRow[] {
   return (mappings ?? []).flatMap((mapping) => {
-    const from = normalizeReasoningEffortForPlatform(platform, mapping.from);
+    const from = normalizeReasoningEffortSourceForPlatform(platform, mapping.from);
     const to = normalizeReasoningEffortForPlatform(platform, mapping.to);
     return from && to
       ? [createReasoningEffortMappingRow({ from, to })]
@@ -104,7 +121,7 @@ export function validateReasoningEffortMappings(
     const to = row.to.trim();
     if (!from) {
       errors[row.id] = { ...errors[row.id], from: "fromRequired" };
-    } else if (!normalizeReasoningEffortForPlatform(platform, from)) {
+    } else if (!normalizeReasoningEffortSourceForPlatform(platform, from)) {
       errors[row.id] = { ...errors[row.id], from: "unsupportedFrom" };
     } else {
       const key = from.toLowerCase();

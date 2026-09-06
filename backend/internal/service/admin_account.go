@@ -470,6 +470,9 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 	if err != nil {
 		return nil, err
 	}
+	if err := ValidateUpstreamRequestIDHeaderExtra(accountExtra); err != nil {
+		return nil, err
+	}
 
 	// 绑定分组
 	groupIDs := input.GroupIDs
@@ -558,6 +561,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		normalizedExtra, err = normalizeGrokMediaEligibilityUpdateExtra(account, input, normalizedExtra)
 		if err != nil {
 			return nil, err
+		}
+		if err := ValidateUpstreamRequestIDHeaderExtra(normalizedExtra); err != nil {
+			return nil, err
+		}
+		// Capability sync owns this snapshot; an older account editor must not erase it.
+		delete(normalizedExtra, UpstreamModelMetadataExtraKey)
+		if snapshot, ok := account.Extra[UpstreamModelMetadataExtraKey]; ok {
+			normalizedExtra[UpstreamModelMetadataExtraKey] = snapshot
 		}
 	}
 	previousProbeIdentity := upstreamBillingProbeIdentity(account)
@@ -879,6 +890,7 @@ func (s *adminServiceImpl) clearCNBalanceLowBlockIfDisabled(ctx context.Context,
 // （如 model_rate_limits / passive_usage_* 等）。
 func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, updates map[string]any) error {
 	updates = sanitizedCodexFingerprintExtraUpdates(updates)
+	delete(updates, UpstreamModelMetadataExtraKey)
 	delete(updates, UpstreamBillingProbeEnabledExtraKey)
 	delete(updates, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(updates, UpstreamBillingProbeExtraKey)
@@ -905,6 +917,7 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error) {
 	// Managed probe/session state may only enter through dedicated typed endpoints.
 	input.Extra = sanitizedCodexFingerprintExtraUpdates(input.Extra)
+	delete(input.Extra, UpstreamModelMetadataExtraKey)
 	delete(input.Extra, UpstreamBillingProbeEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingRateSyncEnabledExtraKey)
 	delete(input.Extra, UpstreamBillingProbeExtraKey)

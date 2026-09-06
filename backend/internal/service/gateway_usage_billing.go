@@ -1167,23 +1167,27 @@ func (s *GatewayService) calculateTokenCost(
 
 	var cost *CostBreakdown
 	var err error
+	unified := false
 
 	// Explicit group/channel pricing wins. Built-in pricing also uses the unified
 	// resolver so the group long-context toggle can veto model-native tiers.
 	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
+		unified = true
 		gid := apiKey.Group.ID
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
-			Ctx:            ctx,
-			Model:          billingModel,
-			GroupID:        &gid,
-			Group:          apiKey.Group,
-			Tokens:         tokens,
-			RequestCount:   1,
-			RateMultiplier: multiplier,
-			PricingAt:      pricingAt,
-			ServiceTier:    optionalStringValue(result.ServiceTier),
-			Resolver:       s.resolver,
-			Resolved:       resolved,
+			Ctx:             ctx,
+			Model:           billingModel,
+			GroupID:         &gid,
+			Group:           apiKey.Group,
+			Tokens:          tokens,
+			RequestCount:    1,
+			RateMultiplier:  multiplier,
+			PricingAt:       pricingAt,
+			ServiceTier:     optionalStringValue(result.ServiceTier),
+			ReasoningEffort: optionalStringValue(result.ReasoningEffort),
+			ReasoningModel:  result.UpstreamModel,
+			Resolver:        s.resolver,
+			Resolved:        resolved,
 		})
 	} else if opts.LongContextThreshold > 0 && (apiKey.Group == nil || apiKey.Group.LongContextPricingEnabled) {
 		// Prefer a complete catalog tier. Gemini keeps its legacy marginal 200K
@@ -1196,11 +1200,13 @@ func (s *GatewayService) calculateTokenCost(
 			cost, err = s.billingService.CalculateCostWithLongContext(billingModel, tokens, multiplier, opts.LongContextThreshold, opts.LongContextMultiplier)
 		}
 	} else if s.resolver != nil && apiKey.Group != nil {
+		unified = true
 		gid := apiKey.Group.ID
 		cost, err = s.billingService.CalculateCostUnified(CostInput{
 			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
 			Tokens: tokens, RequestCount: 1, RateMultiplier: multiplier, PricingAt: pricingAt,
 			ServiceTier: optionalStringValue(result.ServiceTier), Resolver: s.resolver,
+			ReasoningEffort: optionalStringValue(result.ReasoningEffort), ReasoningModel: result.UpstreamModel,
 		})
 	} else {
 		cost, err = s.billingService.CalculateCost(billingModel, tokens, multiplier)
@@ -1208,6 +1214,10 @@ func (s *GatewayService) calculateTokenCost(
 	if err != nil {
 		logger.LegacyPrintf("service.gateway", "Calculate cost failed: %v", err)
 		return &CostBreakdown{ActualCost: 0}
+	}
+	if !unified {
+		pricing, _ := s.billingService.GetModelPricing(billingModel)
+		applyCostBreakdownMultiplier(cost, maxReasoningEffortBillingMultiplier(reasoningBillingModel(billingModel, result.UpstreamModel), optionalStringValue(result.ReasoningEffort), pricing))
 	}
 	return cost
 }
@@ -1248,6 +1258,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		)
 	}
 	usageLog := &UsageLog{
+		UpstreamRequestID:     usageUpstreamRequestIDPtr(account, result.UpstreamHeaders, false),
 		UserID:                user.ID,
 		APIKeyID:              apiKey.ID,
 		AccountID:             account.ID,

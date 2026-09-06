@@ -325,6 +325,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 
 	usageLog := &UsageLog{
+		UpstreamRequestID:     usageUpstreamRequestIDPtr(account, result.UpstreamHeaders, result.OpenAIWSMode),
 		UserID:                user.ID,
 		APIKeyID:              apiKey.ID,
 		AccountID:             account.ID,
@@ -567,6 +568,8 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 				pricingAt,
 				tokens,
 				serviceTier,
+				optionalStringValue(result.ReasoningEffort),
+				result.UpstreamModel,
 				longContextBillingGate,
 			)
 			if err == nil {
@@ -673,6 +676,8 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	pricingAt time.Time,
 	tokens UsageTokens,
 	serviceTier string,
+	reasoningEffort string,
+	reasoningModel string,
 	longContextBillingGate *bool,
 ) (*CostBreakdown, error) {
 	if s.resolver != nil && apiKey.Group != nil {
@@ -680,17 +685,22 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 		return s.billingService.CalculateCostUnified(CostInput{
 			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
 			Tokens: tokens, RequestCount: 1, RateMultiplier: multiplier, PricingAt: pricingAt,
-			ServiceTier: serviceTier, Resolver: s.resolver,
+			ServiceTier: serviceTier, ReasoningEffort: reasoningEffort, ReasoningModel: reasoningModel, Resolver: s.resolver,
 			LongContextBillingEnabled: longContextBillingGate,
 		})
 	}
-	return s.billingService.calculateCostWithServiceTierPolicy(
+	breakdown, err := s.billingService.calculateCostWithServiceTierPolicy(
 		billingModel,
 		tokens,
 		multiplier,
 		serviceTier,
 		longContextBillingGate == nil || *longContextBillingGate,
 	)
+	if err == nil {
+		pricing, _ := s.billingService.GetModelPricing(billingModel)
+		applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(reasoningBillingModel(billingModel, reasoningModel), reasoningEffort, pricing))
+	}
+	return breakdown, err
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIImageCost(

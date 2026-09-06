@@ -76,6 +76,7 @@ func (s *GatewayService) ForwardAsChatCompletions(
 		}
 	}
 	anthropicReq.Model = mappedModel
+	normalizeConvertedAnthropicEffort(anthropicReq, extractCCReasoningEffortFromBody(body))
 
 	logger.L().Debug("gateway forward_as_chat_completions: model mapping applied",
 		zap.Int64("account_id", account.ID),
@@ -157,6 +158,8 @@ func (s *GatewayService) ForwardAsChatCompletions(
 
 		if s.shouldFailoverUpstreamError(resp.StatusCode) {
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+				ProxyID:            opsUpstreamProxyID(account),
+				ProxyName:          opsUpstreamProxyName(account),
 				Platform:           account.Platform,
 				AccountID:          account.ID,
 				AccountName:        account.Name,
@@ -179,7 +182,7 @@ func (s *GatewayService) ForwardAsChatCompletions(
 	}
 
 	// 13. Extract reasoning effort from CC request body
-	reasoningEffort := extractCCReasoningEffortFromBody(body)
+	reasoningEffort := extractAnthropicReasoningEffort(anthropicBody)
 	// 国产模型默认 effort 补充：本路径是客户端 CC 请求 → Anthropic 上游，
 	// 如果上游是 passback-required 国产模型 (Kimi-anthropic / GLM-anthropic / MiniMax)
 	// 且客户端在 body 里传了 thinking.type=enabled，补中默认 effort。
@@ -340,6 +343,7 @@ func (s *GatewayService) handleCCBufferedFromAnthropic(
 
 	return &ForwardResult{
 		RequestID:       requestID,
+		UpstreamHeaders: resp.Header,
 		Usage:           usage,
 		Model:           originalModel,
 		UpstreamModel:   mappedModel,
@@ -392,6 +396,7 @@ func (s *GatewayService) handleCCStreamingFromAnthropic(
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
 			RequestID:       requestID,
+			UpstreamHeaders: resp.Header,
 			Usage:           usage,
 			Model:           originalModel,
 			UpstreamModel:   mappedModel,

@@ -104,6 +104,7 @@ type ModelPricing struct {
 	CacheReadPricePerTokenPriority     float64  // priority service tier 下缓存读取每token价格 (USD)
 	FastMultiplier                     *float64 // 渠道显式 Fast/priority 倍率；nil 时沿用模型目录行为
 	FlexMultiplier                     *float64 // 渠道显式 Flex 倍率；nil 时沿用默认行为
+	MaxReasoningEffortMultiplier       *float64 // nil uses the model default; 1 explicitly disables the surcharge.
 	CacheCreation5mPrice               float64  // 5分钟缓存创建每token价格 (USD)
 	CacheCreation1hPrice               float64  // 1小时缓存创建每token价格 (USD)
 	SupportsCacheBreakdown             bool     // 是否支持详细的缓存分类
@@ -130,7 +131,7 @@ func usePriorityServiceTierPricing(serviceTier string, pricing *ModelPricing) bo
 		return false
 	}
 	tier := normalizeBillingServiceTier(serviceTier)
-	if tier != "priority" && tier != "fast" {
+	if tier != "priority" && tier != "fast" && tier != OpenAIFastTierUltrafast {
 		return false
 	}
 	if pricing.FastMultiplier != nil {
@@ -142,7 +143,7 @@ func usePriorityServiceTierPricing(serviceTier string, pricing *ModelPricing) bo
 
 func serviceTierCostMultiplier(serviceTier string) float64 {
 	switch normalizeBillingServiceTier(serviceTier) {
-	case "priority", "fast":
+	case "priority", "fast", OpenAIFastTierUltrafast:
 		return 2.0
 	case "flex":
 		return 0.5
@@ -154,7 +155,7 @@ func serviceTierCostMultiplier(serviceTier string) float64 {
 func configuredServiceTierMultiplier(serviceTier string, pricing *ModelPricing) float64 {
 	if pricing != nil {
 		switch normalizeBillingServiceTier(serviceTier) {
-		case "priority", "fast":
+		case "priority", "fast", OpenAIFastTierUltrafast:
 			if pricing.FastMultiplier != nil {
 				return *pricing.FastMultiplier
 			}
@@ -385,6 +386,20 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// OpenAI GPT-5.6 官方价格（USD/token）。缓存写入为输入价的 1.25 倍。
+	s.fallbackPrices["gpt-6-astra"] = &ModelPricing{
+		InputPricePerToken:                 10e-6,
+		InputPricePerTokenPriority:         20e-6,
+		OutputPricePerToken:                50e-6,
+		OutputPricePerTokenPriority:        100e-6,
+		CacheCreationPricePerToken:         12.5e-6,
+		CacheCreationPricePerTokenPriority: 25e-6,
+		CacheReadPricePerToken:             1e-6,
+		CacheReadPricePerTokenPriority:     2e-6,
+		LongContextInputThreshold:          openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:         openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:        openAIGPT54LongContextOutputMultiplier,
+	}
+
 	s.fallbackPrices["gpt-5.6-sol"] = &ModelPricing{
 		InputPricePerToken:                 5e-6,
 		InputPricePerTokenPriority:         10e-6,
@@ -886,6 +901,8 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// OpenAI（GPT-5 / Codex 族）：仅匹配已知型号，避免未知 OpenAI 型号误计价。
 	if normalized := normalizeKnownOpenAICodexModel(modelLower); normalized != "" {
 		switch normalized {
+		case "gpt-6-astra":
+			return s.fallbackPrices["gpt-6-astra"]
 		case "gpt-5.6-sol":
 			return s.fallbackPrices["gpt-5.6-sol"]
 		case "gpt-5.6-terra":
@@ -1073,6 +1090,9 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	applyChannelTokenPriceOverrides(pricing, channelPricing)
 	pricing.FastMultiplier = channelPricing.FastMultiplier
 	pricing.FlexMultiplier = channelPricing.FlexMultiplier
+	if channelPricing.MaxReasoningEffortMultiplier != nil {
+		pricing.MaxReasoningEffortMultiplier = channelPricing.MaxReasoningEffortMultiplier
+	}
 	if channelPricing.ImageOutputPrice != nil {
 		pricing.ImageOutputPricePerToken = *channelPricing.ImageOutputPrice
 	} else {
@@ -1135,8 +1155,10 @@ type CostInput struct {
 	UsageUnits                float64 // 音频等连续计量单位（分钟/小时/百万字符）
 	SizeTier                  string  // 按次/图片模式的层级标签（"1K","2K","4K","HD" 等）
 	RateMultiplier            float64
-	PricingAt                 time.Time             // 渠道分时定价使用的计费时刻
-	ServiceTier               string                // "priority","flex","" 等
+	PricingAt                 time.Time // 渠道分时定价使用的计费时刻
+	ServiceTier               string    // "priority","flex","" 等
+	ReasoningEffort           string
+	ReasoningModel            string                // Actual upstream model for default effort pricing behind a public alias.
 	Resolver                  *ModelPricingResolver // 定价解析器
 	Resolved                  *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
 	LongContextBillingEnabled *bool
@@ -1151,7 +1173,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		if input.LongContextBillingEnabled != nil {
 			applyLongContextBilling = *input.LongContextBillingEnabled
 		}
-		return s.calculateCostInternalWithPolicy(
+		breakdown, err := s.calculateCostInternalWithPolicy(
 			input.Model,
 			input.Tokens,
 			input.RateMultiplier,
@@ -1159,6 +1181,11 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 			nil,
 			applyLongContextBilling,
 		)
+		if err == nil {
+			pricing, _ := s.GetModelPricing(input.Model)
+			applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(reasoningBillingModel(input.Model, input.ReasoningModel), input.ReasoningEffort, pricing))
+		}
+		return breakdown, err
 	}
 
 	// 优先使用预解析结果，避免重复 Resolve 调用
@@ -1221,6 +1248,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 
 	breakdown := s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx)
 	applyCostBreakdownMultiplier(breakdown, resolvedChannelTimeMultiplier(resolved, input.PricingAt))
+	applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(reasoningBillingModel(input.Model, input.ReasoningModel), input.ReasoningEffort, pricing))
 	return breakdown, nil
 }
 
@@ -1462,7 +1490,7 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 		return nil
 	}
 	normalized := normalizeKnownOpenAICodexModel(model)
-	isGPT56 := isOpenAIGPT56Model(normalized)
+	isGPT56 := isOpenAIGPT56Model(normalized) || isOpenAIGPT6AstraModel(normalized)
 	usesLegacyLongContextPricing := usesOpenAILegacyLongContextPricing(normalized)
 	if !isGPT56 && !usesLegacyLongContextPricing {
 		return pricing

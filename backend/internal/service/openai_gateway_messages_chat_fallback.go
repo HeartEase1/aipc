@@ -155,6 +155,7 @@ func (s *OpenAIGatewayService) bufferChatCompletionsAsAnthropic(
 	c.JSON(http.StatusOK, anthropicResp)
 
 	return &OpenAIForwardResult{
+		UpstreamHeaders: resp.Header,
 		RequestID:       requestID,
 		Usage:           usage,
 		Model:           originalModel,
@@ -215,6 +216,7 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsAnthropic(
 		// masks the truncation, and surface the error to flag usage incomplete
 		// (mirrors forwardResponsesViaRawChatCompletions).
 		return &OpenAIForwardResult{
+			UpstreamHeaders:  resp.Header,
 			RequestID:        requestID,
 			Usage:            usage,
 			Model:            originalModel,
@@ -250,6 +252,7 @@ func (s *OpenAIGatewayService) streamChatCompletionsAsAnthropic(
 	}
 
 	return &OpenAIForwardResult{
+		UpstreamHeaders:  resp.Header,
 		RequestID:        requestID,
 		Usage:            usage,
 		Model:            originalModel,

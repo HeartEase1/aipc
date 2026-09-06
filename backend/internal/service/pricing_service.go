@@ -44,6 +44,23 @@ var (
 		Mode:                            "chat",
 		SupportsPromptCaching:           true,
 	}
+	openAIGPT6AstraFallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken:                   1e-05,
+		InputCostPerTokenPriority:           2e-05,
+		OutputCostPerToken:                  5e-05,
+		OutputCostPerTokenPriority:          1e-04,
+		CacheCreationInputTokenCost:         1.25e-05,
+		CacheCreationInputTokenCostPriority: 2.5e-05,
+		CacheReadInputTokenCost:             1e-06,
+		CacheReadInputTokenCostPriority:     2e-06,
+		LongContextInputTokenThreshold:      272_000,
+		LongContextInputCostMultiplier:      2,
+		LongContextOutputCostMultiplier:     1.5,
+		SupportsServiceTier:                 true,
+		LiteLLMProvider:                     "openai",
+		Mode:                                "chat",
+		SupportsPromptCaching:               true,
+	}
 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:                   5e-06,
 		InputCostPerTokenPriority:           1e-05,
@@ -184,6 +201,8 @@ type PricingService struct {
 	candidateHash       string
 	candidateUpdatedAt  time.Time
 	candidateModelCount int
+	customFilesHash     string
+	customLayers        *pricingCustomLayers
 
 	// 停止信号
 	stopCh chan struct{}
@@ -215,6 +234,7 @@ func (s *PricingService) Initialize() error {
 	}
 
 	logger.LegacyPrintf("service.pricing", "[Pricing] Service initialized with %d models", len(s.pricingData))
+	s.startUpdateScheduler()
 	return nil
 }
 
@@ -458,6 +478,29 @@ func (s *PricingService) Stop() {
 // startUpdateScheduler 启动定时更新调度器
 func (s *PricingService) startUpdateScheduler() {
 	logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Automatic remote sync disabled; use the administrator pricing catalog controls")
+	if s == nil || s.cfg == nil || s.stopCh == nil || (strings.TrimSpace(s.cfg.Pricing.FallbackFile) == "" && strings.TrimSpace(s.cfg.Pricing.OverrideFile) == "") {
+		return
+	}
+	interval := time.Duration(s.cfg.Pricing.HashCheckIntervalMinutes) * time.Minute
+	if interval < time.Minute {
+		interval = 10 * time.Minute
+	}
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.stopCh:
+				return
+			case <-ticker.C:
+				if err := s.reloadCustomPricingLayers(); err != nil {
+					logger.LegacyPrintf("service.pricing", "[Pricing] Custom pricing reload kept previous data: %v", err)
+				}
+			}
+		}
+	}()
 }
 
 // parsePricingData 解析价格数据（处理各种格式）
@@ -732,7 +775,7 @@ func (s *PricingService) mergeFallbackPricingData(data map[string]*LiteLLMModelP
 	if s == nil || s.cfg == nil || strings.TrimSpace(s.cfg.Pricing.FallbackFile) == "" {
 		return data
 	}
-	fallbackBody, err := os.ReadFile(s.cfg.Pricing.FallbackFile)
+	fallbackBody, err := s.readCustomPricingFile(s.cfg.Pricing.FallbackFile)
 	if err != nil {
 		logger.LegacyPrintf("service.pricing", "[Pricing] Fallback merge skipped: %v", err)
 		return data
@@ -817,7 +860,7 @@ func (s *PricingService) loadPricingOverrideEntries() map[string]json.RawMessage
 	if path == "" {
 		return nil
 	}
-	body, err := os.ReadFile(path)
+	body, err := s.readCustomPricingFile(path)
 	if err != nil {
 		logger.LegacyPrintf("service.pricing", "[Pricing] Warning: override file ignored: %v", err)
 		return nil
@@ -1294,6 +1337,9 @@ func normalizeModelNameForPricing(model string) string {
 
 	model = strings.TrimLeft(model, "/")
 	if canonical := canonicalizeOpenAIModelAliasSpelling(model); canonical != "" {
+		if canonical == "gpt-6" {
+			return "gpt-6-astra"
+		}
 		if canonical == "gpt-5.6" {
 			return "gpt-5.6-sol"
 		}
@@ -1492,6 +1538,12 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 				Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-5.2-codex"))
 			return pricing
 		}
+	}
+
+	if isOpenAIGPT6AstraModel(model) {
+		logger.With(zap.String("component", "service.pricing")).
+			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-6-astra(static)"))
+		return openAIGPT6AstraFallbackPricing
 	}
 
 	if strings.HasPrefix(model, "gpt-5.6-sol") {

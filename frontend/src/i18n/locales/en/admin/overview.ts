@@ -859,7 +859,7 @@ export default {
         rpmLimitHint: 'Max requests per minute for each user in this group; 0 = unlimited. Once set, it takes over per-user rate limiting in this group (overrides the user-level rpm_limit fallback).',
         maxReasoningEffort: 'Max reasoning effort',
         maxReasoningEffortUnlimited: 'Unlimited (follow request)',
-        maxReasoningEffortHint: 'Limits explicit OpenAI reasoning effort requests only. For Composite groups, it applies only to requests resolved to OpenAI. Higher values are capped; omitted effort stays omitted. The ceiling takes precedence over reasoning effort mappings.',
+        maxReasoningEffortHint: 'Applies to OpenAI and Anthropic, including resolved Composite routes. Explicit effort is mapped, then capped; omitted effort keeps the upstream default. Composite minimal targets use low on Anthropic.',
         reasoningEffortMappings: 'Reasoning effort mappings',
         addReasoningEffortMapping: 'Add mapping',
         removeReasoningEffortMapping: 'Remove mapping',
@@ -1054,8 +1054,8 @@ export default {
         sumTooHigh: 'Min gross margin plus safety buffer must be less than 100%, otherwise every account would be excluded'
       },
       modelsList: {
-        title: 'Custom /v1/models Model List',
-        hint: 'Only changes the /v1/models response. Whitelist model calls and account routing are unchanged.',
+        title: 'Custom {endpoint} Model List',
+        hint: 'Only changes the {endpoint} response. Whitelist model calls and account routing are unchanged.',
         loading: 'Loading model list...',
         empty: 'No displayable models',
         selectedSummary: 'Selected {selected} / {total}',
@@ -1071,6 +1071,19 @@ export default {
         empty: 'No models available',
         noResults: 'No matching models',
         blocked: 'Blocked'
+      },
+      codexModelsManifest: {
+        title: 'Pinned Accounts for Codex Model Manifest',
+        hint: 'When enabled, Codex client /models requests for this group are fetched only from the pinned accounts and merged by slug, bypassing the scheduler. Pinned accounts in rate-limit or overload windows are still used.',
+        enable: 'Fetch manifest with specific accounts',
+        enabledHint: 'Accounts are limited to OpenAI accounts bound to this group, at most 10.',
+        disabledHint: 'Not enabled: manifest requests go through scheduler account selection.',
+        accounts: 'Pinned accounts',
+        searchPlaceholder: 'Search accounts (OpenAI accounts in this group)',
+        searchEmpty: 'No matching accounts',
+        fallback: 'Fall back to the scheduler when all pinned accounts are unavailable',
+        fallbackHint: 'Off: return 503 / the upstream error. On: fall back to the existing scheduler path.',
+        selectAtLeastOne: 'Select at least one account after enabling pinned accounts'
       },
       compositeRoutes: {
         action: 'Routes',

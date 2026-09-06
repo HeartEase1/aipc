@@ -16,7 +16,7 @@ import (
 
 var channelModelPricingTimePricingColumns = []string{
 	"id", "channel_id", "platform", "models", "billing_mode", "input_price", "output_price",
-	"cache_write_price", "cache_read_price", "fast_multiplier", "flex_multiplier", "image_input_price", "image_output_price",
+	"cache_write_price", "cache_read_price", "fast_multiplier", "flex_multiplier", "max_reasoning_effort_multiplier", "image_input_price", "image_output_price",
 	"per_request_price", "time_pricing", "created_at", "updated_at",
 }
 
@@ -33,7 +33,7 @@ func newChannelModelPricingTimePricingRepo(t *testing.T) (*channelRepository, sq
 func modelPricingTimePricingRow(timePricing any) *sqlmock.Rows {
 	return sqlmock.NewRows(channelModelPricingTimePricingColumns).AddRow(
 		int64(11), int64(7), "openai", `["gpt-5"]`, service.BillingModeToken,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, timePricing,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, timePricing,
 		time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC), time.Date(2026, 8, 17, 1, 0, 0, 0, time.UTC),
 	)
 }
@@ -58,6 +58,28 @@ func TestChannelModelPricingTimePricingListRoundTrip(t *testing.T) {
 	require.Equal(t, "Asia/Shanghai", pricing[0].TimePricing.Timezone)
 	require.Len(t, pricing[0].TimePricing.Periods, 1)
 	require.Equal(t, 2.0, pricing[0].TimePricing.Periods[0].Multiplier)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestChannelModelPricingMaxReasoningMultiplierPersistence(t *testing.T) {
+	repo, mock := newChannelModelPricingTimePricingRepo(t)
+	value := 2.5
+	pricing := &service.ChannelModelPricing{ID: 11, ChannelID: 7, Platform: "anthropic", Models: []string{"claude-fable-5-1"}, MaxReasoningEffortMultiplier: &value}
+	mock.ExpectQuery(`(?s)INSERT INTO channel_model_pricing .*max_reasoning_effort_multiplier.*VALUES .*\$15`).
+		WithArgs(int64(7), "anthropic", []byte(`["claude-fable-5-1"]`), service.BillingModeToken, nil, nil, nil, nil, nil, nil, value, nil, nil, nil, nil).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).AddRow(int64(11), time.Time{}, time.Time{}))
+	require.NoError(t, repo.CreateModelPricing(context.Background(), pricing))
+	mock.ExpectExec(`(?s)UPDATE channel_model_pricing.*max_reasoning_effort_multiplier = \$9.*WHERE id = \$15`).
+		WithArgs([]byte(`["claude-fable-5-1"]`), service.BillingModeToken, nil, nil, nil, nil, nil, nil, value, nil, nil, nil, nil, "anthropic", int64(11)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	require.NoError(t, repo.UpdateModelPricing(context.Background(), pricing))
+	mock.ExpectQuery(`(?s)SELECT .*max_reasoning_effort_multiplier.*FROM channel_model_pricing`).WithArgs(int64(7)).
+		WillReturnRows(sqlmock.NewRows(channelModelPricingTimePricingColumns).AddRow(int64(11), int64(7), "anthropic", `["claude-fable-5-1"]`, service.BillingModeToken, nil, nil, nil, nil, nil, nil, value, nil, nil, nil, nil, time.Time{}, time.Time{}))
+	expectEmptyModelPricingIntervals(mock)
+	rows, err := repo.ListModelPricing(context.Background(), 7)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.Equal(t, value, *rows[0].MaxReasoningEffortMultiplier)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -105,10 +127,10 @@ func TestChannelModelPricingTimePricingCreateAndUpdateRoundTrip(t *testing.T) {
 
 	t.Run("create writes JSON", func(t *testing.T) {
 		repo, mock := newChannelModelPricingTimePricingRepo(t)
-		mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO channel_model_pricing (channel_id, platform, models, billing_mode, input_price, output_price, cache_write_price, cache_read_price, fast_multiplier, flex_multiplier, image_input_price, image_output_price, per_request_price, time_pricing)")).
+		mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO channel_model_pricing (channel_id, platform, models, billing_mode, input_price, output_price, cache_write_price, cache_read_price, fast_multiplier, flex_multiplier, max_reasoning_effort_multiplier, image_input_price, image_output_price, per_request_price, time_pricing)")).
 			WithArgs(
 				int64(7), "openai", []byte(`["gpt-5"]`), service.BillingModeToken,
-				nil, nil, nil, nil, nil, nil, nil, nil, nil, channelModelPricingTimePricingJSON,
+				nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, channelModelPricingTimePricingJSON,
 			).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).AddRow(int64(11), time.Time{}, time.Time{}))
 
@@ -118,10 +140,10 @@ func TestChannelModelPricingTimePricingCreateAndUpdateRoundTrip(t *testing.T) {
 
 	t.Run("update writes JSON and entry ID", func(t *testing.T) {
 		repo, mock := newChannelModelPricingTimePricingRepo(t)
-		mock.ExpectExec(`(?s)UPDATE channel_model_pricing.*per_request_price = \$11, time_pricing = \$12, platform = \$13.*WHERE id = \$14`).
+		mock.ExpectExec(`(?s)UPDATE channel_model_pricing.*per_request_price = \$12, time_pricing = \$13, platform = \$14.*WHERE id = \$15`).
 			WithArgs(
 				[]byte(`["gpt-5"]`), service.BillingModeToken,
-				nil, nil, nil, nil, nil, nil, nil, nil, nil, channelModelPricingTimePricingJSON, "openai", int64(11),
+				nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, channelModelPricingTimePricingJSON, "openai", int64(11),
 			).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -153,10 +175,10 @@ func TestChannelModelPricingTimePricingCreateAndUpdateWriteNullWhenDisabled(t *t
 
 			t.Run("create writes SQL NULL", func(t *testing.T) {
 				repo, mock := newChannelModelPricingTimePricingRepo(t)
-				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO channel_model_pricing (channel_id, platform, models, billing_mode, input_price, output_price, cache_write_price, cache_read_price, fast_multiplier, flex_multiplier, image_input_price, image_output_price, per_request_price, time_pricing)")).
+				mock.ExpectQuery(regexp.QuoteMeta("INSERT INTO channel_model_pricing (channel_id, platform, models, billing_mode, input_price, output_price, cache_write_price, cache_read_price, fast_multiplier, flex_multiplier, max_reasoning_effort_multiplier, image_input_price, image_output_price, per_request_price, time_pricing)")).
 					WithArgs(
 						int64(7), "openai", []byte(`["gpt-5"]`), service.BillingModeToken,
-						nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+						nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 					).
 					WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).AddRow(int64(11), time.Time{}, time.Time{}))
 
@@ -166,10 +188,10 @@ func TestChannelModelPricingTimePricingCreateAndUpdateWriteNullWhenDisabled(t *t
 
 			t.Run("update writes SQL NULL", func(t *testing.T) {
 				repo, mock := newChannelModelPricingTimePricingRepo(t)
-				mock.ExpectExec(`(?s)UPDATE channel_model_pricing.*per_request_price = \$11, time_pricing = \$12, platform = \$13.*WHERE id = \$14`).
+				mock.ExpectExec(`(?s)UPDATE channel_model_pricing.*per_request_price = \$12, time_pricing = \$13, platform = \$14.*WHERE id = \$15`).
 					WithArgs(
 						[]byte(`["gpt-5"]`), service.BillingModeToken,
-						nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "openai", int64(11),
+						nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "openai", int64(11),
 					).
 					WillReturnResult(sqlmock.NewResult(0, 1))
 

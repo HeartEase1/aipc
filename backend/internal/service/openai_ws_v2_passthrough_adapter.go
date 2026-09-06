@@ -1192,6 +1192,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					return nil
 				}
 				eventType, _, _ := parseOpenAIWSEventEnvelope(payload)
+				if eventType == "error" || eventType == "response.failed" {
+					usage := OpenAIUsage{}
+					parseOpenAIWSResponseUsageFromCompletedEvent(payload, &usage)
+					markOpenAICyberPolicyEvent(c, payload, http.StatusOK, &usage)
+				}
 				if isOpenAIWSTerminalEvent(eventType) {
 					s.handleOpenAIWSTerminalTransientFailure(ctx, account, capturedSessionModel, handshakeHeaders, payload)
 				}
@@ -1309,10 +1314,15 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 	var firstOutputTimeoutErr *openAIWSPassthroughFirstOutputTimeoutError
 	if errors.As(relayErr, &firstOutputTimeoutErr) {
 		deadline := firstOutputTimeoutErr.deadline
+		// The relay ran over the WebSocket transport, so a missing managed
+		// proxy is an unknown route (http.DefaultClient), not a direct one.
+		wsProxyID, wsProxyName := opsUpstreamWSProxyAttribution(account)
 		failoverErr := s.newOpenAIFirstOutputTimeoutError(
 			ctx,
 			c,
 			account,
+			wsProxyID,
+			wsProxyName,
 			deadline.startedAt,
 			deadline.requestModel,
 			deadline.reasoningEffort,

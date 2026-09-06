@@ -187,6 +187,8 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 				kind = "failover"
 			}
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+				ProxyID:            opsUpstreamProxyID(account),
+				ProxyName:          opsUpstreamProxyName(account),
 				Platform:           account.Platform,
 				AccountID:          account.ID,
 				AccountName:        account.Name,
@@ -370,6 +372,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 	}
 
 	return &OpenAIForwardResult{
+		UpstreamHeaders:               resp.Header,
 		RequestID:                     requestID,
 		Usage:                         usage,
 		Model:                         originalModel,
@@ -471,6 +474,7 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 
 	return &OpenAIForwardResult{
 		RequestID:                     requestID,
+		UpstreamHeaders:               resp.Header,
 		Usage:                         usage,
 		Model:                         originalModel,
 		BillingModel:                  billingModel,

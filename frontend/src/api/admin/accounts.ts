@@ -6,6 +6,7 @@
 import { apiClient } from '../client'
 import type {
   Account,
+  AccountListItem,
   CreateAccountRequest,
   UpdateAccountRequest,
   PaginatedResponse,
@@ -52,8 +53,8 @@ export async function list(
   options?: {
     signal?: AbortSignal
   }
-): Promise<PaginatedResponse<Account>> {
-  const { data } = await apiClient.get<PaginatedResponse<Account>>('/admin/accounts', {
+): Promise<PaginatedResponse<AccountListItem>> {
+  const { data } = await apiClient.get<PaginatedResponse<AccountListItem>>('/admin/accounts', {
     params: {
       page,
       page_size: pageSize,
@@ -67,7 +68,7 @@ export async function list(
 export interface AccountListWithEtagResult {
   notModified: boolean
   etag: string | null
-  data: PaginatedResponse<Account> | null
+  data: PaginatedResponse<AccountListItem> | null
 }
 
 export async function listWithEtag(
@@ -95,7 +96,7 @@ export async function listWithEtag(
     headers['If-None-Match'] = options.etag
   }
 
-  const response = await apiClient.get<PaginatedResponse<Account>>('/admin/accounts', {
+  const response = await apiClient.get<PaginatedResponse<AccountListItem>>('/admin/accounts', {
     params: {
       page,
       page_size: pageSize,
@@ -541,6 +542,8 @@ export async function getAvailableModels(id: number): Promise<ClaudeModel[]> {
 
 export interface SyncUpstreamModelsResult {
   models: string[]
+  metadata?: Record<string, unknown>
+  warnings?: { code: string; message: string }[]
 }
 
 /**
@@ -558,6 +561,7 @@ export interface SyncUpstreamPreviewParams {
   type: string
   base_url?: string
   api_key: string
+  model_mapping?: Record<string, string>
 }
 
 /**

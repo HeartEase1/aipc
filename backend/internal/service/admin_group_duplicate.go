@@ -153,9 +153,10 @@ func cloneGroupForDuplicate(source *Group, operationID string) *Group {
 			Models:        append([]string(nil), source.ModelsListConfig.Models...),
 			BlockedModels: append([]string(nil), source.ModelsListConfig.BlockedModels...),
 		},
-		RPMLimit:                source.RPMLimit,
-		MaxReasoningEffort:      source.MaxReasoningEffort,
-		ReasoningEffortMappings: append([]ReasoningEffortMapping(nil), source.ReasoningEffortMappings...),
+		RPMLimit:                  source.RPMLimit,
+		CodexModelsManifestConfig: GroupCodexModelsManifestConfig{},
+		MaxReasoningEffort:        source.MaxReasoningEffort,
+		ReasoningEffortMappings:   append([]ReasoningEffortMapping(nil), source.ReasoningEffortMappings...),
 	}
 }
 

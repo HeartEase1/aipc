@@ -66,6 +66,10 @@
           <td class="border-r border-gray-100 py-2.5 pl-5 pr-4 align-middle dark:border-dark-700/60">
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="font-medium text-gray-900 dark:text-white">{{ m.name }}</span>
+              <span v-if="billingMode(m) === BILLING_MODE_TOKEN && m.pricing?.max_reasoning_effort_multiplier != null"
+                class="text-xs font-normal text-gray-500 dark:text-dark-400">
+                Max x{{ m.pricing.max_reasoning_effort_multiplier }}
+              </span>
               <span
                 v-if="platform && m.platform !== platform"
                 :class="[

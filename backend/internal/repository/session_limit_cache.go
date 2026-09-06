@@ -40,7 +40,8 @@ var (
 	// ARGV[1] = maxSessions
 	// ARGV[2] = idleTimeout（秒）
 	// ARGV[3] = sessionUUID
-	// 返回: 1 = 允许, 0 = 拒绝
+	// ARGV[4] = optional request lease token
+	// 返回: 2 = 本请求独占的新会话, 1 = 允许复用, 0 = 拒绝
 	registerSessionScript = redis.NewScript(`
 		-- Redis 3.2-4.x compat: opt into effects replication so redis.call('TIME')
 		-- replicates correctly. No-op on Redis 5.0+ (effects replication is default).
@@ -49,6 +50,8 @@ var (
 		local maxSessions = tonumber(ARGV[1])
 		local idleTimeout = tonumber(ARGV[2])
 		local sessionUUID = ARGV[3]
+		local leaseToken = ARGV[4] or ''
+		local leaseKey = key .. ':lease:' .. sessionUUID
 
 		-- 使用 Redis 服务器时间，确保多实例时钟一致
 		local timeResult = redis.call('TIME')
@@ -64,6 +67,11 @@ var (
 			-- 会话已存在，刷新时间戳
 			redis.call('ZADD', key, now, sessionUUID)
 			redis.call('EXPIRE', key, idleTimeout + 60)
+			if leaseToken ~= '' and redis.call('GET', leaseKey) == leaseToken then
+				redis.call('EXPIRE', leaseKey, idleTimeout + 60)
+				return 2
+			end
+			redis.call('DEL', leaseKey)
 			return 1
 		end
 
@@ -73,7 +81,12 @@ var (
 			-- 未达上限，添加新会话
 			redis.call('ZADD', key, now, sessionUUID)
 			redis.call('EXPIRE', key, idleTimeout + 60)
-			return 1
+			if leaseToken ~= '' then
+				redis.call('SET', leaseKey, leaseToken, 'EX', idleTimeout + 60)
+			else
+				redis.call('DEL', leaseKey)
+			end
+			return 2
 		end
 
 		-- 达到上限，拒绝新会话
@@ -100,6 +113,7 @@ var (
 		if exists ~= false then
 			redis.call('ZADD', key, now, sessionUUID)
 			redis.call('EXPIRE', key, idleTimeout + 60)
+			redis.call('DEL', key .. ':lease:' .. sessionUUID)
 		end
 		return 1
 	`)
@@ -213,7 +227,41 @@ func (c *sessionLimitCache) RegisterSession(ctx context.Context, accountID int64
 	if err != nil {
 		return true, err // 失败开放：缓存错误时允许请求通过
 	}
-	return result == 1, nil
+	return result > 0, nil
+}
+
+func (c *sessionLimitCache) RegisterSessionLease(ctx context.Context, accountID int64, sessionUUID string, maxSessions int, idleTimeout time.Duration, token string) (bool, bool, error) {
+	seconds := int(idleTimeout.Seconds())
+	if seconds <= 0 {
+		seconds = int(c.defaultIdleTimeout.Seconds())
+	}
+	result, err := registerSessionScript.Run(ctx, c.rdb, []string{sessionLimitKey(accountID)}, maxSessions, seconds, sessionUUID, token).Int()
+	return result > 0, result == 2 && token != "", err
+}
+
+var releaseSessionLeaseScript = redis.NewScript(`
+	local leaseKey = KEYS[1] .. ':lease:' .. ARGV[1]
+	if redis.call('GET', leaseKey) == ARGV[2] then
+		redis.call('ZREM', KEYS[1], ARGV[1])
+		redis.call('DEL', leaseKey)
+	end
+	return 1
+`)
+
+func (c *sessionLimitCache) ReleaseSessionLease(ctx context.Context, accountID int64, sessionUUID, token string) error {
+	if sessionUUID == "" || token == "" {
+		return nil
+	}
+	return releaseSessionLeaseScript.Run(ctx, c.rdb, []string{sessionLimitKey(accountID)}, sessionUUID, token).Err()
+}
+
+// UnregisterSession 立即移除会话注册（不等待空闲超时）
+// 请求最终失败时调用：上游从未服务该会话，继续占槽会卡住 max_sessions 受限的账号
+func (c *sessionLimitCache) UnregisterSession(ctx context.Context, accountID int64, sessionUUID string) error {
+	if sessionUUID == "" {
+		return nil
+	}
+	return c.rdb.ZRem(ctx, sessionLimitKey(accountID), sessionUUID).Err()
 }
 
 // RefreshSession 刷新会话时间戳

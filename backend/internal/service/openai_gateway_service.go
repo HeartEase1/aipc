@@ -233,8 +233,10 @@ type OpenAIUsage struct {
 type OpenAIForwardResult struct {
 	RequestID  string
 	ResponseID string
-	Usage      OpenAIUsage
-	Model      string // 原始模型（用于响应和日志显示）
+	// UpstreamHeaders 是直接上游的响应头，用于按账户配置解析上游请求标识。
+	UpstreamHeaders http.Header
+	Usage           OpenAIUsage
+	Model           string // 原始模型（用于响应和日志显示）
 	// BillingModel is the model used for cost calculation.
 	// When non-empty, CalculateCost uses this instead of Model.
 	// This is set by the Anthropic Messages conversion path where
@@ -604,6 +606,9 @@ func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.C
 }
 
 func (s *OpenAIGatewayService) checkChannelPricingRestriction(ctx context.Context, groupID *int64, requestedModel string) bool {
+	if forward, ok := openAIForwardModelFromContext(ctx); ok && forward.model == requestedModel && forward.requestedModel != "" {
+		requestedModel = forward.requestedModel
+	}
 	if groupID == nil || s.channelService == nil || requestedModel == "" {
 		return false
 	}
@@ -886,7 +891,10 @@ func (s *OpenAIGatewayService) writeOpenAIWSFallbackErrorResponse(c *gin.Context
 
 	setOpsUpstreamError(c, statusCode, upstreamMessage, "")
 	if account != nil {
+		proxyID, proxyName := opsUpstreamWSProxyAttribution(account)
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+			ProxyID:            proxyID,
+			ProxyName:          proxyName,
 			Platform:           account.Platform,
 			AccountID:          account.ID,
 			AccountName:        account.Name,

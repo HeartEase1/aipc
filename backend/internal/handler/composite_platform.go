@@ -63,11 +63,25 @@ func openAIReasoningEffortPolicyForRequest(c *gin.Context, apiKey *service.APIKe
 	if apiKey == nil || apiKey.Group == nil {
 		return "", nil, false
 	}
-	if apiKey.Group.Platform != service.PlatformOpenAI && apiKey.Group.Platform != service.PlatformComposite {
+	if apiKey.Group.Platform != service.PlatformOpenAI && apiKey.Group.Platform != service.PlatformComposite && apiKey.Group.Platform != service.PlatformAnthropic {
 		return "", nil, false
 	}
-	if effectiveAPIKeyPlatform(c, apiKey) != service.PlatformOpenAI {
+	platform := effectiveAPIKeyPlatform(c, apiKey)
+	if platform != service.PlatformOpenAI && platform != service.PlatformAnthropic {
 		return "", nil, false
+	}
+	if platform == service.PlatformAnthropic {
+		maxEffort := apiKey.Group.MaxReasoningEffort
+		if maxEffort == "minimal" {
+			maxEffort = "low"
+		}
+		mappings := append([]service.ReasoningEffortMapping(nil), apiKey.Group.ReasoningEffortMappings...)
+		for i := range mappings {
+			if mappings[i].To == "minimal" {
+				mappings[i].To = "low"
+			}
+		}
+		return maxEffort, mappings, true
 	}
 	return apiKey.Group.MaxReasoningEffort, apiKey.Group.ReasoningEffortMappings, true
 }
@@ -82,6 +96,9 @@ func applyOpenAIReasoningEffortPolicyForRequest(c *gin.Context, apiKey *service.
 
 func bindOpenAIReasoningEffortPolicyForMessagesRequest(c *gin.Context, apiKey *service.APIKey, body []byte) {
 	if c == nil || c.Request == nil {
+		return
+	}
+	if effectiveAPIKeyPlatform(c, apiKey) != service.PlatformOpenAI {
 		return
 	}
 	// The Messages bridge synthesizes a default OpenAI effort when

@@ -363,7 +363,7 @@ func isOpenAICompatibleAccountEligibleForRequestBeforeProfit(ctx context.Context
 			return false
 		}
 	}
-	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
+	if !openAIAccountSupportsSchedulingModel(ctx, account, requestedModel) {
 		return false
 	}
 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {

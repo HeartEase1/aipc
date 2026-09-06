@@ -322,7 +322,10 @@ const syncUpstreamModels = async () => {
     }
 
     emit('update:modelValue', newModels)
-    if (addedCount > 0) {
+    if (result.warnings?.length) {
+      const partial = result.warnings.some(warning => warning.code === 'upstream_model_metadata_partial')
+      appStore.showInfo(t(partial ? 'admin.accounts.syncUpstreamCapabilitiesPartial' : 'admin.accounts.syncUpstreamCapabilitiesIncomplete'))
+    } else if (addedCount > 0) {
       appStore.showSuccess(t('admin.accounts.syncUpstreamModelsSuccess', { count: addedCount, total: upstreamModels.length }))
     } else {
       appStore.showInfo(t('admin.accounts.syncUpstreamModelsNoChanges', { count: upstreamModels.length }))

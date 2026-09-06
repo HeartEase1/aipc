@@ -81,6 +81,7 @@ func (s *GatewayService) ForwardAsResponses(
 	// 国产模型默认 effort 补充：需要 mappedModel 判定，推迟到 mapping 完成之后。
 	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, mappedModel)
 	anthropicReq.Model = mappedModel
+	normalizeConvertedAnthropicEffort(anthropicReq, reasoningEffort)
 
 	logger.L().Debug("gateway forward_as_responses: model mapping applied",
 		zap.Int64("account_id", account.ID),
@@ -109,6 +110,7 @@ func (s *GatewayService) ForwardAsResponses(
 
 	// 7. Enforce cache_control block limit
 	anthropicBody = enforceCacheControlLimit(anthropicBody)
+	reasoningEffort = ApplyThinkingEnabledFallback(extractAnthropicReasoningEffort(anthropicBody), anthropicBody, mappedModel)
 
 	// 8. Get access token
 	token, tokenType, err := s.GetAccessToken(ctx, account)
@@ -162,6 +164,8 @@ func (s *GatewayService) ForwardAsResponses(
 
 		if s.shouldFailoverUpstreamError(resp.StatusCode) {
 			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+				ProxyID:            opsUpstreamProxyID(account),
+				ProxyName:          opsUpstreamProxyName(account),
 				Platform:           account.Platform,
 				AccountID:          account.ID,
 				AccountName:        account.Name,
@@ -433,6 +437,7 @@ func (s *GatewayService) handleResponsesBufferedStreamingResponse(
 
 	return &ForwardResult{
 		RequestID:       requestID,
+		UpstreamHeaders: resp.Header,
 		Usage:           usage,
 		Model:           originalModel,
 		UpstreamModel:   mappedModel,
@@ -481,6 +486,7 @@ func (s *GatewayService) handleResponsesStreamingResponse(
 	resultWithUsage := func() *ForwardResult {
 		return &ForwardResult{
 			RequestID:       requestID,
+			UpstreamHeaders: resp.Header,
 			Usage:           usage,
 			Model:           originalModel,
 			UpstreamModel:   mappedModel,

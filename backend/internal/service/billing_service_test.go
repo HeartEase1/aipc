@@ -33,6 +33,26 @@ func newTestBillingService() *BillingService {
 	return NewBillingService(&config.Config{}, nil)
 }
 
+func TestAstraApprovedPricingAndChannelOverridePrecedeFallback(t *testing.T) {
+	svc := NewBillingService(&config.Config{}, &PricingService{
+		pricingData: map[string]*LiteLLMModelPricing{"gpt-6-astra": {
+			InputCostPerToken: 3e-6, OutputCostPerToken: 9e-6,
+			InputCostPerTokenPriority: 6e-6, OutputCostPerTokenPriority: 18e-6,
+		}},
+	})
+	pricing, err := svc.GetModelPricing("gpt-6-astra")
+	require.NoError(t, err)
+	require.InDelta(t, 3e-6, pricing.InputPricePerToken, 1e-12)
+	require.InDelta(t, 9e-6, pricing.OutputPricePerToken, 1e-12)
+	pricing, err = svc.GetModelPricingWithChannel("gpt-6-astra", &ChannelModelPricing{
+		InputPrice: pricingMultiplier(4e-6), OutputPrice: pricingMultiplier(12e-6), FastMultiplier: pricingMultiplier(3),
+	})
+	require.NoError(t, err)
+	cost := svc.computeTokenBreakdown(pricing, UsageTokens{InputTokens: 1000, OutputTokens: 1000}, 0.5, "ultrafast", false)
+	require.InDelta(t, 0.048, cost.TotalCost, 1e-12)
+	require.InDelta(t, 0.024, cost.ActualCost, 1e-12)
+}
+
 func TestCalculateCost_BasicComputation(t *testing.T) {
 	svc := newTestBillingService()
 
@@ -1490,6 +1510,7 @@ func TestCalculateCost_LargeTokenCount(t *testing.T) {
 func TestServiceTierCostMultiplier(t *testing.T) {
 	require.InDelta(t, 2.0, serviceTierCostMultiplier("priority"), 1e-12)
 	require.InDelta(t, 2.0, serviceTierCostMultiplier(" Priority "), 1e-12)
+	require.InDelta(t, 2.0, serviceTierCostMultiplier("ultrafast"), 1e-12)
 	require.InDelta(t, 0.5, serviceTierCostMultiplier("flex"), 1e-12)
 	require.InDelta(t, 1.0, serviceTierCostMultiplier(""), 1e-12)
 	require.InDelta(t, 1.0, serviceTierCostMultiplier("default"), 1e-12)

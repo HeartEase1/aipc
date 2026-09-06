@@ -134,7 +134,18 @@ func (s *ChannelService) ListPlazaGroups(ctx context.Context) ([]PlazaGroup, err
 				} else if m.Platform != pg.Platform {
 					continue
 				}
-				pricing := plazaImageDisplayPricing(m.Pricing, groupEnt[gid])
+				pricing := m.Pricing
+				if groupPricing := matchGroupModelPricing(groupEnt[gid], m.Name); groupPricing != nil {
+					clone := groupPricing.Clone()
+					if clone.BillingMode == "" || clone.BillingMode == BillingModeToken {
+						clone.Intervals = nil
+						if clone.MaxReasoningEffortMultiplier == nil {
+							clone.MaxReasoningEffortMultiplier = DefaultMaxReasoningEffortMultiplier(m.Name)
+						}
+					}
+					pricing = &clone
+				}
+				pricing = plazaImageDisplayPricing(pricing, groupEnt[gid])
 				key := modelKey{platform: m.Platform, name: m.Name}
 				if at, seen := idx[key]; seen {
 					// 先见者胜；仅当已存条目无定价而新条目有定价时升级。

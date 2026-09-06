@@ -18,6 +18,7 @@ function createEntry(billingMode: PricingFormEntry['billing_mode'] = 'token'): P
     cache_read_price: null,
     fast_multiplier: null,
     flex_multiplier: null,
+    max_reasoning_effort_multiplier: null,
     image_input_price: null,
     image_output_price: null,
     per_request_price: null,
@@ -72,15 +73,24 @@ describe('PricingEntryCard time pricing visibility', () => {
   })
 })
 
-describe('PricingEntryCard service tier multipliers', () => {
-  it('shows Fast and Flex controls only when explicitly enabled', () => {
+describe('PricingEntryCard request multipliers', () => {
+  it('keeps Max available for group and account pricing independently of Fast and Flex', () => {
     const hidden = shallowMount(PricingEntryCard, { props: { entry: createEntry() } })
     expect(hidden.text()).not.toContain('admin.channels.form.fastMultiplier')
+    expect(hidden.text()).toContain('admin.channels.form.maxReasoningEffortMultiplier')
 
     const shown = shallowMount(PricingEntryCard, {
       props: { entry: createEntry(), enableTierMultipliers: true },
     })
     expect(shown.text()).toContain('admin.channels.form.fastMultiplier')
     expect(shown.text()).toContain('admin.channels.form.flexMultiplier')
+    expect(shown.text()).toContain('admin.channels.form.maxReasoningEffortMultiplier')
+  })
+
+  it('submits an explicit Max multiplier of 1', async () => {
+    const wrapper = shallowMount(PricingEntryCard, { props: { entry: createEntry() } })
+    const field = wrapper.findAll('input').find(input => input.attributes('min') === '0.000001')!
+    await field.setValue('1')
+    expect(wrapper.emitted('update')?.[0]?.[0]).toMatchObject({ max_reasoning_effort_multiplier: '1' })
   })
 })

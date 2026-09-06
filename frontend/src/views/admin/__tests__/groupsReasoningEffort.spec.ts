@@ -29,7 +29,6 @@ describe("groupsReasoningEffort", () => {
       expect(supportsReasoningEffortPolicyPlatform(platform)).toBe(true);
     }
     for (const platform of [
-      "anthropic",
       "gemini",
       "antigravity",
       "grok",
@@ -37,6 +36,14 @@ describe("groupsReasoningEffort", () => {
       expect(reasoningEffortOptionsForPlatform(platform)).toEqual([]);
       expect(supportsReasoningEffortPolicyPlatform(platform)).toBe(false);
     }
+  });
+
+  it("supports Anthropic effort levels without minimal", () => {
+    expect(supportsReasoningEffortPolicyPlatform("anthropic")).toBe(true);
+    expect(reasoningEffortOptionsForPlatform("anthropic").map(option => option.value))
+      .toEqual(["low", "medium", "high", "xhigh", "max"]);
+    expect(normalizeReasoningEffortForPlatform("anthropic", "minimal")).toBe("");
+    expect(normalizeReasoningEffortForPlatform("anthropic", " MAX ")).toBe("max");
   });
 
   it("hydrates supported rows and drops stale custom values", () => {

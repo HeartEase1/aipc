@@ -119,6 +119,21 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 //
 // 当 s.pricingService 为 nil（测试场景），跳过回落。
 func (s *ChannelService) fillGlobalPricingFallback(models []SupportedModel) {
+	defer func() {
+		for i := range models {
+			p := models[i].Pricing
+			if p == nil || (p.BillingMode != "" && p.BillingMode != BillingModeToken) || p.MaxReasoningEffortMultiplier != nil {
+				continue
+			}
+			multiplier := DefaultMaxReasoningEffortMultiplier(models[i].Name)
+			if multiplier == nil {
+				continue
+			}
+			clone := p.Clone()
+			clone.MaxReasoningEffortMultiplier = multiplier
+			models[i].Pricing = &clone
+		}
+	}()
 	if s.pricingService == nil {
 		return
 	}
@@ -187,13 +202,18 @@ func synthesizePricingFromLiteLLM(lp *LiteLLMModelPricing, existing *ChannelMode
 			OutputPrice:      nonZeroPtr(lp.OutputCostPerToken),
 		}
 	}
+	var maxMultiplier *float64
+	if existing != nil {
+		maxMultiplier = existing.MaxReasoningEffortMultiplier
+	}
 	return &ChannelModelPricing{
-		BillingMode:      mode,
-		InputPrice:       nonZeroPtr(lp.InputCostPerToken),
-		OutputPrice:      nonZeroPtr(lp.OutputCostPerToken),
-		CacheWritePrice:  nonZeroPtr(lp.CacheCreationInputTokenCost),
-		CacheReadPrice:   nonZeroPtr(lp.CacheReadInputTokenCost),
-		ImageOutputPrice: nonZeroPtr(lp.OutputCostPerImageToken),
+		MaxReasoningEffortMultiplier: maxMultiplier,
+		BillingMode:                  mode,
+		InputPrice:                   nonZeroPtr(lp.InputCostPerToken),
+		OutputPrice:                  nonZeroPtr(lp.OutputCostPerToken),
+		CacheWritePrice:              nonZeroPtr(lp.CacheCreationInputTokenCost),
+		CacheReadPrice:               nonZeroPtr(lp.CacheReadInputTokenCost),
+		ImageOutputPrice:             nonZeroPtr(lp.OutputCostPerImageToken),
 	}
 }
 

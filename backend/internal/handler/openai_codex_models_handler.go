@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,69 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		ifNoneMatch = ""
 	}
 
+	// 固定账号分支：开启后只用选定账号拉取 manifest，不经过调度器；
+	// 全部不可用/全部失败时按 FallbackToScheduler 决定回退调度器或返回错误。
+	if apiKey.Group.Platform == service.PlatformOpenAI &&
+		apiKey.Group.CodexModelsManifestConfig.Enabled {
+		pinnedManifest, pinnedAccount, pinnedErr := h.gatewayService.FetchPinnedCodexModelsManifest(
+			c.Request.Context(),
+			apiKey.Group,
+			c.Query("client_version"),
+		)
+		if pinnedErr != nil {
+			if c.Request.Context().Err() != nil {
+				return
+			}
+			if !apiKey.Group.CodexModelsManifestConfig.FallbackToScheduler {
+				if errors.Is(pinnedErr, service.ErrNoPinnedCodexModelsAccounts) {
+					h.errorResponse(c, http.StatusServiceUnavailable, "upstream_error", "No available pinned OpenAI accounts")
+					return
+				}
+				h.errorResponse(c, infraerrors.Code(pinnedErr), "upstream_error", infraerrors.Message(pinnedErr))
+				return
+			}
+			// 回退开启：跌入下方调度器循环。
+		} else {
+			// 让 ops 错误日志携带实际拉取成功的首个固定账号。
+			setOpsSelectedAccount(c, pinnedAccount.ID, pinnedAccount.Platform)
+			body, err := filterModelListEnvelope(pinnedManifest.Body, "models", apiKey.Group, "slug", "id", "name")
+			if err != nil {
+				h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to apply group model policy")
+				return
+			}
+			if c.Request.Context().Err() != nil {
+				return
+			}
+			if pinnedManifest.ETag != "" && !apiKey.Group.HasBlockedModels() {
+				c.Header("ETag", pinnedManifest.ETag)
+				if service.CodexModelsManifestETagMatches(ifNoneMatch, pinnedManifest.ETag) {
+					c.Status(http.StatusNotModified)
+					c.Writer.WriteHeaderNow()
+					return
+				}
+			}
+			c.Data(http.StatusOK, "application/json", body)
+			return
+		}
+	}
+
 	maxAccountSwitches := h.maxAccountSwitches
+	if apiKey.Group.Platform == service.PlatformOpenAI {
+		configured, available, err := h.gatewayService.BuildGroupConfiguredCodexModelsManifest(c.Request.Context(), apiKey.Group, "")
+		if err != nil {
+			h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to build configured model catalog")
+			return
+		}
+		if available {
+			body, err := filterModelListEnvelope(configured.Body, "models", apiKey.Group, "slug", "id", "name")
+			if err != nil {
+				h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to apply group model policy")
+				return
+			}
+			writeCodexCatalog(c, body)
+			return
+		}
+	}
 	if maxAccountSwitches <= 0 {
 		maxAccountSwitches = 3
 	}
@@ -62,7 +125,7 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		// 让 ops 错误日志携带实际选中的上游账号，便于定位失效账号（#4544）。
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
-		manifest, err := h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), ifNoneMatch)
+		manifest, err := h.gatewayService.FetchCodexModelsManifest(c.Request.Context(), account, c.Query("client_version"), "")
 		if err != nil {
 			if c.Request.Context().Err() != nil {
 				return
@@ -80,8 +143,9 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 			return
 		}
 
-		if manifest.ETag != "" && !apiKey.Group.HasBlockedModels() {
-			c.Header("ETag", manifest.ETag)
+		if err := h.gatewayService.CompleteAPIKeyCodexModelsManifestForClient(manifest, account); err != nil {
+			h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to complete model capabilities")
+			return
 		}
 		if manifest.NotModified {
 			c.Status(http.StatusNotModified)
@@ -91,6 +155,13 @@ func (h *OpenAIGatewayHandler) CodexModels(c *gin.Context) {
 		if filterErr != nil {
 			h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to apply group model policy")
 			return
+		}
+		if !apiKey.Group.HasBlockedModels() && manifest.ETag != "" {
+			c.Header("ETag", manifest.ETag)
+			if service.CodexModelsManifestETagMatches(ifNoneMatch, manifest.ETag) {
+				c.Status(http.StatusNotModified)
+				return
+			}
 		}
 		c.Data(http.StatusOK, "application/json", body)
 		return

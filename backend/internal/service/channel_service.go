@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -741,8 +742,9 @@ func checkPricesNotNegative(p ChannelModelPricing) error {
 	}{
 		{"fast_multiplier", p.FastMultiplier},
 		{"flex_multiplier", p.FlexMultiplier},
+		{"max_reasoning_effort_multiplier", p.MaxReasoningEffortMultiplier},
 	} {
-		if c.val != nil && *c.val <= 0 {
+		if c.val != nil && (*c.val <= 0 || math.IsNaN(*c.val) || math.IsInf(*c.val, 0)) {
 			return infraerrors.BadRequest("INVALID_MULTIPLIER", fmt.Sprintf("%s must be > 0", c.field))
 		}
 	}

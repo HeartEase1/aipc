@@ -74,9 +74,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	anthropicReq.Model = upstreamModel
-
-	reasoningEffort := ExtractResponsesReasoningEffortFromBody(body)
-	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, billingModel)
+	normalizeConvertedAnthropicEffort(anthropicReq, ExtractResponsesReasoningEffortFromBody(body))
 
 	// 5. Force upstream streaming（客户端原始终决定响应格式；
 	// 上游恒为流式，非流式由缓冲路径组装）。
@@ -100,6 +98,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
 	anthropicBody = StripEmptyTextBlocks(anthropicBody)
 	anthropicBody = FilterWebSearchHistoryBlocks(anthropicBody, upstreamModel)
 	anthropicBody = enforceCacheControlLimit(anthropicBody)
+	reasoningEffort := ApplyThinkingEnabledFallback(extractAnthropicReasoningEffort(anthropicBody), anthropicBody, upstreamModel)
 
 	apiKey := strings.TrimSpace(account.GetOpenAIProtocolAPIKey())
 	if apiKey == "" {
@@ -111,7 +110,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaNativeAnthropic(
 	}
 
 	proxyURL := ""
-	if account.Proxy != nil {
+	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
 
@@ -287,6 +286,7 @@ func (s *OpenAIGatewayService) handleResponsesBufferedFromNativeAnthropic(
 
 	return &OpenAIForwardResult{
 		RequestID:        requestID,
+		UpstreamHeaders:  resp.Header,
 		Usage:            claudeUsageToOpenAIUsage(&usage),
 		Model:            originalModel,
 		BillingModel:     billingModel,
@@ -340,6 +340,7 @@ func (s *OpenAIGatewayService) handleResponsesStreamingFromNativeAnthropic(
 	resultWithUsage := func() *OpenAIForwardResult {
 		return &OpenAIForwardResult{
 			RequestID:        requestID,
+			UpstreamHeaders:  resp.Header,
 			Usage:            claudeUsageToOpenAIUsage(&usage),
 			Model:            originalModel,
 			BillingModel:     billingModel,

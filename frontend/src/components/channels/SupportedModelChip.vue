@@ -66,6 +66,10 @@
             </div>
 
             <template v-if="model.pricing.billing_mode === BILLING_MODE_TOKEN">
+              <div v-if="model.pricing.max_reasoning_effort_multiplier != null" class="flex justify-between">
+                <span>Max</span>
+                <span>x{{ model.pricing.max_reasoning_effort_multiplier }}</span>
+              </div>
               <PricingRow
                 :label="t(prefixKey('inputPrice'))"
                 :value="model.pricing.input_price"

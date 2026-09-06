@@ -56,16 +56,24 @@ func TestNormalizeReasoningEffortMappings(t *testing.T) {
 	})
 
 	t.Run("rejects mappings for non OpenAI platforms", func(t *testing.T) {
-		for _, platform := range []string{PlatformAnthropic, PlatformGemini, PlatformAntigravity, PlatformGrok} {
+		for _, platform := range []string{PlatformGemini, PlatformAntigravity, PlatformGrok} {
 			_, err := NormalizeReasoningEffortMappings(platform, []ReasoningEffortMapping{{From: "low", To: "high"}})
-			require.ErrorContains(t, err, "only supported for platforms \"openai\" and \"composite\"")
+			require.ErrorContains(t, err, "only supported for platforms")
 		}
 
-		_, err := NormalizeReasoningEffortMappings(PlatformOpenAI, []ReasoningEffortMapping{{From: "none", To: "low"}})
+		_, err := NormalizeReasoningEffortMappings(PlatformOpenAI, []ReasoningEffortMapping{{From: "ultra", To: "high"}})
 		require.ErrorContains(t, err, "empty or unknown")
-
-		_, err = NormalizeReasoningEffortMappings(PlatformOpenAI, []ReasoningEffortMapping{{From: "ultra", To: "high"}})
-		require.ErrorContains(t, err, "empty or unknown")
+	})
+	t.Run("none is an explicit source only on OpenAI routes", func(t *testing.T) {
+		for _, platform := range []string{PlatformOpenAI, PlatformComposite} {
+			got, err := NormalizeReasoningEffortMappings(platform, []ReasoningEffortMapping{{From: " NONE ", To: "low"}})
+			require.NoError(t, err)
+			require.Equal(t, []ReasoningEffortMapping{{From: "none", To: "low"}}, got)
+			_, err = NormalizeReasoningEffortMappings(platform, []ReasoningEffortMapping{{From: "low", To: "none"}})
+			require.Error(t, err)
+		}
+		_, err := NormalizeReasoningEffortMappings(PlatformGemini, []ReasoningEffortMapping{{From: "none", To: "low"}})
+		require.Error(t, err)
 	})
 }
 
@@ -77,9 +85,9 @@ func TestNormalizeMaxReasoningEffortForPlatform(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "max", value)
 
-	for _, platform := range []string{PlatformAnthropic, PlatformGemini, PlatformAntigravity, PlatformGrok} {
+	for _, platform := range []string{PlatformGemini, PlatformAntigravity, PlatformGrok} {
 		_, err = normalizeMaxReasoningEffortForPlatform(platform, "low")
-		require.ErrorContains(t, err, "only supported for platforms \"openai\" and \"composite\"")
+		require.ErrorContains(t, err, "only supported for platforms")
 	}
 
 	_, err = normalizeMaxReasoningEffortForPlatform(PlatformOpenAI, "none")
@@ -123,6 +131,8 @@ func TestApplyOpenAIReasoningEffortPolicy(t *testing.T) {
 		{name: "maps before cap", body: `{"reasoning":{"effort":"MAX"}}`, max: "medium", mappings: []ReasoningEffortMapping{{From: "max", To: "xhigh"}}, path: "reasoning.effort", want: "medium", changed: true},
 		{name: "does not chain mappings", body: `{"reasoning_effort":"max"}`, mappings: []ReasoningEffortMapping{{From: "max", To: "xhigh"}, {From: "xhigh", To: "low"}}, path: "reasoning_effort", want: "xhigh", changed: true},
 		{name: "keeps unknown without mapping", body: `{"reasoning_effort":"future"}`, max: "low", path: "reasoning_effort", want: "future", changed: false},
+		{name: "preserves none without mapping", body: `{"reasoning":{"effort":"none"}}`, max: "low", path: "reasoning.effort", want: "none", changed: false},
+		{name: "maps explicit none before ceiling", body: `{"reasoning":{"effort":"none"}}`, max: "medium", mappings: []ReasoningEffortMapping{{From: "none", To: "high"}}, path: "reasoning.effort", want: "medium", changed: true},
 		{name: "keeps non string value", body: `{"reasoning_effort":{"level":"high"}}`, max: "low", path: "reasoning_effort.level", want: "high", changed: false},
 	}
 	for _, tt := range tests {
