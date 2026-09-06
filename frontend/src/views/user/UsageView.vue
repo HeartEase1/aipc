@@ -135,17 +135,23 @@
             </button>
             <div class="relative" ref="columnDropdownRef">
               <button
+                ref="columnDropdownButtonRef"
                 type="button"
-                @click="showColumnDropdown = !showColumnDropdown"
+                @click="toggleColumnDropdown"
                 class="btn btn-secondary px-2 md:px-3"
                 :title="t('admin.users.columnSettings')"
               >
                 <Icon name="grid" size="sm" />
                 <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
               </button>
+            </div>
+            <Teleport to="body">
               <div
                 v-if="showColumnDropdown"
-                class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+                ref="columnDropdownMenuRef"
+                data-testid="usage-column-settings-menu"
+                class="fixed z-[100000020] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+                :style="columnDropdownStyle"
               >
                 <button
                   v-for="col in currentToggleableColumns"
@@ -158,7 +164,7 @@
                   <Icon v-if="isCurrentColumnVisible(col.key)" name="check" size="sm" class="text-primary-500" />
                 </button>
               </div>
-            </div>
+            </Teleport>
             <button v-if="activeTab !== 'errors'" type="button" @click="exportToCSV" :disabled="exporting" class="btn btn-primary">
               {{ exporting ? t('usage.exporting') : t('usage.exportCsv') }}
             </button>
@@ -221,7 +227,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { keysAPI, usageAPI, userGroupsAPI } from '@/api'
@@ -801,10 +807,56 @@ const toggleCurrentColumn = (key: string) => {
 
 const showColumnDropdown = ref(false)
 const columnDropdownRef = ref<HTMLElement | null>(null)
+const columnDropdownButtonRef = ref<HTMLButtonElement | null>(null)
+const columnDropdownMenuRef = ref<HTMLElement | null>(null)
+const columnDropdownStyle = ref<Record<string, string>>({})
+
+const updateColumnDropdownPosition = () => {
+  if (!showColumnDropdown.value || !columnDropdownButtonRef.value) return
+
+  const rect = columnDropdownButtonRef.value.getBoundingClientRect()
+  const viewportPadding = 8
+  const gap = 4
+  const width = Math.min(192, Math.max(0, window.innerWidth - viewportPadding * 2))
+  const left = Math.min(
+    Math.max(viewportPadding, rect.right - width),
+    Math.max(viewportPadding, window.innerWidth - width - viewportPadding)
+  )
+  const menuHeight = columnDropdownMenuRef.value?.offsetHeight || 320
+  const spaceBelow = window.innerHeight - rect.bottom
+  const spaceAbove = rect.top
+  const openAbove = spaceBelow < Math.min(menuHeight, 320) + gap && spaceAbove > spaceBelow
+
+  columnDropdownStyle.value = {
+    left: `${left}px`,
+    width: `${width}px`,
+    maxHeight: `${Math.max(96, Math.min(320, window.innerHeight - viewportPadding * 2))}px`,
+    ...(openAbove
+      ? { bottom: `${window.innerHeight - rect.top + gap}px` }
+      : { top: `${rect.bottom + gap}px` }),
+  }
+}
+
+const toggleColumnDropdown = async () => {
+  showColumnDropdown.value = !showColumnDropdown.value
+  if (showColumnDropdown.value) {
+    await nextTick()
+    updateColumnDropdownPosition()
+  }
+}
+
 const handleColumnClickOutside = (event: MouseEvent) => {
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(event.target as HTMLElement)) {
+  const target = event.target as Node
+  if (
+    !columnDropdownRef.value?.contains(target) &&
+    !columnDropdownMenuRef.value?.contains(target)
+  ) {
     showColumnDropdown.value = false
   }
+}
+
+const handleColumnDropdownEscape = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') showColumnDropdown.value = false
 }
 
 const loadFilterOptions = async () => {
@@ -882,6 +934,9 @@ onMounted(() => {
   loadSavedColumns()
   loadSavedErrColumns()
   document.addEventListener('click', handleColumnClickOutside)
+  document.addEventListener('keydown', handleColumnDropdownEscape)
+  window.addEventListener('resize', updateColumnDropdownPosition)
+  window.addEventListener('scroll', updateColumnDropdownPosition, true)
   void loadFilterOptions()
   refreshData()
 })
@@ -889,6 +944,9 @@ onMounted(() => {
 onUnmounted(() => {
   abortController?.abort()
   document.removeEventListener('click', handleColumnClickOutside)
+  document.removeEventListener('keydown', handleColumnDropdownEscape)
+  window.removeEventListener('resize', updateColumnDropdownPosition)
+  window.removeEventListener('scroll', updateColumnDropdownPosition, true)
 })
 
 watch(endpointDistributionSource, () => {

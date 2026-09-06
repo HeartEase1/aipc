@@ -66,8 +66,9 @@ func TestFrontendRegionAccessBlocksMainlandChinaWebUI(t *testing.T) {
 	router.ServeHTTP(response, request)
 
 	require.Equal(t, http.StatusUnavailableForLegalReasons, response.Code)
-	require.Contains(t, response.Body.String(), "该地区暂不支持访问")
-	require.Contains(t, response.Body.String(), "此网站目前不向您所在的地区提供服务")
+	require.Contains(t, response.Body.String(), `<html lang="zh-Hant">`)
+	require.Contains(t, response.Body.String(), "該地區暫不支援存取")
+	require.Contains(t, response.Body.String(), "此網站目前不向您所在的地區提供服務")
 	require.Contains(t, response.Body.String(), "Test Site")
 	require.NotContains(t, response.Body.String(), "联系网站管理员")
 	require.Contains(t, response.Header().Get("Cache-Control"), "no-store")
@@ -90,7 +91,7 @@ func TestFrontendRegionAccessAllowsForeignAndDisabledRequests(t *testing.T) {
 			router.ServeHTTP(response, request)
 
 			require.Equal(t, http.StatusOK, response.Code)
-			require.NotContains(t, response.Body.String(), "该地区暂不支持访问")
+			require.NotContains(t, response.Body.String(), "該地區暫不支援存取")
 		})
 	}
 }

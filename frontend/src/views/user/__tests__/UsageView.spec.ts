@@ -207,6 +207,23 @@ describe('user UsageView', () => {
     expect(getAvailable).toHaveBeenCalled()
   })
 
+  it('teleports column settings above table stacking contexts', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    await wrapper.get('button[title="Columns"]').trigger('click')
+    await flushPromises()
+
+    const menu = document.body.querySelector<HTMLElement>('[data-testid="usage-column-settings-menu"]')
+    expect(menu).not.toBeNull()
+    expect(menu?.classList.contains('fixed')).toBe(true)
+    expect(menu?.className).toContain('z-[100000020]')
+    expect(menu?.style.left).not.toBe('')
+    expect(menu?.style.top || menu?.style.bottom).not.toBe('')
+
+    wrapper.unmount()
+  })
+
   it('exports csv with current filters and without admin-only fields', async () => {
     const wrapper = mountUsageView()
     await flushPromises()

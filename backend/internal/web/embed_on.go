@@ -233,14 +233,14 @@ func (s *FrontendServer) serveRegionUnavailable(c *gin.Context) {
 	}
 	safeSiteName := htmlpkg.EscapeString(siteName)
 	html := `<!doctype html>
-<html lang="zh-CN">
+<html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>地区不可用 - ` + safeSiteName + `</title>
+  <title>地區不可用 - ` + safeSiteName + `</title>
   <style>
-    :root{color-scheme:light dark;font-family:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#f7f8fa;color:#17191c}
+    :root{color-scheme:light dark;font-family:Inter,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;background:#f7f8fa;color:#17191c}
     *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f7f8fa}main{width:min(680px,calc(100% - 40px));min-height:100vh;margin:0 auto;display:flex;flex-direction:column;justify-content:center;padding:48px 0}
     .brand-line{display:flex;align-items:center;gap:12px;margin-bottom:40px}.brand{min-width:0;max-width:calc(100% - 60px);overflow-wrap:anywhere;font-size:30px;font-weight:800;letter-spacing:0;color:#30343a}.code{display:grid;width:48px;height:32px;flex:0 0 48px;place-items:center;border:1px solid #f0b6b6;border-radius:999px;background:#fff1f1;color:#b42318;font:700 13px/1 system-ui}
     h1{margin:0;font-size:clamp(30px,7vw,48px);line-height:1.15;letter-spacing:0;color:#17191c}p{max-width:560px;margin:20px 0 0;font-size:17px;line-height:1.8;color:#5b616a}.english{margin-top:34px;padding-top:26px;border-top:1px solid #dfe2e6;font-size:14px;line-height:1.7;color:#767d86}
@@ -253,8 +253,8 @@ func (s *FrontendServer) serveRegionUnavailable(c *gin.Context) {
       <div class="brand">` + safeSiteName + `</div>
       <div class="code" aria-hidden="true">451</div>
     </div>
-    <h1>该地区暂不支持访问</h1>
-    <p>此网站目前不向您所在的地区提供服务。</p>
+    <h1>該地區暫不支援存取</h1>
+    <p>此網站目前不向您所在的地區提供服務。</p>
     <p class="english" lang="en">This website is not currently available in your region.</p>
   </main>
 </body>
