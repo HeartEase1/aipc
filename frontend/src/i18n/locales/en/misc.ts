@@ -381,6 +381,7 @@ export default {
     currentBalance: 'Current Balance',
     groupFallback: 'Group #{id}',
     rechargeAccount: 'Recharge Account',
+    membership: { defaultTier: 'Regular user', nextTier: '{amount} more to reach {tier}', maxTier: 'Highest available tier reached' },
     activeSubscription: 'Active Subscription',
     noActiveSubscription: 'No active subscription',
     tabTopUp: 'Top Up',

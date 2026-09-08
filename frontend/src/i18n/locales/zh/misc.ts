@@ -405,6 +405,7 @@ export default {
     currentBalance: '当前余额',
     groupFallback: '分组 #{id}',
     rechargeAccount: '充值账户',
+    membership: { defaultTier: '普通用户', nextTier: '距离 {tier} 还需充值 {amount}', maxTier: '已达到当前最高等级' },
     activeSubscription: '当前订阅',
     noActiveSubscription: '暂无有效订阅',
     tabTopUp: '充值',

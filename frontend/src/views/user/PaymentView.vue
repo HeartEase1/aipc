@@ -37,10 +37,20 @@
           <!-- Top-up Tab -->
           <template v-if="activeTab === 'recharge'">
             <!-- Recharge Account Card -->
-            <div class="card p-5">
+            <div class="card border-amber-200 bg-gradient-to-br from-sky-50 via-white to-amber-50 p-5 dark:border-amber-900/40 dark:from-sky-950/30 dark:via-dark-800 dark:to-amber-950/20">
               <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
+              <div v-if="membership.enabled" class="mt-4 border-t border-amber-200/70 pt-3 dark:border-amber-800/40">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-semibold text-amber-800 dark:text-amber-300">{{ membership.current_tier || t('payment.membership.defaultTier') }}</span>
+                  <span class="text-gray-500 dark:text-gray-400">{{ membership.progress_percent }}%</span>
+                </div>
+                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-amber-100 dark:bg-amber-900/40"><div class="h-full rounded-full bg-amber-500 transition-all" :style="{ width: `${membership.progress_percent}%` }" /></div>
+                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ membership.next_tier ? t('payment.membership.nextTier', { tier: membership.next_tier, amount: membership.amount_to_next }) : t('payment.membership.maxTier') }}
+                </p>
+              </div>
             </div>
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
@@ -360,6 +370,7 @@ import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiErro
 import { isMobileDevice } from '@/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionAction, SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { MembershipSummary } from '@/api/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -421,6 +432,7 @@ const selectedPlan = ref<SubscriptionPlan | null>(null)
 const selectedSubscriptionAction = ref<SubscriptionAction>('extend')
 const showRestartConfirm = ref(false)
 const previewImage = ref('')
+const membership = ref<MembershipSummary>({ enabled: false, settlement_currency: 'CNY', current_amount: '0', current_discount_percent: '0', progress_percent: '0', first_recharge_eligible: true })
 
 const restartCurrentSubscription = computed(() => {
   if (!selectedPlan.value) return null
@@ -1361,5 +1373,6 @@ onMounted(async () => {
   finally { loading.value = false }
   // Fetch active subscriptions (uses cache, non-blocking)
   subscriptionStore.fetchActiveSubscriptions().catch(() => {})
+  paymentAPI.getMembership().then((res) => { membership.value = res.data }).catch(() => {})
 })
 </script>

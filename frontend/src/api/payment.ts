@@ -23,6 +23,19 @@ export interface PublicOrderVerifyResult {
   expires_at: string
 }
 
+export interface MembershipSummary {
+  enabled: boolean
+  settlement_currency: string
+  current_amount: string
+  current_tier?: string
+  current_discount_percent: string
+  next_tier?: string
+  next_threshold?: string
+  amount_to_next?: string
+  progress_percent: string
+  first_recharge_eligible: boolean
+}
+
 export const paymentAPI = {
   /** Get payment configuration (enabled types, limits, etc.) */
   getConfig() {
@@ -37,6 +50,10 @@ export const paymentAPI = {
   /** Get all checkout page data in a single call */
   getCheckoutInfo() {
     return apiClient.get<CheckoutInfoResponse>('/payment/checkout-info')
+  },
+
+  getMembership() {
+    return apiClient.get<MembershipSummary>('/user/membership')
   },
 
   /** Get payment method limits and fee rates */
