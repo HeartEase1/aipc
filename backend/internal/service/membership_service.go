@@ -34,6 +34,115 @@ type RechargeQuote struct {
 	PromotionID      int64  `json:"promotion_id,omitempty"`
 }
 
+func (s *PaymentService) reserveRechargePromotion(ctx context.Context, userID int64, quote *RechargeQuote) (int64, error) {
+	if s == nil || s.sqlDB == nil || quote == nil || quote.PromotionID <= 0 || quote.DiscountAmount == "0.00" {
+		return 0, nil
+	}
+	discount, err := decimal.NewFromString(quote.DiscountAmount)
+	if err != nil || discount.LessThanOrEqual(decimal.Zero) {
+		return 0, err
+	}
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var updated int64
+	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotions SET reserved_amount = reserved_amount + $1, updated_at = NOW() WHERE id = $2 AND enabled = TRUE AND (budget_amount IS NULL OR reserved_amount + redeemed_amount + $1 <= budget_amount) RETURNING id`, discount.String(), quote.PromotionID).Scan(&updated)
+	if err != nil {
+		return 0, err
+	}
+	var claimID int64
+	err = tx.QueryRowContext(ctx, `INSERT INTO recharge_promotion_claims (promotion_id, user_id, source, discount_amount) VALUES ($1, $2, $3, $4) RETURNING id`, quote.PromotionID, userID, quote.DiscountSource, discount.String()).Scan(&claimID)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return claimID, nil
+}
+
+func (s *PaymentService) bindRechargePromotionOrder(ctx context.Context, claimID, orderID int64) error {
+	if claimID <= 0 || orderID <= 0 || s == nil || s.sqlDB == nil {
+		return nil
+	}
+	_, err := s.sqlDB.ExecContext(ctx, `UPDATE recharge_promotion_claims SET order_id = $1 WHERE id = $2 AND status = 'reserved'`, orderID, claimID)
+	return err
+}
+
+func (s *PaymentService) releaseRechargePromotion(ctx context.Context, claimID int64) error {
+	if claimID <= 0 || s == nil || s.sqlDB == nil {
+		return nil
+	}
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var promotionID int64
+	var discount string
+	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotion_claims SET status = 'released', released_at = NOW() WHERE id = $1 AND status = 'reserved' RETURNING promotion_id, discount_amount`, claimID).Scan(&promotionID, &discount)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE recharge_promotions SET reserved_amount = GREATEST(0, reserved_amount - $1), updated_at = NOW() WHERE id = $2`, discount, promotionID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *PaymentService) redeemRechargePromotionByOrder(ctx context.Context, orderID int64) error {
+	if orderID <= 0 || s == nil || s.sqlDB == nil {
+		return nil
+	}
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var promotionID int64
+	var discount string
+	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotion_claims SET status = 'redeemed', redeemed_at = NOW() WHERE order_id = $1 AND status = 'reserved' RETURNING promotion_id, discount_amount`, orderID).Scan(&promotionID, &discount)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE recharge_promotions SET reserved_amount = GREATEST(0, reserved_amount - $1), redeemed_amount = redeemed_amount + $1, updated_at = NOW() WHERE id = $2`, discount, promotionID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *PaymentService) releaseRechargePromotionByOrder(ctx context.Context, orderID int64) error {
+	if orderID <= 0 || s == nil || s.sqlDB == nil {
+		return nil
+	}
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var promotionID int64
+	var discount string
+	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotion_claims SET status = 'released', released_at = NOW() WHERE order_id = $1 AND status = 'reserved' RETURNING promotion_id, discount_amount`, orderID).Scan(&promotionID, &discount)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE recharge_promotions SET reserved_amount = GREATEST(0, reserved_amount - $1), updated_at = NOW() WHERE id = $2`, discount, promotionID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *PaymentService) QuoteRecharge(ctx context.Context, userID int64, amount decimal.Decimal, paymentType string) (RechargeQuote, error) {
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return RechargeQuote{}, errors.New("amount must be positive")

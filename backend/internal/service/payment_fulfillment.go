@@ -291,6 +291,9 @@ func (s *PaymentService) acquirePaymentFulfillmentLease(ctx context.Context, o *
 		}
 		return nil, infraerrors.Conflict("CONFLICT", "order status changed while acquiring fulfillment lease")
 	}
+	if err := s.redeemRechargePromotionByOrder(ctx, o.ID); err != nil {
+		slog.Error("redeem recharge promotion claim", "order_id", o.ID, "error", err)
+	}
 
 	// Reload the persisted timestamp instead of trusting application clock precision.
 	claimed, err := s.entClient.PaymentOrder.Get(ctx, o.ID)
@@ -845,6 +848,9 @@ func (s *PaymentService) markFailed(ctx context.Context, oid int64, lease *payme
 		slog.Error("mark FAILED", "orderID", oid, "error", e)
 	}
 	if c > 0 {
+		if err := s.releaseRechargePromotionByOrder(ctx, oid); err != nil {
+			slog.Error("release recharge promotion claim", "order_id", oid, "error", err)
+		}
 		s.writeAuditLog(ctx, oid, "FULFILLMENT_FAILED", "system", map[string]any{"reason": r})
 	}
 }

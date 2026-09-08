@@ -96,6 +96,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		}
 	}
 	var rechargeQuote *RechargeQuote
+	var promotionClaimID int64
 	if req.OrderType == payment.OrderTypeBalance {
 		quote, quoteErr := s.QuoteRecharge(ctx, req.UserID, decimal.NewFromFloat(limitAmount), req.PaymentType)
 		if quoteErr != nil {
@@ -106,6 +107,12 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		payAmount, err = strconv.ParseFloat(quote.PayAmount, 64)
 		if err != nil {
 			return nil, fmt.Errorf("parse recharge quote: %w", err)
+		}
+	}
+	if rechargeQuote != nil {
+		promotionClaimID, err = s.reserveRechargePromotion(ctx, req.UserID, rechargeQuote)
+		if err != nil {
+			return nil, infraerrors.Conflict("RECHARGE_PROMOTION_UNAVAILABLE", "the recharge promotion is no longer available; please retry")
 		}
 	}
 	if err := validateSelectedCreateOrderAmountCurrency(payAmountStr, sel); err != nil {
@@ -120,10 +127,17 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	}
 	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, rechargeQuote)
 	if err != nil {
+		_ = s.releaseRechargePromotion(ctx, promotionClaimID)
 		return nil, err
+	}
+	if err := s.bindRechargePromotionOrder(ctx, promotionClaimID, int64(order.ID)); err != nil {
+		_ = s.releaseRechargePromotion(ctx, promotionClaimID)
+		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusFailed).Save(ctx)
+		return nil, fmt.Errorf("bind recharge promotion claim: %w", err)
 	}
 	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, sel)
 	if err != nil {
+		_ = s.releaseRechargePromotion(ctx, promotionClaimID)
 		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
 			SetStatus(OrderStatusFailed).
 			Save(ctx)
