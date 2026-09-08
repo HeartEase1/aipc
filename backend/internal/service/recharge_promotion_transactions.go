@@ -19,7 +19,7 @@ func lockRechargeUser(ctx context.Context, client *dbent.Client, userID int64) e
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	if !rows.Next() {
 		return fmt.Errorf("recharge user not found")
 	}
@@ -39,13 +39,13 @@ func reserveRechargePromotionInTx(ctx context.Context, client *dbent.Client, use
 	var candidate RechargePromotionCandidate
 	candidate.ID = quote.PromotionID
 	if !rows.Next() {
-		rows.Close()
+		_ = rows.Close()
 		return errRechargeQuoteChanged
 	}
 	var min, max, cap, budget *string
 	err = rows.Scan(&candidate.Kind, &candidate.Currency, &candidate.Enabled, &candidate.StartsAt, &candidate.EndsAt,
 		&min, &max, &candidate.DiscountPercent, &cap, &budget)
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return err
 	}
@@ -73,11 +73,11 @@ func reserveRechargePromotionInTx(ctx context.Context, client *dbent.Client, use
 		}
 		var unavailable bool
 		if !rows.Next() {
-			rows.Close()
+			_ = rows.Close()
 			return errRechargeQuoteChanged
 		}
 		err = rows.Scan(&unavailable)
-		rows.Close()
+		_ = rows.Close()
 		if err != nil {
 			return err
 		}
