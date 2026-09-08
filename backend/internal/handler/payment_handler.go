@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -55,6 +57,34 @@ func (h *PaymentHandler) GetMembership(c *gin.Context) {
 		return
 	}
 	response.Success(c, summary)
+}
+
+// QuoteRecharge returns the server-side recharge price without creating an order.
+// POST /api/v1/payment/quote
+func (h *PaymentHandler) QuoteRecharge(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		Amount      string `json:"amount" binding:"required"`
+		PaymentType string `json:"payment_type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	amount, err := decimal.NewFromString(strings.TrimSpace(req.Amount))
+	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
+		response.BadRequest(c, "amount must be a positive decimal")
+		return
+	}
+	quote, err := h.paymentService.QuoteRecharge(c.Request.Context(), subject.UserID, amount, req.PaymentType)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, quote)
 }
 
 // GetPlans returns subscription plans available for sale.

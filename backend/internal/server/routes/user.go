@@ -25,6 +25,7 @@ func RegisterUserRoutes(
 	// 用户管理面变更类操作入审计（含 TOTP 启用/禁用、step-up 验证、密码修改等安全事件）
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
+		authenticated.POST("/payment/quote", h.Payment.QuoteRecharge)
 		authenticated.GET("/leaderboard", h.Leaderboard.Get)
 		authenticated.GET("/community-groups", h.Setting.GetCommunityGroups)
 
