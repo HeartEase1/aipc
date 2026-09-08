@@ -294,12 +294,18 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 			original, _ := strconv.ParseFloat(quote.OriginalAmount, 64)
 			discounted, _ := strconv.ParseFloat(quote.DiscountedAmount, 64)
 			discount, _ := strconv.ParseFloat(quote.DiscountAmount, 64)
+			snapshot := map[string]interface{}{
+				"original_amount": quote.OriginalAmount, "discounted_amount": quote.DiscountedAmount,
+				"discount_amount": quote.DiscountAmount, "fee_amount": quote.FeeAmount,
+				"pay_amount": quote.PayAmount, "credited_amount": quote.CreditedAmount,
+				"currency": quote.Currency, "source": quote.DiscountSource, "promotion_id": quote.PromotionID,
+			}
 			b.SetSettlementCurrency(currency).
 				SetOriginalAmount(original).
 				SetDiscountedAmount(discounted).
 				SetDiscountAmount(discount).
 				SetDiscountSource(quote.DiscountSource).
-				SetPricingSnapshot(map[string]interface{}{"original_amount": quote.OriginalAmount, "discounted_amount": quote.DiscountedAmount, "discount_amount": quote.DiscountAmount, "fee_amount": quote.FeeAmount, "pay_amount": quote.PayAmount, "credited_amount": quote.CreditedAmount, "currency": quote.Currency, "source": quote.DiscountSource, "promotion_id": quote.PromotionID})
+				SetPricingSnapshot(snapshot)
 		} else {
 			b.SetSettlementCurrency(currency).SetOriginalAmount(limitAmount).SetDiscountedAmount(limitAmount)
 		}
