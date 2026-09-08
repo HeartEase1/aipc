@@ -1,10 +1,12 @@
 import en from '../en'
+import { ja as balanceMarketing } from '../balanceMarketing'
 import discountCampaigns from './admin/discountCampaigns'
 
 // Japanese currently reuses the complete English catalogue for unchanged
 // screens, while the leaderboard copy is translated locally.
 export default {
   ...en,
+  balanceMarketing,
   communityGroups: {
     button: 'お問い合わせ',
     buttonLabel: '公式コミュニティを見る',

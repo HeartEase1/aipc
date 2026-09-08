@@ -151,7 +151,24 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 	previousStatus := o.Status
 	now := time.Now()
 	grace := now.Add(-paymentGraceMinutes * time.Minute)
-	c, err := s.entClient.PaymentOrder.Update().Where(
+	client := s.entClient
+	var tx *dbent.Tx
+	if o.OrderType == payment.OrderTypeBalance && s.sqlDB != nil {
+		var err error
+		tx, err = s.entClient.Tx(ctx)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		client = tx.Client()
+		if err := lockRechargeUser(ctx, client, o.UserID); err != nil {
+			return err
+		}
+		if err := redeemRechargePromotionInTx(ctx, client, o.ID); err != nil {
+			return err
+		}
+	}
+	c, err := client.PaymentOrder.Update().Where(
 		paymentorder.IDEQ(o.ID),
 		paymentorder.Or(
 			paymentorder.StatusEQ(OrderStatusPending),
@@ -166,7 +183,15 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 		return fmt.Errorf("update to PAID: %w", err)
 	}
 	if c == 0 {
+		if tx != nil {
+			_ = tx.Rollback()
+		}
 		return s.alreadyProcessed(ctx, o)
+	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
 	}
 	if previousStatus == OrderStatusCancelled || previousStatus == OrderStatusExpired {
 		slog.Info("order recovered from webhook payment success",
@@ -290,9 +315,6 @@ func (s *PaymentService) acquirePaymentFulfillmentLease(ctx context.Context, o *
 			return nil, infraerrors.Conflict("CONFLICT", "order is being processed")
 		}
 		return nil, infraerrors.Conflict("CONFLICT", "order status changed while acquiring fulfillment lease")
-	}
-	if err := s.redeemRechargePromotionByOrder(ctx, o.ID); err != nil {
-		slog.Error("redeem recharge promotion claim", "order_id", o.ID, "error", err)
 	}
 
 	// Reload the persisted timestamp instead of trusting application clock precision.
@@ -848,9 +870,6 @@ func (s *PaymentService) markFailed(ctx context.Context, oid int64, lease *payme
 		slog.Error("mark FAILED", "orderID", oid, "error", e)
 	}
 	if c > 0 {
-		if err := s.releaseRechargePromotionByOrder(ctx, oid); err != nil {
-			slog.Error("release recharge promotion claim", "order_id", oid, "error", err)
-		}
 		s.writeAuditLog(ctx, oid, "FULFILLMENT_FAILED", "system", map[string]any{"reason": r})
 	}
 }

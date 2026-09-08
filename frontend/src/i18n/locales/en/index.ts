@@ -6,8 +6,10 @@ import batchImage from './batchImage'
 import benefits from './benefits'
 import admin from './admin'
 import misc from './misc'
+import { en as balanceMarketing } from '../balanceMarketing'
 
 export default {
+  balanceMarketing,
   ...landing,
   ...common,
   ...dashboard,

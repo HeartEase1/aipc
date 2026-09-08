@@ -1,6 +1,10 @@
 <template>
   <AppLayout>
-    <div class="space-y-5">
+    <div class="mb-5 flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-dark-800" role="tablist">
+      <button v-for="tab in marketingTabs" :key="tab" class="min-w-0 flex-1 rounded-md px-3 py-2 text-sm font-medium" :class="marketingTab === tab ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-600 dark:text-primary-200' : 'text-gray-500 dark:text-gray-400'" role="tab" :aria-selected="marketingTab === tab" @click="marketingTab = tab">{{ t(`balanceMarketing.tabs.${tab}`) }}</button>
+    </div>
+    <BalanceMarketingAdmin v-if="marketingTab !== 'usage'" :mode="marketingTab" />
+    <div v-show="marketingTab === 'usage'" class="space-y-5">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/25 dark:text-emerald-200">
           <Icon name="infoCircle" size="md" class="mt-0.5 shrink-0" />
@@ -239,6 +243,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import BalanceMarketingAdmin from '@/components/payment/BalanceMarketingAdmin.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
@@ -252,6 +257,8 @@ import { isStepUpCancelled, useStepUp } from '@/composables/useStepUp'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
+const marketingTabs = ['usage', 'recharge', 'membership'] as const
+const marketingTab = ref<typeof marketingTabs[number]>('usage')
 const appStore = useAppStore()
 const stepUp = useStepUp()
 const campaigns = ref<DiscountCampaign[]>([])

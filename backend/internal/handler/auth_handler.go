@@ -27,6 +27,7 @@ type AuthHandler struct {
 	redeemService        *service.RedeemService
 	totpService          *service.TotpService
 	userAttributeService *service.UserAttributeService
+	paymentService       *service.PaymentService
 
 	dingTalkClientInstance *DingTalkClient
 	dingTalkClientMu       sync.Mutex
@@ -442,7 +443,16 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	type UserResponse struct {
 		userProfileResponse
-		RunMode string `json:"run_mode"`
+		RunMode        string `json:"run_mode"`
+		MembershipTier string `json:"membership_tier,omitempty"`
+	}
+	tier := ""
+	if h.paymentService != nil && user.Role == "user" {
+		if membership, err := h.paymentService.GetMembershipSummary(c.Request.Context(), subject.UserID); err == nil {
+			tier = membership.CurrentTier
+		} else {
+			slog.Warn("load header membership", "error", err)
+		}
 	}
 
 	runMode := config.RunModeStandard
@@ -453,6 +463,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	response.Success(c, UserResponse{
 		userProfileResponse: userProfileResponseFromService(user, identities),
 		RunMode:             runMode,
+		MembershipTier:      tier,
 	})
 }
 

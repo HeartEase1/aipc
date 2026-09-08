@@ -24,6 +24,7 @@ export interface PublicOrderVerifyResult {
 }
 
 export interface MembershipSummary {
+	 rules?: { window_hours: number; priority: string[]; settlement_currency: string; affiliate_commission_rate: string; tiers: { name: string; threshold_amount: string; discount_percent: string }[] }
   enabled: boolean
   settlement_currency: string
   current_amount: string
@@ -34,6 +35,18 @@ export interface MembershipSummary {
   amount_to_next?: string
   progress_percent: string
   first_recharge_eligible: boolean
+}
+
+export interface RechargeQuote {
+  original_amount: string
+  discounted_amount: string
+  discount_amount: string
+  fee_amount: string
+  pay_amount: string
+  credited_amount: string
+  currency: string
+  discount_source?: string
+  promotion_id?: number
 }
 
 export const paymentAPI = {
@@ -54,6 +67,10 @@ export const paymentAPI = {
 
   getMembership() {
     return apiClient.get<MembershipSummary>('/user/membership')
+  },
+
+  quote(amount: string, paymentType: string) {
+    return apiClient.post<RechargeQuote>('/payment/quote', { amount, payment_type: paymentType })
   },
 
   /** Get payment method limits and fee rates */

@@ -4,22 +4,36 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/Wei-Shaw/sub2api/internal/payment"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/shopspring/decimal"
 )
 
 type MembershipSummary struct {
-	Enabled               bool   `json:"enabled"`
-	SettlementCurrency    string `json:"settlement_currency"`
-	CurrentAmount         string `json:"current_amount"`
-	CurrentTier           string `json:"current_tier,omitempty"`
-	CurrentDiscount       string `json:"current_discount_percent"`
-	NextTier              string `json:"next_tier,omitempty"`
-	NextThreshold         string `json:"next_threshold,omitempty"`
-	AmountToNext          string `json:"amount_to_next,omitempty"`
-	ProgressPercent       string `json:"progress_percent"`
-	FirstRechargeEligible bool   `json:"first_recharge_eligible"`
+	Rules                 MembershipRules `json:"rules"`
+	Eligible              bool            `json:"-"`
+	Enabled               bool            `json:"enabled"`
+	SettlementCurrency    string          `json:"settlement_currency"`
+	CurrentAmount         string          `json:"current_amount"`
+	CurrentTier           string          `json:"current_tier,omitempty"`
+	CurrentDiscount       string          `json:"current_discount_percent"`
+	NextTier              string          `json:"next_tier,omitempty"`
+	NextThreshold         string          `json:"next_threshold,omitempty"`
+	AmountToNext          string          `json:"amount_to_next,omitempty"`
+	ProgressPercent       string          `json:"progress_percent"`
+	FirstRechargeEligible bool            `json:"first_recharge_eligible"`
+}
+
+type MembershipRules struct {
+	WindowHours             int                 `json:"window_hours"`
+	Priority                []string            `json:"priority"`
+	SettlementCurrency      string              `json:"settlement_currency"`
+	AffiliateCommissionRate string              `json:"affiliate_commission_rate"`
+	Tiers                   []map[string]string `json:"tiers"`
 }
 
 type RechargeQuote struct {
@@ -68,7 +82,7 @@ func (s *PaymentService) ListMembershipTiers(ctx context.Context) ([]map[string]
 		return nil, err
 	}
 	defer rows.Close()
-	var out []map[string]any
+	out := make([]map[string]any, 0)
 	for rows.Next() {
 		var id int64
 		var name, currency, threshold, discount string
@@ -87,40 +101,110 @@ func (s *PaymentService) CreateMembershipTier(ctx context.Context, in Membership
 	if s == nil || s.sqlDB == nil {
 		return 0, errMembershipUnavailable
 	}
-	threshold, err := decimal.NewFromString(in.ThresholdAmount)
-	if err != nil || threshold.LessThan(decimal.Zero) {
-		return 0, errors.New("invalid threshold_amount")
+	in, err := validateMembershipTierInput(in)
+	if err != nil {
+		return 0, err
 	}
-	discount, err := decimal.NewFromString(in.DiscountPercent)
-	if err != nil || discount.LessThan(decimal.Zero) || discount.GreaterThanOrEqual(decimal.NewFromInt(100)) {
-		return 0, errors.New("invalid discount_percent")
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	// Serialize rule edits, including two concurrent inserts into an empty set.
+	if _, err := tx.ExecContext(ctx, `LOCK TABLE balance_membership_tiers IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		return 0, err
 	}
 	var id int64
-	err = s.sqlDB.QueryRowContext(ctx, `INSERT INTO balance_membership_tiers (name, settlement_currency, threshold_amount, discount_percent, sort_order, enabled) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, in.Name, in.SettlementCurrency, threshold.String(), discount.String(), in.SortOrder, in.Enabled).Scan(&id)
-	return id, err
+	err = tx.QueryRowContext(ctx, `INSERT INTO balance_membership_tiers (name, settlement_currency, threshold_amount, discount_percent, sort_order, enabled) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, in.Name, in.SettlementCurrency, in.ThresholdAmount, in.DiscountPercent, in.SortOrder, in.Enabled).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	if err := validateMembershipTierOrder(ctx, tx, in.SettlementCurrency); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 func (s *PaymentService) UpdateMembershipTier(ctx context.Context, id int64, in MembershipTierAdminInput) error {
 	if s == nil || s.sqlDB == nil {
 		return errMembershipUnavailable
 	}
-	threshold, err := decimal.NewFromString(in.ThresholdAmount)
-	if err != nil || threshold.LessThan(decimal.Zero) {
-		return errors.New("invalid threshold_amount")
-	}
-	discount, err := decimal.NewFromString(in.DiscountPercent)
-	if err != nil || discount.LessThan(decimal.Zero) || discount.GreaterThanOrEqual(decimal.NewFromInt(100)) {
-		return errors.New("invalid discount_percent")
-	}
-	result, err := s.sqlDB.ExecContext(ctx, `UPDATE balance_membership_tiers SET name=$1, settlement_currency=$2, threshold_amount=$3, discount_percent=$4, sort_order=$5, enabled=$6, updated_at=NOW() WHERE id=$7`, in.Name, in.SettlementCurrency, threshold.String(), discount.String(), in.SortOrder, in.Enabled, id)
+	in, err := validateMembershipTierInput(in)
 	if err != nil {
 		return err
 	}
-	n, _ := result.RowsAffected()
-	if n == 0 {
-		return sql.ErrNoRows
+	tx, err := s.sqlDB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
 	}
-	return nil
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `LOCK TABLE balance_membership_tiers IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE balance_membership_tiers SET name=$1, settlement_currency=$2, threshold_amount=$3, discount_percent=$4, sort_order=$5, enabled=$6, updated_at=NOW() WHERE id=$7`, in.Name, in.SettlementCurrency, in.ThresholdAmount, in.DiscountPercent, in.SortOrder, in.Enabled, id)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return infraerrors.NotFound("MEMBERSHIP_TIER_NOT_FOUND", "membership tier not found")
+	}
+	if err := validateMembershipTierOrder(ctx, tx, in.SettlementCurrency); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func validateMembershipTierInput(in MembershipTierAdminInput) (MembershipTierAdminInput, error) {
+	in.Name = strings.TrimSpace(in.Name)
+	if in.Name == "" || utf8.RuneCountInString(in.Name) > 64 {
+		return in, infraerrors.BadRequest("INVALID_MEMBERSHIP_TIER", "name must contain 1 to 64 characters")
+	}
+	currency, err := payment.NormalizePaymentCurrency(in.SettlementCurrency)
+	if err != nil {
+		return in, infraerrors.BadRequest("INVALID_MEMBERSHIP_CURRENCY", err.Error())
+	}
+	in.SettlementCurrency = currency
+	if len(in.ThresholdAmount) > 32 || len(in.DiscountPercent) > 16 || strings.ContainsAny(in.ThresholdAmount+in.DiscountPercent, "eE") {
+		return in, infraerrors.BadRequest("INVALID_MEMBERSHIP_AMOUNT", "amount is too long")
+	}
+	threshold, err := decimal.NewFromString(in.ThresholdAmount)
+	if err != nil || threshold.IsNegative() || threshold.GreaterThanOrEqual(decimal.New(1, 12)) || !threshold.Equal(threshold.Truncate(8)) {
+		return in, infraerrors.BadRequest("INVALID_MEMBERSHIP_THRESHOLD", "threshold must be nonnegative with at most 8 decimal places")
+	}
+	discount, err := decimal.NewFromString(in.DiscountPercent)
+	if err != nil || discount.IsNegative() || discount.GreaterThanOrEqual(decimal.NewFromInt(100)) || !discount.Equal(discount.Truncate(4)) {
+		return in, infraerrors.BadRequest("INVALID_MEMBERSHIP_DISCOUNT", "discount must be between 0 and 100 percent, exclusive of 100, with at most 4 decimal places")
+	}
+	in.ThresholdAmount, in.DiscountPercent = threshold.String(), discount.String()
+	return in, nil
+}
+
+func validateMembershipTierOrder(ctx context.Context, tx *sql.Tx, currency string) error {
+	rows, err := tx.QueryContext(ctx, `SELECT threshold_amount, discount_percent FROM balance_membership_tiers WHERE settlement_currency = $1 ORDER BY threshold_amount ASC, id ASC`, currency)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var previousThreshold, previousDiscount decimal.Decimal
+	hasPrevious := false
+	for rows.Next() {
+		var threshold, discount decimal.Decimal
+		if err := rows.Scan(&threshold, &discount); err != nil {
+			return err
+		}
+		if hasPrevious && (!threshold.GreaterThan(previousThreshold) || discount.LessThan(previousDiscount)) {
+			return infraerrors.BadRequest("INVALID_MEMBERSHIP_TIER_ORDER", "thresholds must strictly increase and higher tiers cannot offer lower discounts")
+		}
+		previousThreshold, previousDiscount, hasPrevious = threshold, discount, true
+	}
+	return rows.Err()
 }
 
 func (s *PaymentService) DeleteMembershipTier(ctx context.Context, id int64) error {
@@ -138,116 +222,11 @@ func (s *PaymentService) DeleteMembershipTier(ctx context.Context, id int64) err
 	return nil
 }
 
-func (s *PaymentService) reserveRechargePromotion(ctx context.Context, userID int64, quote *RechargeQuote) (int64, error) {
-	if s == nil || s.sqlDB == nil || quote == nil || quote.PromotionID <= 0 || quote.DiscountAmount == "0.00" {
-		return 0, nil
-	}
-	discount, err := decimal.NewFromString(quote.DiscountAmount)
-	if err != nil || discount.LessThanOrEqual(decimal.Zero) {
-		return 0, err
-	}
-	tx, err := s.sqlDB.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
-	var updated int64
-	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotions SET reserved_amount = reserved_amount + $1, updated_at = NOW() WHERE id = $2 AND enabled = TRUE AND (budget_amount IS NULL OR reserved_amount + redeemed_amount + $1 <= budget_amount) RETURNING id`, discount.String(), quote.PromotionID).Scan(&updated)
-	if err != nil {
-		return 0, err
-	}
-	var claimID int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO recharge_promotion_claims (promotion_id, user_id, source, discount_amount) VALUES ($1, $2, $3, $4) RETURNING id`, quote.PromotionID, userID, quote.DiscountSource, discount.String()).Scan(&claimID)
-	if err != nil {
-		return 0, err
-	}
-	if err := tx.Commit(); err != nil {
-		return 0, err
-	}
-	return claimID, nil
-}
-
-func (s *PaymentService) bindRechargePromotionOrder(ctx context.Context, claimID, orderID int64) error {
-	if claimID <= 0 || orderID <= 0 || s == nil || s.sqlDB == nil {
-		return nil
-	}
-	_, err := s.sqlDB.ExecContext(ctx, `UPDATE recharge_promotion_claims SET order_id = $1 WHERE id = $2 AND status = 'reserved'`, orderID, claimID)
-	return err
-}
-
-func (s *PaymentService) releaseRechargePromotion(ctx context.Context, claimID int64) error {
-	if claimID <= 0 || s == nil || s.sqlDB == nil {
-		return nil
-	}
-	tx, err := s.sqlDB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var promotionID int64
-	var discount string
-	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotion_claims SET status = 'released', released_at = NOW() WHERE id = $1 AND status = 'reserved' RETURNING promotion_id, discount_amount`, claimID).Scan(&promotionID, &discount)
-	if err == sql.ErrNoRows {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE recharge_promotions SET reserved_amount = GREATEST(0, reserved_amount - $1), updated_at = NOW() WHERE id = $2`, discount, promotionID); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func (s *PaymentService) redeemRechargePromotionByOrder(ctx context.Context, orderID int64) error {
-	if orderID <= 0 || s == nil || s.sqlDB == nil {
-		return nil
-	}
-	tx, err := s.sqlDB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var promotionID int64
-	var discount string
-	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotion_claims SET status = 'redeemed', redeemed_at = NOW() WHERE order_id = $1 AND status = 'reserved' RETURNING promotion_id, discount_amount`, orderID).Scan(&promotionID, &discount)
-	if err == sql.ErrNoRows {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE recharge_promotions SET reserved_amount = GREATEST(0, reserved_amount - $1), redeemed_amount = redeemed_amount + $1, updated_at = NOW() WHERE id = $2`, discount, promotionID); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func (s *PaymentService) releaseRechargePromotionByOrder(ctx context.Context, orderID int64) error {
-	if orderID <= 0 || s == nil || s.sqlDB == nil {
-		return nil
-	}
-	tx, err := s.sqlDB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var promotionID int64
-	var discount string
-	err = tx.QueryRowContext(ctx, `UPDATE recharge_promotion_claims SET status = 'released', released_at = NOW() WHERE order_id = $1 AND status = 'reserved' RETURNING promotion_id, discount_amount`, orderID).Scan(&promotionID, &discount)
-	if err == sql.ErrNoRows {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE recharge_promotions SET reserved_amount = GREATEST(0, reserved_amount - $1), updated_at = NOW() WHERE id = $2`, discount, promotionID); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
 func (s *PaymentService) QuoteRecharge(ctx context.Context, userID int64, amount decimal.Decimal, paymentType string) (RechargeQuote, error) {
+	return s.quoteRecharge(ctx, userID, amount, paymentType, false)
+}
+
+func (s *PaymentService) quoteRecharge(ctx context.Context, userID int64, amount decimal.Decimal, paymentType string, skipPromotions bool) (RechargeQuote, error) {
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return RechargeQuote{}, errors.New("amount must be positive")
 	}
@@ -259,28 +238,57 @@ func (s *PaymentService) QuoteRecharge(ctx context.Context, userID int64, amount
 	if err != nil {
 		return RechargeQuote{}, err
 	}
+	return s.quoteRechargeForConfig(ctx, userID, amount, currency, cfg, skipPromotions)
+}
+
+func (s *PaymentService) quoteRechargeForConfig(ctx context.Context, userID int64, amount decimal.Decimal, currency string, cfg *PaymentConfig, skipPromotions bool) (RechargeQuote, error) {
+	if !cfg.Enabled || cfg.BalanceDisabled {
+		return RechargeQuote{}, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance payment is disabled")
+	}
+	if !amount.IsPositive() || amount.GreaterThanOrEqual(decimal.New(1, 12)) || (cfg.MinAmount > 0 && amount.LessThan(decimal.NewFromFloat(cfg.MinAmount))) || (cfg.MaxAmount > 0 && amount.GreaterThan(decimal.NewFromFloat(cfg.MaxAmount))) {
+		return RechargeQuote{}, infraerrors.BadRequest("INVALID_AMOUNT", "amount out of range")
+	}
+	if _, err := payment.AmountToMinorUnit(amount.String(), currency); err != nil {
+		return RechargeQuote{}, err
+	}
 	membership, err := s.GetMembershipSummary(ctx, userID)
 	if err != nil {
 		return RechargeQuote{}, err
 	}
-	membershipDiscount, _ := decimal.NewFromString(membership.CurrentDiscount)
-	candidates, err := s.listRechargePromotionCandidates(ctx, currency)
-	if err != nil {
-		return RechargeQuote{}, err
+	membershipDiscount := decimal.Zero
+	if !skipPromotions {
+		membershipDiscount, _ = decimal.NewFromString(membership.CurrentDiscount)
+	}
+	var candidates []RechargePromotionCandidate
+	if membership.Eligible && currency == membership.SettlementCurrency && !skipPromotions {
+		candidates, err = s.listRechargePromotionCandidates(ctx, currency)
+		if err != nil {
+			return RechargeQuote{}, err
+		}
+	} else if !membership.Eligible || currency != membership.SettlementCurrency {
+		membershipDiscount = decimal.Zero
 	}
 	pricing := ResolveRechargePromotion(RechargePromotionPricingInput{Amount: amount, Currency: currency, IsFirstRecharge: membership.FirstRechargeEligible, MembershipDiscount: membershipDiscount}, candidates)
-	feeRate := decimal.NewFromFloat(cfg.RechargeFeeRate)
-	fee := pricing.DiscountedAmount.Mul(feeRate).Div(decimal.NewFromInt(100)).Round(2)
-	pay := pricing.DiscountedAmount.Add(fee).Round(2)
-	credited := amount.Mul(decimal.NewFromFloat(cfg.BalanceRechargeMultiplier)).Round(2)
-	return RechargeQuote{OriginalAmount: amount.StringFixed(2), DiscountAmount: pricing.DiscountAmount.StringFixed(2), DiscountedAmount: pricing.DiscountedAmount.StringFixed(2), FeeAmount: fee.StringFixed(2), PayAmount: pay.StringFixed(2), CreditedAmount: credited.StringFixed(2), Currency: currency, DiscountSource: pricing.Source, PromotionID: pricing.PromotionID}, nil
+	return buildRechargeQuote(pricing, currency, cfg.RechargeFeeRate, cfg.BalanceRechargeMultiplier), nil
+}
+
+func buildRechargeQuote(pricing RechargePromotionPricingResult, currency string, rechargeFeeRate, multiplier float64) RechargeQuote {
+	digits := int32(payment.CurrencyMaxFractionDigits(currency))
+	feeRate := decimal.NewFromFloat(rechargeFeeRate)
+	fee := decimal.Zero
+	if feeRate.IsPositive() {
+		fee = pricing.DiscountedAmount.Mul(feeRate).Div(decimal.NewFromInt(100)).RoundUp(digits)
+	}
+	pay := pricing.DiscountedAmount.Add(fee).Round(digits)
+	credited := pricing.OriginalAmount.Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).Round(2)
+	return RechargeQuote{OriginalAmount: pricing.OriginalAmount.StringFixed(digits), DiscountAmount: pricing.DiscountAmount.StringFixed(digits), DiscountedAmount: pricing.DiscountedAmount.StringFixed(digits), FeeAmount: fee.StringFixed(digits), PayAmount: pay.StringFixed(digits), CreditedAmount: credited.StringFixed(2), Currency: currency, DiscountSource: pricing.Source, PromotionID: pricing.PromotionID}
 }
 
 func (s *PaymentService) listRechargePromotionCandidates(ctx context.Context, currency string) ([]RechargePromotionCandidate, error) {
 	if s.sqlDB == nil {
 		return nil, nil
 	}
-	rows, err := s.sqlDB.QueryContext(ctx, `SELECT id, kind, settlement_currency, enabled, starts_at, ends_at, min_amount, max_amount, discount_percent, max_discount_amount, GREATEST(0, COALESCE(budget_amount, 999999999999) - reserved_amount - redeemed_amount) FROM recharge_promotions WHERE enabled = TRUE AND kind IN ('recharge', 'first_recharge') AND settlement_currency = $1`, currency)
+	rows, err := s.sqlDB.QueryContext(ctx, `SELECT id, kind, settlement_currency, enabled, starts_at, ends_at, min_amount, max_amount, discount_percent, max_discount_amount, CASE WHEN budget_amount IS NULL THEN NULL ELSE GREATEST(0, budget_amount - reserved_amount - redeemed_amount) END FROM recharge_promotions WHERE enabled = TRUE AND kind IN ('recharge', 'first_recharge') AND settlement_currency = $1`, currency)
 	if err != nil {
 		return nil, err
 	}
@@ -324,17 +332,36 @@ func (s *PaymentService) listRechargePromotionCandidates(ctx context.Context, cu
 // GetMembershipSummary reads only completed balance orders. Subscription,
 // redeem, grant and affiliate records are excluded by order_type.
 func (s *PaymentService) GetMembershipSummary(ctx context.Context, userID int64) (MembershipSummary, error) {
-	if s == nil || s.sqlDB == nil {
-		return MembershipSummary{SettlementCurrency: "CNY", FirstRechargeEligible: true}, nil
+	cfg, err := s.GetBalanceMarketingConfig(ctx)
+	if err != nil {
+		return MembershipSummary{}, err
 	}
-	const currency = "CNY"
-	cutoff := time.Now().Add(-30 * 24 * time.Hour)
-	var amount, refunded string
-	err := s.sqlDB.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(pay_amount), 0), COALESCE(SUM(refund_amount), 0)
+	currency := cfg.SettlementCurrency
+	result := MembershipSummary{SettlementCurrency: currency, CurrentAmount: "0.00000000", CurrentDiscount: "0", ProgressPercent: "0"}
+	result.Rules = MembershipRules{WindowHours: 720, Priority: []string{"first_recharge", "campaign", "membership"}, SettlementCurrency: currency, AffiliateCommissionRate: cfg.AffiliateCommissionRate, Tiers: []map[string]string{}}
+	if s == nil || s.sqlDB == nil {
+		return result, nil
+	}
+	if err := s.sqlDB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1 AND role = 'user' AND status = 'active' AND deleted_at IS NULL)`, userID).Scan(&result.Eligible); err != nil {
+		return MembershipSummary{}, err
+	}
+	if !result.Eligible {
+		return result, nil
+	}
+	now := time.Now()
+	cutoff := now.Add(-30 * 24 * time.Hour)
+	var amount string
+	// refund_amount is wallet credit, not gateway money. Match the existing
+	// proportional gateway refund calculation and only deduct settled refunds.
+	err = s.sqlDB.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(CASE
+		  WHEN status = 'REFUNDED' THEN 0
+		  WHEN status = 'PARTIALLY_REFUNDED' AND amount > 0 THEN
+		    GREATEST(0, pay_amount - ROUND(pay_amount * LEAST(GREATEST(refund_amount, 0), amount) / amount, $5))
+		  ELSE pay_amount END), 0)
 		FROM payment_orders
 		WHERE user_id = $1 AND order_type = 'balance' AND settlement_currency = $2
-		  AND status IN ('COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED') AND paid_at >= $3`, userID, currency, cutoff).Scan(&amount, &refunded)
+		  AND paid_at >= $3 AND paid_at <= $4`, userID, currency, cutoff, now, payment.CurrencyMaxFractionDigits(currency)).Scan(&amount)
 	if err != nil {
 		return MembershipSummary{}, err
 	}
@@ -342,22 +369,21 @@ func (s *PaymentService) GetMembershipSummary(ctx context.Context, userID int64)
 	if err != nil {
 		return MembershipSummary{}, err
 	}
-	refund, err := decimal.NewFromString(refunded)
-	if err != nil {
+	current := decimal.Max(paid, decimal.Zero).Round(8)
+	var firstUnavailable bool
+	if err := s.sqlDB.QueryRowContext(ctx, `SELECT
+		EXISTS(SELECT 1 FROM payment_orders WHERE user_id = $1 AND order_type = 'balance'
+		  AND (paid_at IS NOT NULL OR completed_at IS NOT NULL OR status IN ('COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED')))
+		OR EXISTS(SELECT 1 FROM recharge_promotion_claims WHERE user_id = $1 AND source = 'first_recharge' AND status IN ('reserved', 'redeemed'))`, userID).Scan(&firstUnavailable); err != nil {
 		return MembershipSummary{}, err
 	}
-	current := paid.Sub(refund).Round(8)
-	var firstCount int
-	if err := s.sqlDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM payment_orders WHERE user_id = $1 AND order_type = 'balance' AND status IN ('COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED')`, userID).Scan(&firstCount); err != nil {
-		return MembershipSummary{}, err
-	}
-	result := MembershipSummary{Enabled: false, SettlementCurrency: currency, CurrentAmount: current.StringFixed(8), CurrentDiscount: "0", ProgressPercent: "0", FirstRechargeEligible: firstCount == 0}
+	result.CurrentAmount = current.StringFixed(8)
+	result.FirstRechargeEligible = !firstUnavailable
 	rows, err := s.sqlDB.QueryContext(ctx, `SELECT name, threshold_amount, discount_percent FROM balance_membership_tiers WHERE enabled = TRUE AND settlement_currency = $1 ORDER BY threshold_amount ASC, sort_order ASC, id ASC`, currency)
 	if err != nil {
 		return MembershipSummary{}, err
 	}
 	defer rows.Close()
-	result.Enabled = true
 	type tier struct {
 		name                string
 		threshold, discount decimal.Decimal
@@ -377,10 +403,12 @@ func (s *PaymentService) GetMembershipSummary(ctx context.Context, userID int64)
 			return MembershipSummary{}, err
 		}
 		tiers = append(tiers, tier{name, thresholdDecimal, discountDecimal})
+		result.Rules.Tiers = append(result.Rules.Tiers, map[string]string{"name": name, "threshold_amount": thresholdDecimal.String(), "discount_percent": discountDecimal.String()})
 	}
 	if err := rows.Err(); err != nil {
 		return MembershipSummary{}, err
 	}
+	result.Enabled = len(tiers) > 0
 	var next *tier
 	for i := range tiers {
 		if current.GreaterThanOrEqual(tiers[i].threshold) {

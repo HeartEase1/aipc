@@ -23,6 +23,16 @@ import (
 // --- Order Creation ---
 
 func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
+	for attempt := 0; attempt < 4; attempt++ {
+		resp, err := s.createOrderAttempt(ctx, req, attempt == 3)
+		if !errors.Is(err, errRechargeQuoteChanged) {
+			return resp, err
+		}
+	}
+	return nil, infraerrors.Conflict("RECHARGE_QUOTE_CHANGED", "recharge configuration changed; please retry")
+}
+
+func (s *PaymentService) createOrderAttempt(ctx context.Context, req CreateOrderRequest, skipPromotions bool) (*CreateOrderResponse, error) {
 	if req.OrderType == "" {
 		req.OrderType = payment.OrderTypeBalance
 	}
@@ -78,6 +88,19 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err != nil {
 		return nil, err
 	}
+	var rechargeQuote *RechargeQuote
+	if req.OrderType == payment.OrderTypeBalance {
+		quote, quoteErr := s.quoteRechargeForConfig(ctx, req.UserID, decimal.NewFromFloat(limitAmount), methodCurrency, cfg, skipPromotions)
+		if quoteErr != nil {
+			return nil, fmt.Errorf("quote recharge: %w", quoteErr)
+		}
+		rechargeQuote = &quote
+		payAmountStr = quote.PayAmount
+		payAmount, err = strconv.ParseFloat(quote.PayAmount, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
 	sel, err := s.selectCreateOrderInstance(ctx, req, cfg, payAmount)
 	if err != nil {
 		return nil, err
@@ -90,33 +113,26 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
+		if rechargeQuote != nil {
+			return nil, infraerrors.Conflict("PAYMENT_CURRENCY_CHANGED", "payment currency changed; please refresh")
+		}
 		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
 		if err != nil {
 			return nil, err
 		}
 	}
-	var rechargeQuote *RechargeQuote
-	var promotionClaimID int64
-	if req.OrderType == payment.OrderTypeBalance {
-		quote, quoteErr := s.QuoteRecharge(ctx, req.UserID, decimal.NewFromFloat(limitAmount), req.PaymentType)
-		if quoteErr != nil {
-			return nil, fmt.Errorf("quote recharge: %w", quoteErr)
-		}
-		rechargeQuote = &quote
-		payAmountStr = quote.PayAmount
-		payAmount, err = strconv.ParseFloat(quote.PayAmount, 64)
-		if err != nil {
-			return nil, fmt.Errorf("parse recharge quote: %w", err)
-		}
-	}
-	if rechargeQuote != nil {
-		promotionClaimID, err = s.reserveRechargePromotion(ctx, req.UserID, rechargeQuote)
-		if err != nil {
-			return nil, infraerrors.Conflict("RECHARGE_PROMOTION_UNAVAILABLE", "the recharge promotion is no longer available; please retry")
-		}
-	}
 	if err := validateSelectedCreateOrderAmountCurrency(payAmountStr, sel); err != nil {
 		return nil, err
+	}
+	if rechargeQuote != nil && req.ExpectedPayAmount != "" {
+		if len(req.ExpectedPayAmount) > 32 || strings.ContainsAny(req.ExpectedPayAmount, "eE") {
+			return nil, infraerrors.BadRequest("INVALID_AMOUNT", "invalid expected amount")
+		}
+		expected, parseErr := decimal.NewFromString(req.ExpectedPayAmount)
+		actual, _ := decimal.NewFromString(payAmountStr)
+		if parseErr != nil || !expected.Equal(actual) {
+			return nil, infraerrors.Conflict("RECHARGE_QUOTE_CHANGED", "quote changed; review the new price before payment")
+		}
 	}
 	oauthResp, err := s.maybeBuildWeChatOAuthRequiredResponseForSelection(ctx, req, limitAmount, payAmount, feeRate, sel)
 	if err != nil {
@@ -127,22 +143,18 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	}
 	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, rechargeQuote)
 	if err != nil {
-		_ = s.releaseRechargePromotion(ctx, promotionClaimID)
 		return nil, err
-	}
-	if err := s.bindRechargePromotionOrder(ctx, promotionClaimID, int64(order.ID)); err != nil {
-		_ = s.releaseRechargePromotion(ctx, promotionClaimID)
-		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusFailed).Save(ctx)
-		return nil, fmt.Errorf("bind recharge promotion claim: %w", err)
 	}
 	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, sel)
 	if err != nil {
-		_ = s.releaseRechargePromotion(ctx, promotionClaimID)
-		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
-			SetStatus(OrderStatusFailed).
-			Save(ctx)
+		// A transport error does not prove the provider failed to create an order.
+		// Keep its reservation until reconciliation confirms it cannot be paid.
+		if rechargeQuote == nil || rechargeQuote.PromotionID == 0 {
+			_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusFailed).Save(ctx)
+		}
 		return nil, err
 	}
+	resp.Pricing = rechargeQuote
 	return resp, nil
 }
 
@@ -215,6 +227,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	if req.OrderType == payment.OrderTypeBalance && s.sqlDB != nil {
+		if err := lockRechargeUser(ctx, tx.Client(), req.UserID); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}
@@ -314,6 +331,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	if err != nil {
 		return nil, fmt.Errorf("set recharge code: %w", err)
 	}
+	if len(rechargeQuotes) > 0 && rechargeQuotes[0] != nil {
+		if err := reserveRechargePromotionInTx(ctx, tx.Client(), req.UserID, order.ID, rechargeQuotes[0]); err != nil {
+			return nil, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit order transaction: %w", err)
 	}
@@ -357,6 +379,7 @@ func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req Creat
 
 	snapshot := map[string]any{}
 	snapshot["schema_version"] = 2
+	snapshot["currency"] = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 
 	instanceID := strings.TrimSpace(sel.InstanceID)
 	if instanceID != "" {

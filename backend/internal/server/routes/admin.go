@@ -130,7 +130,23 @@ func RegisterAdminRoutes(
 
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
+		registerMembershipRoutes(admin, h)
 	}
+}
+
+func registerMembershipRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	tiers := admin.Group("/payment/membership-tiers")
+	tiers.GET("", h.Admin.Payment.ListMembershipTiers)
+	tiers.POST("", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.CreateMembershipTier)
+	tiers.PUT("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateMembershipTier)
+	tiers.DELETE("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteMembershipTier)
+	promotions := admin.Group("/payment/recharge-promotions")
+	promotions.GET("", h.Admin.Payment.ListRechargePromotions)
+	promotions.POST("", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.CreateRechargePromotion)
+	promotions.PUT("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateRechargePromotion)
+	promotions.DELETE("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteRechargePromotion)
+	admin.GET("/payment/balance-marketing", h.Admin.Payment.GetBalanceMarketingConfig)
+	admin.PUT("/payment/balance-marketing", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateBalanceMarketingConfig)
 }
 
 func registerBenefitGrantRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

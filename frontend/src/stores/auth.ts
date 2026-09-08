@@ -21,6 +21,7 @@ const TOKEN_EXPIRES_AT_KEY = 'token_expires_at' // 存储过期时间戳而非�
 const PENDING_AUTH_SESSION_KEY = 'pending_auth_session'
 const AUTO_REFRESH_INTERVAL = 60 * 1000 // 60 seconds for user data refresh
 const TOKEN_REFRESH_BUFFER = 120 * 1000 // 120 seconds before expiry to refresh token
+const RESUME_REFRESH_MIN_HIDDEN_MS = 30 * 1000
 
 type PendingAuthTokenField = 'pending_auth_token' | 'pending_oauth_token'
 
@@ -85,6 +86,9 @@ export const useAuthStore = defineStore('auth', () => {
   const pendingAuthSession = ref<PendingAuthSessionSummary | null>(null)
   let refreshIntervalId: ReturnType<typeof setInterval> | null = null
   let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null
+  let hiddenAt: number | null = null
+  let resumeHandler: (() => void) | null = null
+  let onlineHandler: (() => void) | null = null
 
   // ==================== Computed ====================
 
@@ -148,6 +152,35 @@ export const useAuthStore = defineStore('auth', () => {
     // Clear existing interval if any
     stopAutoRefresh()
 
+    // Browsers can suspend timers while a laptop is asleep. Reconcile the session
+    // when the tab becomes visible/online again, while keeping the normal token
+    // expiry, rotation, and server-side revocation rules unchanged.
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      hiddenAt = document.visibilityState === 'hidden' ? Date.now() : null
+      resumeHandler = () => {
+        if (document.visibilityState === 'hidden') {
+          hiddenAt = Date.now()
+          return
+        }
+        const wasHiddenFor = hiddenAt ? Date.now() - hiddenAt : 0
+        hiddenAt = null
+        if (token.value && refreshTokenValue.value && wasHiddenFor >= RESUME_REFRESH_MIN_HIDDEN_MS) {
+          void performTokenRefresh().then(() => refreshUser()).catch((error) => {
+            console.warn('Session resume reconciliation failed:', error)
+          })
+        }
+      }
+      onlineHandler = () => {
+        if (token.value && refreshTokenValue.value) {
+          void performTokenRefresh().then(() => refreshUser()).catch((error) => {
+            console.warn('Network recovery reconciliation failed:', error)
+          })
+        }
+      }
+      document.addEventListener('visibilitychange', resumeHandler)
+      window.addEventListener('online', onlineHandler)
+    }
+
     refreshIntervalId = setInterval(() => {
       if (token.value) {
         refreshUser().catch((error) => {
@@ -164,6 +197,17 @@ export const useAuthStore = defineStore('auth', () => {
     if (refreshIntervalId) {
       clearInterval(refreshIntervalId)
       refreshIntervalId = null
+    }
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      if (resumeHandler) {
+        document.removeEventListener('visibilitychange', resumeHandler)
+        resumeHandler = null
+      }
+      if (onlineHandler) {
+        window.removeEventListener('online', onlineHandler)
+        onlineHandler = null
+      }
+      hiddenAt = null
     }
   }
 

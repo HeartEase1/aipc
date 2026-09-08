@@ -74,6 +74,10 @@ func (h *PaymentHandler) QuoteRecharge(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if len(req.Amount) > 32 || strings.ContainsAny(req.Amount, "eE") {
+		response.BadRequest(c, "invalid amount")
+		return
+	}
 	amount, err := decimal.NewFromString(strings.TrimSpace(req.Amount))
 	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 		response.BadRequest(c, "amount must be a positive decimal")
@@ -274,6 +278,7 @@ func (h *PaymentHandler) GetLimits(c *gin.Context) {
 
 // CreateOrderRequest is the request body for creating a payment order.
 type CreateOrderRequest struct {
+	ExpectedPayAmount  string  `json:"expected_pay_amount,omitempty" binding:"max=32"`
 	Amount             float64 `json:"amount"`
 	PaymentType        string  `json:"payment_type" binding:"required"`
 	OpenID             string  `json:"openid"`
@@ -319,6 +324,7 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		mobile = *req.IsMobile
 	}
 	result, err := h.paymentService.CreateOrder(c.Request.Context(), service.CreateOrderRequest{
+		ExpectedPayAmount:  req.ExpectedPayAmount,
 		UserID:             subject.UserID,
 		Amount:             req.Amount,
 		PaymentType:        req.PaymentType,
@@ -528,25 +534,30 @@ func (h *PaymentHandler) VerifyOrder(c *gin.Context) {
 // proves possession of the checkout session, so the result keeps the legacy
 // frontend contract needed by payment result pages.
 type PublicOrderResult struct {
-	ID                  int64      `json:"id"`
-	OutTradeNo          string     `json:"out_trade_no"`
-	Amount              float64    `json:"amount"`
-	PayAmount           float64    `json:"pay_amount"`
-	FeeRate             float64    `json:"fee_rate"`
-	Currency            string     `json:"currency"`
-	PaymentType         string     `json:"payment_type"`
-	OrderType           string     `json:"order_type"`
-	Status              string     `json:"status"`
-	CreatedAt           time.Time  `json:"created_at"`
-	ExpiresAt           time.Time  `json:"expires_at"`
-	PaidAt              *time.Time `json:"paid_at,omitempty"`
-	CompletedAt         *time.Time `json:"completed_at,omitempty"`
-	RefundAmount        float64    `json:"refund_amount"`
-	RefundReason        *string    `json:"refund_reason,omitempty"`
-	RefundRequestedAt   *time.Time `json:"refund_requested_at,omitempty"`
-	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
-	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
-	PlanID              *int64     `json:"plan_id,omitempty"`
+	Pricing             map[string]interface{} `json:"pricing,omitempty"`
+	OriginalAmount      *float64               `json:"original_amount,omitempty"`
+	DiscountedAmount    *float64               `json:"discounted_amount,omitempty"`
+	DiscountAmount      float64                `json:"discount_amount"`
+	DiscountSource      string                 `json:"discount_source,omitempty"`
+	ID                  int64                  `json:"id"`
+	OutTradeNo          string                 `json:"out_trade_no"`
+	Amount              float64                `json:"amount"`
+	PayAmount           float64                `json:"pay_amount"`
+	FeeRate             float64                `json:"fee_rate"`
+	Currency            string                 `json:"currency"`
+	PaymentType         string                 `json:"payment_type"`
+	OrderType           string                 `json:"order_type"`
+	Status              string                 `json:"status"`
+	CreatedAt           time.Time              `json:"created_at"`
+	ExpiresAt           time.Time              `json:"expires_at"`
+	PaidAt              *time.Time             `json:"paid_at,omitempty"`
+	CompletedAt         *time.Time             `json:"completed_at,omitempty"`
+	RefundAmount        float64                `json:"refund_amount"`
+	RefundReason        *string                `json:"refund_reason,omitempty"`
+	RefundRequestedAt   *time.Time             `json:"refund_requested_at,omitempty"`
+	RefundRequestedBy   *string                `json:"refund_requested_by,omitempty"`
+	RefundRequestReason *string                `json:"refund_request_reason,omitempty"`
+	PlanID              *int64                 `json:"plan_id,omitempty"`
 }
 
 // PublicOrderVerifyResult is returned by the legacy anonymous out_trade_no
@@ -563,6 +574,11 @@ type PublicOrderVerifyResult struct {
 
 func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 	return PublicOrderResult{
+		Pricing:             order.PricingSnapshot,
+		OriginalAmount:      order.OriginalAmount,
+		DiscountedAmount:    order.DiscountedAmount,
+		DiscountAmount:      order.DiscountAmount,
+		DiscountSource:      order.DiscountSource,
 		ID:                  order.ID,
 		OutTradeNo:          order.OutTradeNo,
 		Amount:              order.Amount,
@@ -671,27 +687,32 @@ func isMobile(c *gin.Context) bool {
 }
 
 type PaymentOrderResult struct {
-	ID                  int64      `json:"id"`
-	UserID              int64      `json:"user_id"`
-	Amount              float64    `json:"amount"`
-	PayAmount           float64    `json:"pay_amount"`
-	FeeRate             float64    `json:"fee_rate"`
-	Currency            string     `json:"currency"`
-	PaymentType         string     `json:"payment_type"`
-	OutTradeNo          string     `json:"out_trade_no"`
-	Status              string     `json:"status"`
-	OrderType           string     `json:"order_type"`
-	CreatedAt           time.Time  `json:"created_at"`
-	ExpiresAt           time.Time  `json:"expires_at"`
-	PaidAt              *time.Time `json:"paid_at,omitempty"`
-	CompletedAt         *time.Time `json:"completed_at,omitempty"`
-	RefundAmount        float64    `json:"refund_amount"`
-	RefundReason        *string    `json:"refund_reason,omitempty"`
-	RefundRequestedAt   *time.Time `json:"refund_requested_at,omitempty"`
-	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
-	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
-	PlanID              *int64     `json:"plan_id,omitempty"`
-	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
+	Pricing             map[string]interface{} `json:"pricing,omitempty"`
+	OriginalAmount      *float64               `json:"original_amount,omitempty"`
+	DiscountedAmount    *float64               `json:"discounted_amount,omitempty"`
+	DiscountAmount      float64                `json:"discount_amount"`
+	DiscountSource      string                 `json:"discount_source,omitempty"`
+	ID                  int64                  `json:"id"`
+	UserID              int64                  `json:"user_id"`
+	Amount              float64                `json:"amount"`
+	PayAmount           float64                `json:"pay_amount"`
+	FeeRate             float64                `json:"fee_rate"`
+	Currency            string                 `json:"currency"`
+	PaymentType         string                 `json:"payment_type"`
+	OutTradeNo          string                 `json:"out_trade_no"`
+	Status              string                 `json:"status"`
+	OrderType           string                 `json:"order_type"`
+	CreatedAt           time.Time              `json:"created_at"`
+	ExpiresAt           time.Time              `json:"expires_at"`
+	PaidAt              *time.Time             `json:"paid_at,omitempty"`
+	CompletedAt         *time.Time             `json:"completed_at,omitempty"`
+	RefundAmount        float64                `json:"refund_amount"`
+	RefundReason        *string                `json:"refund_reason,omitempty"`
+	RefundRequestedAt   *time.Time             `json:"refund_requested_at,omitempty"`
+	RefundRequestedBy   *string                `json:"refund_requested_by,omitempty"`
+	RefundRequestReason *string                `json:"refund_request_reason,omitempty"`
+	PlanID              *int64                 `json:"plan_id,omitempty"`
+	ProviderInstanceID  *string                `json:"provider_instance_id,omitempty"`
 }
 
 func sanitizePaymentOrdersForResponse(orders []*dbent.PaymentOrder) []PaymentOrderResult {
@@ -709,6 +730,11 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		return nil
 	}
 	return &PaymentOrderResult{
+		Pricing:             order.PricingSnapshot,
+		OriginalAmount:      order.OriginalAmount,
+		DiscountedAmount:    order.DiscountedAmount,
+		DiscountAmount:      order.DiscountAmount,
+		DiscountSource:      order.DiscountSource,
 		ID:                  order.ID,
 		UserID:              order.UserID,
 		Amount:              order.Amount,

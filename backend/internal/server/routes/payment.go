@@ -81,14 +81,6 @@ func RegisterPaymentRoutes(
 		adminGroup.GET("/config", adminPaymentHandler.GetConfig)
 		adminGroup.PUT("/config", adminPaymentHandler.UpdateConfig)
 
-		tiers := adminGroup.Group("/membership-tiers")
-		{
-			tiers.GET("", adminPaymentHandler.ListMembershipTiers)
-			tiers.POST("", adminPaymentHandler.CreateMembershipTier)
-			tiers.PUT("/:id", adminPaymentHandler.UpdateMembershipTier)
-			tiers.DELETE("/:id", adminPaymentHandler.DeleteMembershipTier)
-		}
-
 		// Orders
 		adminOrders := adminGroup.Group("/orders")
 		{

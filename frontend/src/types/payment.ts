@@ -89,6 +89,11 @@ export interface PaymentOrder {
   user_id: number
   amount: number
   pay_amount: number
+  original_amount?: number
+  discounted_amount?: number
+  discount_amount?: number
+  discount_source?: string
+  pricing?: Record<string, unknown>
   currency?: string
   fee_rate: number
   payment_type: string
@@ -170,6 +175,7 @@ export interface ProviderInstance {
 // ==================== Request / Response ====================
 
 export interface CreateOrderRequest {
+  expected_pay_amount?: string
   amount: number
   payment_type: string
   order_type: string

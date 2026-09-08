@@ -1,9 +1,9 @@
 package service
 
 import (
-	"sort"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/shopspring/decimal"
 )
 
@@ -13,7 +13,7 @@ type RechargePromotionPricingInput struct {
 	Amount             decimal.Decimal
 	Currency           string
 	Now                time.Time
-	IsFirstRecharge   bool
+	IsFirstRecharge    bool
 	MembershipDiscount decimal.Decimal
 }
 
@@ -32,11 +32,11 @@ type RechargePromotionCandidate struct {
 }
 
 type RechargePromotionPricingResult struct {
-	OriginalAmount  decimal.Decimal
-	DiscountAmount  decimal.Decimal
+	OriginalAmount   decimal.Decimal
+	DiscountAmount   decimal.Decimal
 	DiscountedAmount decimal.Decimal
-	Source          string
-	PromotionID     int64
+	Source           string
+	PromotionID      int64
 }
 
 // ResolveRechargePromotion applies the fixed priority first_recharge >
@@ -51,7 +51,8 @@ func ResolveRechargePromotion(input RechargePromotionPricingInput, candidates []
 	if now.IsZero() {
 		now = time.Now()
 	}
-	valid := make([]RechargePromotionCandidate, 0, len(candidates))
+	digits := int32(payment.CurrencyMaxFractionDigits(input.Currency))
+	bestPriority := 0
 	for _, candidate := range candidates {
 		if !candidate.Enabled || candidate.Currency != input.Currency || candidate.DiscountPercent.LessThanOrEqual(decimal.Zero) || candidate.DiscountPercent.GreaterThanOrEqual(decimal.NewFromInt(100)) {
 			continue
@@ -62,61 +63,47 @@ func ResolveRechargePromotion(input RechargePromotionPricingInput, candidates []
 		if candidate.MinAmount != nil && input.Amount.LessThan(*candidate.MinAmount) || candidate.MaxAmount != nil && input.Amount.GreaterThan(*candidate.MaxAmount) {
 			continue
 		}
-		if candidate.BudgetRemaining != nil && candidate.BudgetRemaining.LessThanOrEqual(decimal.Zero) {
+		priority := 1
+		source := "campaign"
+		switch candidate.Kind {
+		case "first_recharge":
+			if !input.IsFirstRecharge {
+				continue
+			}
+			priority, source = 2, "first_recharge"
+		case "recharge":
+		default:
 			continue
 		}
-		if candidate.Kind == "first_recharge" && !input.IsFirstRecharge {
-			continue
-		}
-		if candidate.Kind == "recharge" && input.IsFirstRecharge {
-			// A first-recharge candidate has priority, but ordinary campaigns
-			// remain eligible when no first-recharge candidate matches.
-		}
-		valid = append(valid, candidate)
-	}
-	first := make([]RechargePromotionCandidate, 0)
-	ordinary := make([]RechargePromotionCandidate, 0)
-	for _, candidate := range valid {
-		if candidate.Kind == "first_recharge" {
-			first = append(first, candidate)
-		} else if candidate.Kind == "recharge" {
-			ordinary = append(ordinary, candidate)
-		}
-	}
-	pool := ordinary
-	if len(first) > 0 {
-		pool = first
-	}
-	if len(pool) > 0 {
-		sort.SliceStable(pool, func(i, j int) bool {
-			left := pool[i].DiscountPercent
-			right := pool[j].DiscountPercent
-			if pool[i].MaxDiscount != nil {
-				left = decimal.Min(left, pool[i].MaxDiscount.Div(input.Amount).Mul(decimal.NewFromInt(100)))
-			}
-			if pool[j].MaxDiscount != nil {
-				right = decimal.Min(right, pool[j].MaxDiscount.Div(input.Amount).Mul(decimal.NewFromInt(100)))
-			}
-			if !left.Equal(right) {
-				return left.GreaterThan(right)
-			}
-			return pool[i].ID < pool[j].ID
-		})
-		candidate := pool[0]
 		discount := input.Amount.Mul(candidate.DiscountPercent).Div(decimal.NewFromInt(100))
 		if candidate.MaxDiscount != nil {
 			discount = decimal.Min(discount, *candidate.MaxDiscount)
 		}
-		result.DiscountAmount = discount.Round(2)
-		result.DiscountedAmount = input.Amount.Sub(result.DiscountAmount).Round(2)
-		result.Source = candidate.Kind
-		result.PromotionID = candidate.ID
+		discount = discount.Round(digits)
+		if discount.LessThanOrEqual(decimal.Zero) || discount.GreaterThanOrEqual(input.Amount) {
+			continue
+		}
+		if candidate.BudgetRemaining != nil && discount.GreaterThan(*candidate.BudgetRemaining) {
+			continue
+		}
+		if priority > bestPriority || (priority == bestPriority && (discount.GreaterThan(result.DiscountAmount) || (discount.Equal(result.DiscountAmount) && candidate.ID < result.PromotionID))) {
+			bestPriority = priority
+			result.DiscountAmount = discount
+			result.DiscountedAmount = input.Amount.Sub(discount).Round(digits)
+			result.Source = source
+			result.PromotionID = candidate.ID
+		}
+	}
+	if bestPriority > 0 {
 		return result
 	}
 	if input.MembershipDiscount.GreaterThan(decimal.Zero) && input.MembershipDiscount.LessThan(decimal.NewFromInt(100)) {
-		result.DiscountAmount = input.Amount.Mul(input.MembershipDiscount).Div(decimal.NewFromInt(100)).Round(2)
-		result.DiscountedAmount = input.Amount.Sub(result.DiscountAmount).Round(2)
-		result.Source = "membership"
+		discount := input.Amount.Mul(input.MembershipDiscount).Div(decimal.NewFromInt(100)).Round(digits)
+		if discount.GreaterThan(decimal.Zero) && discount.LessThan(input.Amount) {
+			result.DiscountAmount = discount
+			result.DiscountedAmount = input.Amount.Sub(discount).Round(digits)
+			result.Source = "membership"
+		}
 	}
 	return result
 }

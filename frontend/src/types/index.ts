@@ -64,6 +64,7 @@ export interface UserProfileSourceContext {
 }
 
 export interface User {
+  membership_tier?: string
   id: number
   username: string
   email: string

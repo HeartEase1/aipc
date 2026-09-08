@@ -37,20 +37,11 @@
           <!-- Top-up Tab -->
           <template v-if="activeTab === 'recharge'">
             <!-- Recharge Account Card -->
-            <div class="card border-amber-200 bg-gradient-to-br from-sky-50 via-white to-amber-50 p-5 dark:border-amber-900/40 dark:from-sky-950/30 dark:via-dark-800 dark:to-amber-950/20">
+            <div class="card overflow-hidden border border-primary-100/80 bg-gradient-to-br from-primary-50 via-white to-amber-50/70 p-5 dark:border-primary-900/40 dark:from-primary-950/40 dark:via-dark-900 dark:to-dark-950">
               <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
               <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
               <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
-              <div v-if="membership.enabled" class="mt-4 border-t border-amber-200/70 pt-3 dark:border-amber-800/40">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="font-semibold text-amber-800 dark:text-amber-300">{{ membership.current_tier || t('payment.membership.defaultTier') }}</span>
-                  <span class="text-gray-500 dark:text-gray-400">{{ membership.progress_percent }}%</span>
-                </div>
-                <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-amber-100 dark:bg-amber-900/40"><div class="h-full rounded-full bg-amber-500 transition-all" :style="{ width: `${membership.progress_percent}%` }" /></div>
-                <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ membership.next_tier ? t('payment.membership.nextTier', { tier: membership.next_tier, amount: membership.amount_to_next }) : t('payment.membership.maxTier') }}
-                </p>
-              </div>
+              <MembershipBenefits v-if="membership.rules" :summary="membership" />
             </div>
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
@@ -73,22 +64,32 @@
               />
             </div>
             <div v-if="validAmount > 0" class="card p-6">
-              <div class="space-y-2 text-sm">
+              <p v-if="quoteLoading" class="text-sm text-gray-500">{{ t('balanceMarketing.quoteLoading') }}</p>
+              <p v-else-if="quoteError" role="alert" class="text-sm text-red-600">{{ quoteError }}</p>
+              <div v-else-if="rechargeQuote" class="space-y-2 text-sm">
                 <div class="flex justify-between">
-                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.paymentAmount') }}</span>
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('balanceMarketing.original') }}</span>
                   <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(validAmount) }}</span>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('balanceMarketing.source') }}</span>
+                  <span>{{ t(`balanceMarketing.sources.${rechargeQuote.discount_source || 'none'}`) }}</span>
+                </div>
+                <div v-if="Number(rechargeQuote.discount_amount) > 0" class="flex justify-between gap-4 text-emerald-700 dark:text-emerald-300">
+                  <span>{{ t('balanceMarketing.discount') }}</span>
+                  <strong>-{{ formatSelectedPaymentAmount(Number(rechargeQuote.discount_amount)) }}</strong>
                 </div>
                 <div v-if="feeRate > 0" class="flex justify-between">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                   <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
                 </div>
-                <div v-if="feeRate > 0" class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
                   <span class="text-lg font-bold text-primary-600 dark:text-primary-400">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
                 </div>
-                <div v-if="balanceRechargeMultiplier !== 1" class="flex justify-between" :class="{ 'border-t border-gray-200 pt-2 dark:border-dark-600': feeRate <= 0 }">
+                <div class="flex justify-between">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
-                  <span class="text-gray-900 dark:text-white">${{ creditedAmount.toFixed(2) }}</span>
+                  <span class="text-gray-900 dark:text-white">${{ Number(rechargeQuote.credited_amount).toFixed(2) }}</span>
                 </div>
                 <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
                   {{ t('payment.rechargeRatePreview', { usd: balanceRechargeMultiplier.toFixed(2) }) }}
@@ -370,7 +371,8 @@ import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiErro
 import { isMobileDevice } from '@/utils/device'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionAction, SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
-import type { MembershipSummary } from '@/api/payment'
+import type { MembershipSummary, RechargeQuote } from '@/api/payment'
+import MembershipBenefits from '@/components/payment/MembershipBenefits.vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -697,7 +699,6 @@ const subscriptionUsdToCnyRate = computed(() => {
   const rate = checkout.value.subscription_usd_to_cny_rate
   return Number.isFinite(rate) && rate > 0 ? rate : 0
 })
-const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
 
 // Adaptive grid: center single card, 2-col for 2 plans, 3-col for 3+
 const planGridClass = computed(() => {
@@ -792,16 +793,29 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
 )
 
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
-const feeAmount = computed(() =>
-  feeRate.value > 0 && validAmount.value > 0
-    ? Math.ceil(((validAmount.value * feeRate.value) / 100) * 100) / 100
-    : 0
-)
-const totalAmount = computed(() =>
-  feeRate.value > 0 && validAmount.value > 0
-    ? Math.round((validAmount.value + feeAmount.value) * 100) / 100
-    : validAmount.value
-)
+const rechargeQuote = ref<RechargeQuote | null>(null)
+const quoteLoading = ref(false)
+const quoteError = ref('')
+const feeAmount = computed(() => Number(rechargeQuote.value?.fee_amount || 0))
+const totalAmount = computed(() => Number(rechargeQuote.value?.pay_amount || 0))
+watch([validAmount, selectedMethod, activeTab], ([value, method, tab], _, onCleanup) => {
+  let cancelled = false
+  rechargeQuote.value = null
+  quoteError.value = ''
+  quoteLoading.value = tab === 'recharge' && value > 0 && !!method
+  const timer = setTimeout(async () => {
+    if (!quoteLoading.value || cancelled) return
+    try {
+      const { data } = await paymentAPI.quote(String(value), method)
+      if (!cancelled) rechargeQuote.value = data
+    } catch {
+      if (!cancelled) quoteError.value = t('balanceMarketing.quoteError')
+    } finally {
+      if (!cancelled) quoteLoading.value = false
+    }
+  }, 250)
+  onCleanup(() => { cancelled = true; clearTimeout(timer) })
+}, { immediate: true })
 
 const amountError = computed(() => {
   if (validAmount.value <= 0) return ''
@@ -820,6 +834,7 @@ const amountError = computed(() => {
 
 const canSubmit = computed(() =>
   validAmount.value > 0
+    && rechargeQuote.value !== null && !quoteLoading.value && !quoteError.value
     && amountFitsMethod(validAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
@@ -990,6 +1005,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     if (options.openid) {
       payload.openid = options.openid
     }
+	if (orderType === 'balance' && rechargeQuote.value) payload.expected_pay_amount = rechargeQuote.value.pay_amount
     if (options.wechatResumeToken) {
       payload.wechat_resume_token = options.wechatResumeToken
     }
@@ -1125,6 +1141,13 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     }
   } catch (err: unknown) {
     const apiErr = err as Record<string, unknown>
+    if (apiErr.reason === 'RECHARGE_QUOTE_CHANGED' && orderType === 'balance') {
+      rechargeQuote.value = null
+      try { rechargeQuote.value = (await paymentAPI.quote(String(validAmount.value), selectedMethod.value)).data }
+      catch { quoteError.value = t('balanceMarketing.quoteError') }
+      appStore.showError(t('balanceMarketing.quoteChanged'))
+      return
+    }
     if (apiErr.reason === 'TOO_MANY_PENDING') {
       const metadata = apiErr.metadata as Record<string, unknown> | undefined
       errorMessage.value = t('payment.errors.tooManyPending', { max: metadata?.max || '' })
@@ -1373,6 +1396,12 @@ onMounted(async () => {
   finally { loading.value = false }
   // Fetch active subscriptions (uses cache, non-blocking)
   subscriptionStore.fetchActiveSubscriptions().catch(() => {})
-  paymentAPI.getMembership().then((res) => { membership.value = res.data }).catch(() => {})
+  paymentAPI.getMembership().then((res) => {
+    membership.value = res.data
+    if (authStore.user?.role === 'user') {
+      authStore.user.membership_tier = res.data.current_tier || undefined
+      localStorage.setItem('auth_user', JSON.stringify(authStore.user))
+    }
+  }).catch(() => {})
 })
 </script>

@@ -72,6 +72,7 @@ func generateRandomString(n int) string {
 }
 
 type CreateOrderRequest struct {
+	ExpectedPayAmount  string
 	UserID             int64
 	Amount             float64
 	PaymentType        string
@@ -90,6 +91,7 @@ type CreateOrderRequest struct {
 }
 
 type CreateOrderResponse struct {
+	Pricing                       *RechargeQuote                  `json:"pricing,omitempty"`
 	OrderID                       int64                           `json:"order_id"`
 	Amount                        float64                         `json:"amount"`
 	PayAmount                     float64                         `json:"pay_amount"`

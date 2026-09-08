@@ -81,6 +81,8 @@ vi.mock('@/stores', () => ({
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
     getCheckoutInfo,
+    getMembership: vi.fn().mockResolvedValue({ data: { enabled: false, current_discount_percent: '0' } }),
+    quote: vi.fn().mockImplementation((amount: string) => Promise.resolve({ data: { original_amount: amount, discounted_amount: amount, discount_amount: '0', fee_amount: '0', pay_amount: amount, credited_amount: amount, currency: 'CNY' } })),
   },
 }))
 

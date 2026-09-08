@@ -395,6 +395,9 @@ func (s *PaymentService) ExpireTimedOutOrders(ctx context.Context) (int, error) 
 			n++
 		}
 	}
+	if err := s.reconcileRechargeReservations(ctx); err != nil {
+		slog.Error("reconcile recharge reservations", "error", err)
+	}
 	return n, nil
 }
 

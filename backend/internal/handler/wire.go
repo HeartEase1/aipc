@@ -199,6 +199,9 @@ func ProvideHandlers(
 	_ *service.IdempotencyCoordinator,
 	_ *service.IdempotencyCleanupService,
 ) *Handlers {
+	if authHandler != nil && paymentHandler != nil {
+		authHandler.paymentService = paymentHandler.paymentService
+	}
 	return &Handlers{
 		Auth:             authHandler,
 		User:             userHandler,
