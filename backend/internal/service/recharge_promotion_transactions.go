@@ -114,13 +114,13 @@ func redeemRechargePromotionInTx(ctx context.Context, client *dbent.Client, orde
 	}
 	if !rows.Next() {
 		err = rows.Err()
-		rows.Close()
+		_ = rows.Close()
 		return err
 	}
 	var promotionID int64
 	var discount, status string
 	err = rows.Scan(&promotionID, &discount, &status)
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return err
 	}
