@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import DiscountCampaignsView from '../DiscountCampaignsView.vue'
 
-const { list, create, update, remove, getAllIncludingInactive, stepUpRun, showError, showSuccess } = vi.hoisted(() => ({
+const { list, create, update, remove, listUserExclusions, setUserExclusion, getAllIncludingInactive, stepUpRun, showError, showSuccess } = vi.hoisted(() => ({
   list: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
   remove: vi.fn(),
+  listUserExclusions: vi.fn(),
+  setUserExclusion: vi.fn(),
   getAllIncludingInactive: vi.fn(),
   stepUpRun: vi.fn(),
   showError: vi.fn(),
@@ -16,7 +18,7 @@ const { list, create, update, remove, getAllIncludingInactive, stepUpRun, showEr
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    discountCampaigns: { list, create, update, remove },
+    discountCampaigns: { list, create, update, remove, listUserExclusions, setUserExclusion },
     groups: { getAllIncludingInactive }
   }
 }))
@@ -25,8 +27,8 @@ vi.mock('@/stores', () => ({
   useAppStore: () => ({ showError, showSuccess })
 }))
 
-vi.mock('@/composables/useStepUp', () => ({
-  isStepUpCancelled: () => false,
+vi.mock('@/composables/useStepUp', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/composables/useStepUp')>(),
   useStepUp: () => ({ run: stepUpRun })
 }))
 
@@ -107,6 +109,8 @@ describe('DiscountCampaignsView', () => {
     create.mockReset().mockResolvedValue(existingCampaign)
     update.mockReset().mockResolvedValue(existingCampaign)
     remove.mockReset().mockResolvedValue(undefined)
+    listUserExclusions.mockReset().mockResolvedValue([])
+    setUserExclusion.mockReset().mockResolvedValue(undefined)
     getAllIncludingInactive.mockReset().mockResolvedValue([
       { id: 11, name: 'OpenAI balance', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1, account_count: 2 },
       { id: 12, name: 'Gemini balance', platform: 'gemini', subscription_type: 'standard', rate_multiplier: 1, account_count: 1 },
@@ -115,6 +119,70 @@ describe('DiscountCampaignsView', () => {
     stepUpRun.mockReset().mockImplementation((callback: () => unknown) => callback())
     showError.mockReset()
     showSuccess.mockReset()
+  })
+
+  it('verifies and retries exclusion saving with the same user and scope', async () => {
+    const { useStepUp } = await vi.importActual<typeof import('@/composables/useStepUp')>('@/composables/useStepUp')
+    const controller = useStepUp()
+    stepUpRun.mockImplementation(controller.run)
+    setUserExclusion.mockRejectedValueOnce({ code: 'STEP_UP_REQUIRED' })
+    const wrapper = mountView()
+    await flushPromises()
+    const userInput = wrapper.get('input[inputmode="numeric"]')
+    await userInput.setValue('123')
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.setValue(true)
+    await flushPromises()
+
+    expect(controller.visible.value).toBe(true)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    expect(userInput.attributes('disabled')).toBeDefined()
+    expect(setUserExclusion).toHaveBeenCalledWith(123, 'usage', true)
+    controller.onVerified()
+    await flushPromises()
+
+    expect(setUserExclusion).toHaveBeenCalledTimes(2)
+    expect(setUserExclusion).toHaveBeenLastCalledWith(123, 'usage', true)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('keeps exclusions unchanged and does not toast an error when verification is cancelled', async () => {
+    const { useStepUp } = await vi.importActual<typeof import('@/composables/useStepUp')>('@/composables/useStepUp')
+    const controller = useStepUp()
+    stepUpRun.mockImplementation(controller.run)
+    setUserExclusion.mockRejectedValueOnce({ reason: 'STEP_UP_REQUIRED' })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('input[inputmode="numeric"]').setValue('123')
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.setValue(true)
+    await flushPromises()
+    controller.onCancel()
+    await flushPromises()
+
+    expect(setUserExclusion).toHaveBeenCalledTimes(1)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    expect(checkbox.attributes('disabled')).toBeUndefined()
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('restores a checked exclusion when removing it fails', async () => {
+    listUserExclusions.mockResolvedValue([{ user_id: 123, scope: 'usage', enabled: true }])
+    setUserExclusion.mockRejectedValue(new Error('save failed'))
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('input[inputmode="numeric"]').setValue('123')
+    await buttonByText(wrapper, '查询排除设置').trigger('click')
+    await flushPromises()
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.setValue(false)
+    await flushPromises()
+
+    expect(stepUpRun).toHaveBeenCalledTimes(1)
+    expect(setUserExclusion).toHaveBeenCalledWith(123, 'usage', false)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
+    expect(showError).toHaveBeenCalledWith('save failed')
   })
 
   it('opens with a valid one-time schedule by default', async () => {

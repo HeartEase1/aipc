@@ -7,7 +7,7 @@
       <div class="flex flex-wrap items-end gap-3">
         <div class="min-w-52 flex-1">
           <label class="mb-1 block text-xs font-medium text-amber-900 dark:text-amber-200">用户 ID</label>
-          <input v-model.number="exclusionUserID" type="text" inputmode="numeric" class="input w-full" placeholder="输入用户 ID" />
+          <input v-model.number="exclusionUserID" type="text" inputmode="numeric" class="input w-full" placeholder="输入用户 ID" :disabled="exclusionLoading" />
         </div>
         <button class="btn btn-secondary" :disabled="!exclusionUserID || exclusionLoading" @click="loadExclusions">查询排除设置</button>
       </div>
@@ -250,8 +250,8 @@
         @cancel="pendingDelete = null"
         @confirm="deleteCampaign"
       />
-      <TotpStepUpDialog :controller="stepUp" />
     </div>
+    <TotpStepUpDialog :controller="stepUp" />
   </AppLayout>
 </template>
 
@@ -309,13 +309,19 @@ async function loadExclusions() {
   finally { exclusionLoading.value = false }
 }
 async function toggleExclusion(scope: MarketingUserExclusion['scope'], event: Event) {
-  if (!exclusionUserID.value) return
-  const enabled = (event.target as HTMLInputElement | null)?.checked === true
+  const checkbox = event.target as HTMLInputElement | null
+  const userID = exclusionUserID.value
+  const enabled = checkbox?.checked === true
+  // Keep the control at its persisted state until verification and saving succeed.
+  if (checkbox) checkbox.checked = exclusionScopes.value.has(scope)
+  if (!Number.isSafeInteger(userID) || !userID || userID <= 0 || exclusionLoading.value) return
   exclusionLoading.value = true
   try {
-    await adminAPI.discountCampaigns.setUserExclusion(exclusionUserID.value, scope, enabled)
+    await stepUp.run(() => adminAPI.discountCampaigns.setUserExclusion(userID, scope, enabled))
     const next = new Set(exclusionScopes.value); enabled ? next.add(scope) : next.delete(scope); exclusionScopes.value = next
-  } catch (error: any) { appStore.showError(error?.message || '保存排除设置失败') }
+  } catch (error: any) {
+    if (!isStepUpCancelled(error)) appStore.showError(error?.message || '保存排除设置失败')
+  }
   finally { exclusionLoading.value = false }
 }
 
