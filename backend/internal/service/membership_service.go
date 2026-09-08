@@ -34,6 +34,110 @@ type RechargeQuote struct {
 	PromotionID      int64  `json:"promotion_id,omitempty"`
 }
 
+type MembershipTierAdminInput struct {
+	Name               string `json:"name"`
+	SettlementCurrency string `json:"settlement_currency"`
+	ThresholdAmount    string `json:"threshold_amount"`
+	DiscountPercent    string `json:"discount_percent"`
+	SortOrder          int    `json:"sort_order"`
+	Enabled            bool   `json:"enabled"`
+}
+
+type RechargePromotionAdminInput struct {
+	Kind               string     `json:"kind"`
+	Name               string     `json:"name"`
+	Description        string     `json:"description"`
+	SettlementCurrency string     `json:"settlement_currency"`
+	Enabled            bool       `json:"enabled"`
+	StartsAt           *time.Time `json:"starts_at,omitempty"`
+	EndsAt             *time.Time `json:"ends_at,omitempty"`
+	Timezone           string     `json:"timezone"`
+	MinAmount          *string    `json:"min_amount,omitempty"`
+	MaxAmount          *string    `json:"max_amount,omitempty"`
+	DiscountPercent    string     `json:"discount_percent"`
+	MaxDiscountAmount  *string    `json:"max_discount_amount,omitempty"`
+	BudgetAmount       *string    `json:"budget_amount,omitempty"`
+}
+
+func (s *PaymentService) ListMembershipTiers(ctx context.Context) ([]map[string]any, error) {
+	if s == nil || s.sqlDB == nil {
+		return []map[string]any{}, nil
+	}
+	rows, err := s.sqlDB.QueryContext(ctx, `SELECT id, name, settlement_currency, threshold_amount, discount_percent, sort_order, enabled, created_at, updated_at FROM balance_membership_tiers ORDER BY settlement_currency, threshold_amount ASC, sort_order ASC, id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []map[string]any
+	for rows.Next() {
+		var id int64
+		var name, currency, threshold, discount string
+		var order int
+		var enabled bool
+		var created, updated time.Time
+		if err := rows.Scan(&id, &name, &currency, &threshold, &discount, &order, &enabled, &created, &updated); err != nil {
+			return nil, err
+		}
+		out = append(out, map[string]any{"id": id, "name": name, "settlement_currency": currency, "threshold_amount": threshold, "discount_percent": discount, "sort_order": order, "enabled": enabled, "created_at": created, "updated_at": updated})
+	}
+	return out, rows.Err()
+}
+
+func (s *PaymentService) CreateMembershipTier(ctx context.Context, in MembershipTierAdminInput) (int64, error) {
+	if s == nil || s.sqlDB == nil {
+		return 0, errMembershipUnavailable
+	}
+	threshold, err := decimal.NewFromString(in.ThresholdAmount)
+	if err != nil || threshold.LessThan(decimal.Zero) {
+		return 0, errors.New("invalid threshold_amount")
+	}
+	discount, err := decimal.NewFromString(in.DiscountPercent)
+	if err != nil || discount.LessThan(decimal.Zero) || discount.GreaterThanOrEqual(decimal.NewFromInt(100)) {
+		return 0, errors.New("invalid discount_percent")
+	}
+	var id int64
+	err = s.sqlDB.QueryRowContext(ctx, `INSERT INTO balance_membership_tiers (name, settlement_currency, threshold_amount, discount_percent, sort_order, enabled) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`, in.Name, in.SettlementCurrency, threshold.String(), discount.String(), in.SortOrder, in.Enabled).Scan(&id)
+	return id, err
+}
+
+func (s *PaymentService) UpdateMembershipTier(ctx context.Context, id int64, in MembershipTierAdminInput) error {
+	if s == nil || s.sqlDB == nil {
+		return errMembershipUnavailable
+	}
+	threshold, err := decimal.NewFromString(in.ThresholdAmount)
+	if err != nil || threshold.LessThan(decimal.Zero) {
+		return errors.New("invalid threshold_amount")
+	}
+	discount, err := decimal.NewFromString(in.DiscountPercent)
+	if err != nil || discount.LessThan(decimal.Zero) || discount.GreaterThanOrEqual(decimal.NewFromInt(100)) {
+		return errors.New("invalid discount_percent")
+	}
+	result, err := s.sqlDB.ExecContext(ctx, `UPDATE balance_membership_tiers SET name=$1, settlement_currency=$2, threshold_amount=$3, discount_percent=$4, sort_order=$5, enabled=$6, updated_at=NOW() WHERE id=$7`, in.Name, in.SettlementCurrency, threshold.String(), discount.String(), in.SortOrder, in.Enabled, id)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (s *PaymentService) DeleteMembershipTier(ctx context.Context, id int64) error {
+	if s == nil || s.sqlDB == nil {
+		return errMembershipUnavailable
+	}
+	result, err := s.sqlDB.ExecContext(ctx, `DELETE FROM balance_membership_tiers WHERE id=$1`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func (s *PaymentService) reserveRechargePromotion(ctx context.Context, userID int64, quote *RechargeQuote) (int64, error) {
 	if s == nil || s.sqlDB == nil || quote == nil || quote.PromotionID <= 0 || quote.DiscountAmount == "0.00" {
 		return 0, nil
