@@ -47,6 +47,26 @@ func (PaymentOrder) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
 		field.Float("pay_amount").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
+		field.String("settlement_currency").
+			MaxLen(8).
+			Default("CNY"),
+		field.Float("original_amount").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("discounted_amount").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("discount_amount").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.String("discount_source").
+			MaxLen(32).
+			Default(""),
+		field.JSON("pricing_snapshot", map[string]any{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.Float("fee_rate").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0),

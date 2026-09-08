@@ -95,6 +95,19 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 			return nil, err
 		}
 	}
+	var rechargeQuote *RechargeQuote
+	if req.OrderType == payment.OrderTypeBalance {
+		quote, quoteErr := s.QuoteRecharge(ctx, req.UserID, decimal.NewFromFloat(limitAmount), req.PaymentType)
+		if quoteErr != nil {
+			return nil, fmt.Errorf("quote recharge: %w", quoteErr)
+		}
+		rechargeQuote = &quote
+		payAmountStr = quote.PayAmount
+		payAmount, err = strconv.ParseFloat(quote.PayAmount, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse recharge quote: %w", err)
+		}
+	}
 	if err := validateSelectedCreateOrderAmountCurrency(payAmountStr, sel); err != nil {
 		return nil, err
 	}
@@ -105,7 +118,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if oauthResp != nil {
 		return oauthResp, nil
 	}
-	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel)
+	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, rechargeQuote)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +195,7 @@ func normalizeSubscriptionAction(action string) (string, error) {
 	}
 }
 
-func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, error) {
+func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection, rechargeQuotes ...*RechargeQuote) (*dbent.PaymentOrder, error) {
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -242,6 +255,24 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		SetExpiresAt(exp).
 		SetClientIP(req.ClientIP).
 		SetSrcHost(req.SrcHost)
+	if req.OrderType == payment.OrderTypeBalance {
+		currency := payment.DefaultPaymentCurrency
+		if len(rechargeQuotes) > 0 && rechargeQuotes[0] != nil {
+			quote := rechargeQuotes[0]
+			currency = quote.Currency
+			original, _ := strconv.ParseFloat(quote.OriginalAmount, 64)
+			discounted, _ := strconv.ParseFloat(quote.DiscountedAmount, 64)
+			discount, _ := strconv.ParseFloat(quote.DiscountAmount, 64)
+			b.SetSettlementCurrency(currency).
+				SetOriginalAmount(original).
+				SetDiscountedAmount(discounted).
+				SetDiscountAmount(discount).
+				SetDiscountSource(quote.DiscountSource).
+				SetPricingSnapshot(map[string]interface{}{"original_amount": quote.OriginalAmount, "discounted_amount": quote.DiscountedAmount, "discount_amount": quote.DiscountAmount, "fee_amount": quote.FeeAmount, "pay_amount": quote.PayAmount, "credited_amount": quote.CreditedAmount, "currency": quote.Currency, "source": quote.DiscountSource, "promotion_id": quote.PromotionID})
+		} else {
+			b.SetSettlementCurrency(currency).SetOriginalAmount(limitAmount).SetDiscountedAmount(limitAmount)
+		}
+	}
 	if req.SrcURL != "" {
 		b.SetSrcURL(req.SrcURL)
 	}

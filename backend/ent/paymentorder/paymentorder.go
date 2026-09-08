@@ -26,6 +26,18 @@ const (
 	FieldAmount = "amount"
 	// FieldPayAmount holds the string denoting the pay_amount field in the database.
 	FieldPayAmount = "pay_amount"
+	// FieldSettlementCurrency holds the string denoting the settlement_currency field in the database.
+	FieldSettlementCurrency = "settlement_currency"
+	// FieldOriginalAmount holds the string denoting the original_amount field in the database.
+	FieldOriginalAmount = "original_amount"
+	// FieldDiscountedAmount holds the string denoting the discounted_amount field in the database.
+	FieldDiscountedAmount = "discounted_amount"
+	// FieldDiscountAmount holds the string denoting the discount_amount field in the database.
+	FieldDiscountAmount = "discount_amount"
+	// FieldDiscountSource holds the string denoting the discount_source field in the database.
+	FieldDiscountSource = "discount_source"
+	// FieldPricingSnapshot holds the string denoting the pricing_snapshot field in the database.
+	FieldPricingSnapshot = "pricing_snapshot"
 	// FieldFeeRate holds the string denoting the fee_rate field in the database.
 	FieldFeeRate = "fee_rate"
 	// FieldRechargeCode holds the string denoting the recharge_code field in the database.
@@ -116,6 +128,12 @@ var Columns = []string{
 	FieldUserNotes,
 	FieldAmount,
 	FieldPayAmount,
+	FieldSettlementCurrency,
+	FieldOriginalAmount,
+	FieldDiscountedAmount,
+	FieldDiscountAmount,
+	FieldDiscountSource,
+	FieldPricingSnapshot,
 	FieldFeeRate,
 	FieldRechargeCode,
 	FieldOutTradeNo,
@@ -167,6 +185,16 @@ var (
 	UserEmailValidator func(string) error
 	// UserNameValidator is a validator for the "user_name" field. It is called by the builders before save.
 	UserNameValidator func(string) error
+	// DefaultSettlementCurrency holds the default value on creation for the "settlement_currency" field.
+	DefaultSettlementCurrency string
+	// SettlementCurrencyValidator is a validator for the "settlement_currency" field. It is called by the builders before save.
+	SettlementCurrencyValidator func(string) error
+	// DefaultDiscountAmount holds the default value on creation for the "discount_amount" field.
+	DefaultDiscountAmount float64
+	// DefaultDiscountSource holds the default value on creation for the "discount_source" field.
+	DefaultDiscountSource string
+	// DiscountSourceValidator is a validator for the "discount_source" field. It is called by the builders before save.
+	DiscountSourceValidator func(string) error
 	// DefaultFeeRate holds the default value on creation for the "fee_rate" field.
 	DefaultFeeRate float64
 	// RechargeCodeValidator is a validator for the "recharge_code" field. It is called by the builders before save.
@@ -249,6 +277,31 @@ func ByAmount(opts ...sql.OrderTermOption) OrderOption {
 // ByPayAmount orders the results by the pay_amount field.
 func ByPayAmount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPayAmount, opts...).ToFunc()
+}
+
+// BySettlementCurrency orders the results by the settlement_currency field.
+func BySettlementCurrency(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSettlementCurrency, opts...).ToFunc()
+}
+
+// ByOriginalAmount orders the results by the original_amount field.
+func ByOriginalAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOriginalAmount, opts...).ToFunc()
+}
+
+// ByDiscountedAmount orders the results by the discounted_amount field.
+func ByDiscountedAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDiscountedAmount, opts...).ToFunc()
+}
+
+// ByDiscountAmount orders the results by the discount_amount field.
+func ByDiscountAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDiscountAmount, opts...).ToFunc()
+}
+
+// ByDiscountSource orders the results by the discount_source field.
+func ByDiscountSource(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDiscountSource, opts...).ToFunc()
 }
 
 // ByFeeRate orders the results by the fee_rate field.

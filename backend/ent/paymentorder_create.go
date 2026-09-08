@@ -67,6 +67,82 @@ func (_c *PaymentOrderCreate) SetPayAmount(v float64) *PaymentOrderCreate {
 	return _c
 }
 
+// SetSettlementCurrency sets the "settlement_currency" field.
+func (_c *PaymentOrderCreate) SetSettlementCurrency(v string) *PaymentOrderCreate {
+	_c.mutation.SetSettlementCurrency(v)
+	return _c
+}
+
+// SetNillableSettlementCurrency sets the "settlement_currency" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableSettlementCurrency(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetSettlementCurrency(*v)
+	}
+	return _c
+}
+
+// SetOriginalAmount sets the "original_amount" field.
+func (_c *PaymentOrderCreate) SetOriginalAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetOriginalAmount(v)
+	return _c
+}
+
+// SetNillableOriginalAmount sets the "original_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableOriginalAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetOriginalAmount(*v)
+	}
+	return _c
+}
+
+// SetDiscountedAmount sets the "discounted_amount" field.
+func (_c *PaymentOrderCreate) SetDiscountedAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetDiscountedAmount(v)
+	return _c
+}
+
+// SetNillableDiscountedAmount sets the "discounted_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableDiscountedAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetDiscountedAmount(*v)
+	}
+	return _c
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (_c *PaymentOrderCreate) SetDiscountAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetDiscountAmount(v)
+	return _c
+}
+
+// SetNillableDiscountAmount sets the "discount_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableDiscountAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetDiscountAmount(*v)
+	}
+	return _c
+}
+
+// SetDiscountSource sets the "discount_source" field.
+func (_c *PaymentOrderCreate) SetDiscountSource(v string) *PaymentOrderCreate {
+	_c.mutation.SetDiscountSource(v)
+	return _c
+}
+
+// SetNillableDiscountSource sets the "discount_source" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableDiscountSource(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetDiscountSource(*v)
+	}
+	return _c
+}
+
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (_c *PaymentOrderCreate) SetPricingSnapshot(v map[string]interface{}) *PaymentOrderCreate {
+	_c.mutation.SetPricingSnapshot(v)
+	return _c
+}
+
 // SetFeeRate sets the "fee_rate" field.
 func (_c *PaymentOrderCreate) SetFeeRate(v float64) *PaymentOrderCreate {
 	_c.mutation.SetFeeRate(v)
@@ -527,6 +603,18 @@ func (_c *PaymentOrderCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *PaymentOrderCreate) defaults() {
+	if _, ok := _c.mutation.SettlementCurrency(); !ok {
+		v := paymentorder.DefaultSettlementCurrency
+		_c.mutation.SetSettlementCurrency(v)
+	}
+	if _, ok := _c.mutation.DiscountAmount(); !ok {
+		v := paymentorder.DefaultDiscountAmount
+		_c.mutation.SetDiscountAmount(v)
+	}
+	if _, ok := _c.mutation.DiscountSource(); !ok {
+		v := paymentorder.DefaultDiscountSource
+		_c.mutation.SetDiscountSource(v)
+	}
 	if _, ok := _c.mutation.FeeRate(); !ok {
 		v := paymentorder.DefaultFeeRate
 		_c.mutation.SetFeeRate(v)
@@ -591,6 +679,25 @@ func (_c *PaymentOrderCreate) check() error {
 	}
 	if _, ok := _c.mutation.PayAmount(); !ok {
 		return &ValidationError{Name: "pay_amount", err: errors.New(`ent: missing required field "PaymentOrder.pay_amount"`)}
+	}
+	if _, ok := _c.mutation.SettlementCurrency(); !ok {
+		return &ValidationError{Name: "settlement_currency", err: errors.New(`ent: missing required field "PaymentOrder.settlement_currency"`)}
+	}
+	if v, ok := _c.mutation.SettlementCurrency(); ok {
+		if err := paymentorder.SettlementCurrencyValidator(v); err != nil {
+			return &ValidationError{Name: "settlement_currency", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.settlement_currency": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.DiscountAmount(); !ok {
+		return &ValidationError{Name: "discount_amount", err: errors.New(`ent: missing required field "PaymentOrder.discount_amount"`)}
+	}
+	if _, ok := _c.mutation.DiscountSource(); !ok {
+		return &ValidationError{Name: "discount_source", err: errors.New(`ent: missing required field "PaymentOrder.discount_source"`)}
+	}
+	if v, ok := _c.mutation.DiscountSource(); ok {
+		if err := paymentorder.DiscountSourceValidator(v); err != nil {
+			return &ValidationError{Name: "discount_source", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.discount_source": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.FeeRate(); !ok {
 		return &ValidationError{Name: "fee_rate", err: errors.New(`ent: missing required field "PaymentOrder.fee_rate"`)}
@@ -746,6 +853,30 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.PayAmount(); ok {
 		_spec.SetField(paymentorder.FieldPayAmount, field.TypeFloat64, value)
 		_node.PayAmount = value
+	}
+	if value, ok := _c.mutation.SettlementCurrency(); ok {
+		_spec.SetField(paymentorder.FieldSettlementCurrency, field.TypeString, value)
+		_node.SettlementCurrency = value
+	}
+	if value, ok := _c.mutation.OriginalAmount(); ok {
+		_spec.SetField(paymentorder.FieldOriginalAmount, field.TypeFloat64, value)
+		_node.OriginalAmount = &value
+	}
+	if value, ok := _c.mutation.DiscountedAmount(); ok {
+		_spec.SetField(paymentorder.FieldDiscountedAmount, field.TypeFloat64, value)
+		_node.DiscountedAmount = &value
+	}
+	if value, ok := _c.mutation.DiscountAmount(); ok {
+		_spec.SetField(paymentorder.FieldDiscountAmount, field.TypeFloat64, value)
+		_node.DiscountAmount = value
+	}
+	if value, ok := _c.mutation.DiscountSource(); ok {
+		_spec.SetField(paymentorder.FieldDiscountSource, field.TypeString, value)
+		_node.DiscountSource = value
+	}
+	if value, ok := _c.mutation.PricingSnapshot(); ok {
+		_spec.SetField(paymentorder.FieldPricingSnapshot, field.TypeJSON, value)
+		_node.PricingSnapshot = value
 	}
 	if value, ok := _c.mutation.FeeRate(); ok {
 		_spec.SetField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
@@ -1039,6 +1170,114 @@ func (u *PaymentOrderUpsert) UpdatePayAmount() *PaymentOrderUpsert {
 // AddPayAmount adds v to the "pay_amount" field.
 func (u *PaymentOrderUpsert) AddPayAmount(v float64) *PaymentOrderUpsert {
 	u.Add(paymentorder.FieldPayAmount, v)
+	return u
+}
+
+// SetSettlementCurrency sets the "settlement_currency" field.
+func (u *PaymentOrderUpsert) SetSettlementCurrency(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldSettlementCurrency, v)
+	return u
+}
+
+// UpdateSettlementCurrency sets the "settlement_currency" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateSettlementCurrency() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldSettlementCurrency)
+	return u
+}
+
+// SetOriginalAmount sets the "original_amount" field.
+func (u *PaymentOrderUpsert) SetOriginalAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldOriginalAmount, v)
+	return u
+}
+
+// UpdateOriginalAmount sets the "original_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateOriginalAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldOriginalAmount)
+	return u
+}
+
+// AddOriginalAmount adds v to the "original_amount" field.
+func (u *PaymentOrderUpsert) AddOriginalAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldOriginalAmount, v)
+	return u
+}
+
+// ClearOriginalAmount clears the value of the "original_amount" field.
+func (u *PaymentOrderUpsert) ClearOriginalAmount() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldOriginalAmount)
+	return u
+}
+
+// SetDiscountedAmount sets the "discounted_amount" field.
+func (u *PaymentOrderUpsert) SetDiscountedAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldDiscountedAmount, v)
+	return u
+}
+
+// UpdateDiscountedAmount sets the "discounted_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateDiscountedAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldDiscountedAmount)
+	return u
+}
+
+// AddDiscountedAmount adds v to the "discounted_amount" field.
+func (u *PaymentOrderUpsert) AddDiscountedAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldDiscountedAmount, v)
+	return u
+}
+
+// ClearDiscountedAmount clears the value of the "discounted_amount" field.
+func (u *PaymentOrderUpsert) ClearDiscountedAmount() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldDiscountedAmount)
+	return u
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (u *PaymentOrderUpsert) SetDiscountAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldDiscountAmount, v)
+	return u
+}
+
+// UpdateDiscountAmount sets the "discount_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateDiscountAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldDiscountAmount)
+	return u
+}
+
+// AddDiscountAmount adds v to the "discount_amount" field.
+func (u *PaymentOrderUpsert) AddDiscountAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldDiscountAmount, v)
+	return u
+}
+
+// SetDiscountSource sets the "discount_source" field.
+func (u *PaymentOrderUpsert) SetDiscountSource(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldDiscountSource, v)
+	return u
+}
+
+// UpdateDiscountSource sets the "discount_source" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateDiscountSource() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldDiscountSource)
+	return u
+}
+
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (u *PaymentOrderUpsert) SetPricingSnapshot(v map[string]interface{}) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldPricingSnapshot, v)
+	return u
+}
+
+// UpdatePricingSnapshot sets the "pricing_snapshot" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdatePricingSnapshot() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldPricingSnapshot)
+	return u
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (u *PaymentOrderUpsert) ClearPricingSnapshot() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldPricingSnapshot)
 	return u
 }
 
@@ -1729,6 +1968,132 @@ func (u *PaymentOrderUpsertOne) AddPayAmount(v float64) *PaymentOrderUpsertOne {
 func (u *PaymentOrderUpsertOne) UpdatePayAmount() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.UpdatePayAmount()
+	})
+}
+
+// SetSettlementCurrency sets the "settlement_currency" field.
+func (u *PaymentOrderUpsertOne) SetSettlementCurrency(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSettlementCurrency(v)
+	})
+}
+
+// UpdateSettlementCurrency sets the "settlement_currency" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateSettlementCurrency() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSettlementCurrency()
+	})
+}
+
+// SetOriginalAmount sets the "original_amount" field.
+func (u *PaymentOrderUpsertOne) SetOriginalAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetOriginalAmount(v)
+	})
+}
+
+// AddOriginalAmount adds v to the "original_amount" field.
+func (u *PaymentOrderUpsertOne) AddOriginalAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddOriginalAmount(v)
+	})
+}
+
+// UpdateOriginalAmount sets the "original_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateOriginalAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateOriginalAmount()
+	})
+}
+
+// ClearOriginalAmount clears the value of the "original_amount" field.
+func (u *PaymentOrderUpsertOne) ClearOriginalAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearOriginalAmount()
+	})
+}
+
+// SetDiscountedAmount sets the "discounted_amount" field.
+func (u *PaymentOrderUpsertOne) SetDiscountedAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetDiscountedAmount(v)
+	})
+}
+
+// AddDiscountedAmount adds v to the "discounted_amount" field.
+func (u *PaymentOrderUpsertOne) AddDiscountedAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddDiscountedAmount(v)
+	})
+}
+
+// UpdateDiscountedAmount sets the "discounted_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateDiscountedAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateDiscountedAmount()
+	})
+}
+
+// ClearDiscountedAmount clears the value of the "discounted_amount" field.
+func (u *PaymentOrderUpsertOne) ClearDiscountedAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearDiscountedAmount()
+	})
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (u *PaymentOrderUpsertOne) SetDiscountAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetDiscountAmount(v)
+	})
+}
+
+// AddDiscountAmount adds v to the "discount_amount" field.
+func (u *PaymentOrderUpsertOne) AddDiscountAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddDiscountAmount(v)
+	})
+}
+
+// UpdateDiscountAmount sets the "discount_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateDiscountAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateDiscountAmount()
+	})
+}
+
+// SetDiscountSource sets the "discount_source" field.
+func (u *PaymentOrderUpsertOne) SetDiscountSource(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetDiscountSource(v)
+	})
+}
+
+// UpdateDiscountSource sets the "discount_source" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateDiscountSource() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateDiscountSource()
+	})
+}
+
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (u *PaymentOrderUpsertOne) SetPricingSnapshot(v map[string]interface{}) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetPricingSnapshot(v)
+	})
+}
+
+// UpdatePricingSnapshot sets the "pricing_snapshot" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdatePricingSnapshot() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdatePricingSnapshot()
+	})
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (u *PaymentOrderUpsertOne) ClearPricingSnapshot() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearPricingSnapshot()
 	})
 }
 
@@ -2675,6 +3040,132 @@ func (u *PaymentOrderUpsertBulk) AddPayAmount(v float64) *PaymentOrderUpsertBulk
 func (u *PaymentOrderUpsertBulk) UpdatePayAmount() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.UpdatePayAmount()
+	})
+}
+
+// SetSettlementCurrency sets the "settlement_currency" field.
+func (u *PaymentOrderUpsertBulk) SetSettlementCurrency(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSettlementCurrency(v)
+	})
+}
+
+// UpdateSettlementCurrency sets the "settlement_currency" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateSettlementCurrency() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSettlementCurrency()
+	})
+}
+
+// SetOriginalAmount sets the "original_amount" field.
+func (u *PaymentOrderUpsertBulk) SetOriginalAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetOriginalAmount(v)
+	})
+}
+
+// AddOriginalAmount adds v to the "original_amount" field.
+func (u *PaymentOrderUpsertBulk) AddOriginalAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddOriginalAmount(v)
+	})
+}
+
+// UpdateOriginalAmount sets the "original_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateOriginalAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateOriginalAmount()
+	})
+}
+
+// ClearOriginalAmount clears the value of the "original_amount" field.
+func (u *PaymentOrderUpsertBulk) ClearOriginalAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearOriginalAmount()
+	})
+}
+
+// SetDiscountedAmount sets the "discounted_amount" field.
+func (u *PaymentOrderUpsertBulk) SetDiscountedAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetDiscountedAmount(v)
+	})
+}
+
+// AddDiscountedAmount adds v to the "discounted_amount" field.
+func (u *PaymentOrderUpsertBulk) AddDiscountedAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddDiscountedAmount(v)
+	})
+}
+
+// UpdateDiscountedAmount sets the "discounted_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateDiscountedAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateDiscountedAmount()
+	})
+}
+
+// ClearDiscountedAmount clears the value of the "discounted_amount" field.
+func (u *PaymentOrderUpsertBulk) ClearDiscountedAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearDiscountedAmount()
+	})
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (u *PaymentOrderUpsertBulk) SetDiscountAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetDiscountAmount(v)
+	})
+}
+
+// AddDiscountAmount adds v to the "discount_amount" field.
+func (u *PaymentOrderUpsertBulk) AddDiscountAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddDiscountAmount(v)
+	})
+}
+
+// UpdateDiscountAmount sets the "discount_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateDiscountAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateDiscountAmount()
+	})
+}
+
+// SetDiscountSource sets the "discount_source" field.
+func (u *PaymentOrderUpsertBulk) SetDiscountSource(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetDiscountSource(v)
+	})
+}
+
+// UpdateDiscountSource sets the "discount_source" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateDiscountSource() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateDiscountSource()
+	})
+}
+
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (u *PaymentOrderUpsertBulk) SetPricingSnapshot(v map[string]interface{}) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetPricingSnapshot(v)
+	})
+}
+
+// UpdatePricingSnapshot sets the "pricing_snapshot" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdatePricingSnapshot() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdatePricingSnapshot()
+	})
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (u *PaymentOrderUpsertBulk) ClearPricingSnapshot() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearPricingSnapshot()
 	})
 }
 
