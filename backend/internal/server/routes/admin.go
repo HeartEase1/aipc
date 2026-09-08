@@ -166,6 +166,8 @@ func registerDiscountCampaignRoutes(admin *gin.RouterGroup, h *handler.Handlers)
 	{
 		campaigns.GET("", h.Admin.DiscountCampaign.List)
 		campaigns.POST("", h.Admin.DiscountCampaign.Create)
+		campaigns.GET("/user-exclusions", h.Admin.DiscountCampaign.ListUserExclusions)
+		campaigns.PUT("/user-exclusions/:user_id", h.Admin.DiscountCampaign.SetUserExclusion)
 		campaigns.PUT("/:id", h.Admin.DiscountCampaign.Update)
 		campaigns.DELETE("/:id", h.Admin.DiscountCampaign.Delete)
 	}

@@ -65,4 +65,13 @@ export async function remove(id: number): Promise<void> {
   await apiClient.delete(`/admin/discount-campaigns/${id}`)
 }
 
-export default { list, create, update, remove }
+export interface MarketingUserExclusion { user_id: number; scope: 'usage' | 'recharge' | 'membership' | 'all'; enabled: boolean; created_at: string }
+export async function listUserExclusions(userId: number): Promise<MarketingUserExclusion[]> {
+  const { data } = await apiClient.get<MarketingUserExclusion[]>('/admin/discount-campaigns/user-exclusions', { params: { user_id: userId } })
+  return data
+}
+export async function setUserExclusion(userId: number, scope: MarketingUserExclusion['scope'], enabled: boolean): Promise<void> {
+  await apiClient.put(`/admin/discount-campaigns/user-exclusions/${userId}`, { scope, enabled })
+}
+
+export default { list, create, update, remove, listUserExclusions, setUserExclusion }

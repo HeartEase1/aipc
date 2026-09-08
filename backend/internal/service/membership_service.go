@@ -259,6 +259,16 @@ func (s *PaymentService) quoteRechargeForConfig(ctx context.Context, userID int6
 	if !skipPromotions {
 		membershipDiscount, _ = decimal.NewFromString(membership.CurrentDiscount)
 	}
+	// Marketing exclusions are enforced server-side for both quote and order creation.
+	if !skipPromotions {
+		var excluded bool
+		if err := s.sqlDB.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM marketing_user_exclusions WHERE user_id=$1 AND enabled=TRUE AND scope IN ('all','membership'))`, userID).Scan(&excluded); err != nil {
+			return RechargeQuote{}, err
+		}
+		if excluded {
+			membershipDiscount = decimal.Zero
+		}
+	}
 	var candidates []RechargePromotionCandidate
 	if membership.Eligible && currency == membership.SettlementCurrency && !skipPromotions {
 		candidates, err = s.listRechargePromotionCandidates(ctx, currency)
@@ -267,6 +277,16 @@ func (s *PaymentService) quoteRechargeForConfig(ctx context.Context, userID int6
 		}
 	} else if !membership.Eligible || currency != membership.SettlementCurrency {
 		membershipDiscount = decimal.Zero
+	}
+	if !skipPromotions {
+		var excluded bool
+		if err := s.sqlDB.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM marketing_user_exclusions WHERE user_id=$1 AND enabled=TRUE AND scope IN ('all','recharge'))`, userID).Scan(&excluded); err != nil {
+			return RechargeQuote{}, err
+		}
+		if excluded {
+			candidates = nil
+			membershipDiscount = decimal.Zero
+		}
 	}
 	pricing := ResolveRechargePromotion(RechargePromotionPricingInput{Amount: amount, Currency: currency, IsFirstRecharge: membership.FirstRechargeEligible, MembershipDiscount: membershipDiscount}, candidates)
 	return buildRechargeQuote(pricing, currency, cfg.RechargeFeeRate, cfg.BalanceRechargeMultiplier), nil

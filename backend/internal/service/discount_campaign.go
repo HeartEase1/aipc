@@ -113,8 +113,51 @@ type DiscountCampaignService struct {
 	db        *sql.DB
 	mu        sync.RWMutex
 	campaigns []runtimeDiscountCampaign
+	excluded  map[int64]map[string]struct{}
 	stop      chan struct{}
 	started   atomic.Bool
+}
+
+type MarketingUserExclusion struct {
+	UserID    int64     `json:"user_id"`
+	Scope     string    `json:"scope"`
+	Enabled   bool      `json:"enabled"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (s *DiscountCampaignService) ListUserExclusions(ctx context.Context, userID int64) ([]MarketingUserExclusion, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT user_id, scope, enabled, created_at FROM marketing_user_exclusions WHERE user_id=$1 ORDER BY scope`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	result := make([]MarketingUserExclusion, 0)
+	for rows.Next() {
+		var item MarketingUserExclusion
+		if err := rows.Scan(&item.UserID, &item.Scope, &item.Enabled, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, rows.Err()
+}
+
+func (s *DiscountCampaignService) SetUserExclusion(ctx context.Context, userID int64, scope string, enabled bool) error {
+	if userID <= 0 || (scope != "usage" && scope != "recharge" && scope != "membership" && scope != "all") {
+		return fmt.Errorf("invalid marketing exclusion")
+	}
+	var eligible bool
+	if err := s.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id=$1 AND role='user' AND status='active' AND deleted_at IS NULL)`, userID).Scan(&eligible); err != nil {
+		return err
+	}
+	if !eligible {
+		return infraerrors.NotFound("USER_NOT_FOUND", "eligible user not found")
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO marketing_user_exclusions (user_id, scope, enabled) VALUES ($1,$2,$3) ON CONFLICT (user_id,scope) DO UPDATE SET enabled=EXCLUDED.enabled, updated_at=NOW()`, userID, scope, enabled)
+	if err != nil {
+		return err
+	}
+	return s.Refresh(ctx)
 }
 
 var defaultDiscountCampaignService atomic.Pointer[DiscountCampaignService]
@@ -161,6 +204,29 @@ func ResolveTokenDiscount(group *Group, at time.Time, originalRateMultiplier flo
 		return nil
 	}
 	return svc.Resolve(group, at, originalRateMultiplier)
+}
+
+// ResolveTokenDiscountForUser applies the server-side per-user marketing exclusion.
+func ResolveTokenDiscountForUser(group *Group, userID int64, at time.Time, originalRateMultiplier float64) *DiscountResolution {
+	svc := defaultDiscountCampaignService.Load()
+	if svc == nil || svc.IsUserExcluded(userID, "usage") {
+		return nil
+	}
+	return svc.Resolve(group, at, originalRateMultiplier)
+}
+
+func (s *DiscountCampaignService) IsUserExcluded(userID int64, scope string) bool {
+	if s == nil || userID <= 0 {
+		return false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	set := s.excluded[userID]
+	if _, ok := set["all"]; ok {
+		return true
+	}
+	_, ok := set[scope]
+	return ok
 }
 
 func RecordAppliedTokenDiscount(campaignID int64, amount float64) {
@@ -318,8 +384,29 @@ WHERE enabled = TRUE AND deleted_at IS NULL`)
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	excluded := make(map[int64]map[string]struct{})
+	rows, err = s.db.QueryContext(ctx, `SELECT user_id, scope FROM marketing_user_exclusions WHERE enabled = TRUE`)
+	if err != nil {
+		return fmt.Errorf("load marketing user exclusions: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var userID int64
+		var scope string
+		if err := rows.Scan(&userID, &scope); err != nil {
+			return err
+		}
+		if excluded[userID] == nil {
+			excluded[userID] = make(map[string]struct{})
+		}
+		excluded[userID][scope] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	s.campaigns = campaigns
+	s.excluded = excluded
 	s.mu.Unlock()
 	return nil
 }

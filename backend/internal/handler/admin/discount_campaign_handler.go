@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"net/http"
 	"strconv"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -13,6 +14,44 @@ type DiscountCampaignHandler struct {
 	service     *service.DiscountCampaignService
 	totpService *service.TotpService
 	userService *service.UserService
+}
+
+func (h *DiscountCampaignHandler) ListUserExclusions(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Query("user_id"), 10, 64)
+	if err != nil || userID <= 0 {
+		response.BadRequest(c, "Invalid user_id")
+		return
+	}
+	items, err := h.service.ListUserExclusions(c.Request.Context(), userID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, items)
+}
+
+func (h *DiscountCampaignHandler) SetUserExclusion(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	if err != nil || userID <= 0 {
+		response.BadRequest(c, "Invalid user ID")
+		return
+	}
+	var req struct {
+		Scope   string `json:"scope"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if !middleware.EnforceStepUpAlways(c, h.totpService, h.userService) {
+		return
+	}
+	if err := h.service.SetUserExclusion(c.Request.Context(), userID, req.Scope, req.Enabled); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func NewDiscountCampaignHandler(

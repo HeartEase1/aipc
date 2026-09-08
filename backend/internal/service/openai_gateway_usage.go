@@ -204,7 +204,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	)
 	billingModels = s.filterCNProviderBillingModelCandidates(ctx, account, apiKey, billingModels)
 	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
-	discountResolution = resolveOpenAIUsageTokenDiscount(apiKey.Group, result, billingModels, pricingAt, multiplier)
+	discountResolution = resolveOpenAIUsageTokenDiscountForUser(apiKey.Group, apiKey.UserID, result, billingModels, pricingAt, multiplier)
 	if discountResolution != nil {
 		multiplier = discountResolution.EffectiveRateMultiplier
 	}
@@ -651,10 +651,21 @@ func resolveOpenAIUsageTokenDiscount(
 	pricingAt time.Time,
 	multiplier float64,
 ) *DiscountResolution {
+	return resolveOpenAIUsageTokenDiscountForUser(group, 0, result, billingModels, pricingAt, multiplier)
+}
+
+func resolveOpenAIUsageTokenDiscountForUser(
+	group *Group,
+	userID int64,
+	result *OpenAIForwardResult,
+	billingModels []string,
+	pricingAt time.Time,
+	multiplier float64,
+) *DiscountResolution {
 	if isGrokVideoUsageResult(result, billingModels) {
 		return nil
 	}
-	return ResolveTokenDiscount(group, pricingAt, multiplier)
+	return ResolveTokenDiscountForUser(group, userID, pricingAt, multiplier)
 }
 
 func isUsagePricingUnavailableError(err error) bool {

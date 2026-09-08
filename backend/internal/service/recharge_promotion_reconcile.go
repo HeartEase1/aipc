@@ -28,13 +28,13 @@ func (s *PaymentService) reconcileRechargeReservations(ctx context.Context) erro
 	for rows.Next() {
 		var item pending
 		if err := rows.Scan(&item.id, &item.closed); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return err
 		}
 		items = append(items, item)
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return err
 	}
@@ -111,13 +111,13 @@ func (s *PaymentService) releaseClosedRechargeReservation(ctx context.Context, o
 	}
 	if !rows.Next() {
 		err = rows.Err()
-		rows.Close()
+		_ = rows.Close()
 		return err
 	}
 	var promotionID int64
 	var discount string
 	err = rows.Scan(&promotionID, &discount)
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return err
 	}

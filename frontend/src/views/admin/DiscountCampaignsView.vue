@@ -3,6 +3,22 @@
     <div class="mb-5 flex flex-wrap gap-1 rounded-lg bg-gray-100 p-1 dark:bg-dark-800" role="tablist">
       <button v-for="tab in marketingTabs" :key="tab" class="min-w-0 flex-1 rounded-md px-3 py-2 text-sm font-medium" :class="marketingTab === tab ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-600 dark:text-primary-200' : 'text-gray-500 dark:text-gray-400'" role="tab" :aria-selected="marketingTab === tab" @click="marketingTab = tab">{{ t(`balanceMarketing.tabs.${tab}`) }}</button>
     </div>
+    <div class="mb-5 rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+      <div class="flex flex-wrap items-end gap-3">
+        <div class="min-w-52 flex-1">
+          <label class="mb-1 block text-xs font-medium text-amber-900 dark:text-amber-200">用户 ID</label>
+          <input v-model.number="exclusionUserID" type="text" inputmode="numeric" class="input w-full" placeholder="输入用户 ID" />
+        </div>
+        <button class="btn btn-secondary" :disabled="!exclusionUserID || exclusionLoading" @click="loadExclusions">查询排除设置</button>
+      </div>
+      <div v-if="exclusionUserID" class="mt-3 flex flex-wrap gap-4 text-sm text-amber-950 dark:text-amber-100">
+        <label v-for="item in exclusionOptions" :key="item.scope" class="inline-flex items-center gap-2">
+          <input type="checkbox" :checked="exclusionScopes.has(item.scope)" :disabled="exclusionLoading" @change="toggleExclusion(item.scope, $event)" />
+          {{ item.label }}
+        </label>
+      </div>
+      <p class="mt-2 text-xs text-amber-800/80 dark:text-amber-200/70">排除规则由服务端执行，不会改变历史订单或已产生的用量。</p>
+    </div>
     <BalanceMarketingAdmin v-if="marketingTab !== 'usage'" :mode="marketingTab" />
     <div v-show="marketingTab === 'usage'" class="space-y-5">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -250,7 +266,7 @@ import GroupSelector from '@/components/common/GroupSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
 import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import { adminAPI } from '@/api/admin'
-import type { DiscountCampaign, DiscountCampaignRequest, DiscountScheduleType } from '@/api/admin/discountCampaigns'
+import type { DiscountCampaign, DiscountCampaignRequest, DiscountScheduleType, MarketingUserExclusion } from '@/api/admin/discountCampaigns'
 import type { AdminGroup } from '@/types'
 import { useAppStore } from '@/stores'
 import { isStepUpCancelled, useStepUp } from '@/composables/useStepUp'
@@ -275,6 +291,33 @@ const weekdayOptions = [
   { value: 1, key: 'mon' }, { value: 2, key: 'tue' }, { value: 3, key: 'wed' },
   { value: 4, key: 'thu' }, { value: 5, key: 'fri' }, { value: 6, key: 'sat' }, { value: 0, key: 'sun' }
 ] as const
+const exclusionUserID = ref<number | null>(null)
+const exclusionScopes = ref(new Set<MarketingUserExclusion['scope']>())
+const exclusionLoading = ref(false)
+const exclusionOptions: Array<{ scope: MarketingUserExclusion['scope']; label: string }> = [
+  { scope: 'usage', label: '不参与用量折扣' }, { scope: 'recharge', label: '不参与充值活动/首充' },
+  { scope: 'membership', label: '不享受会员折扣' }, { scope: 'all', label: '排除全部营销优惠' }
+]
+
+async function loadExclusions() {
+  if (!exclusionUserID.value) return
+  exclusionLoading.value = true
+  try {
+    const rows = await adminAPI.discountCampaigns.listUserExclusions(exclusionUserID.value)
+    exclusionScopes.value = new Set(rows.filter((row) => row.enabled).map((row) => row.scope))
+  } catch (error: any) { appStore.showError(error?.message || '加载排除设置失败') }
+  finally { exclusionLoading.value = false }
+}
+async function toggleExclusion(scope: MarketingUserExclusion['scope'], event: Event) {
+  if (!exclusionUserID.value) return
+  const enabled = (event.target as HTMLInputElement | null)?.checked === true
+  exclusionLoading.value = true
+  try {
+    await adminAPI.discountCampaigns.setUserExclusion(exclusionUserID.value, scope, enabled)
+    const next = new Set(exclusionScopes.value); enabled ? next.add(scope) : next.delete(scope); exclusionScopes.value = next
+  } catch (error: any) { appStore.showError(error?.message || '保存排除设置失败') }
+  finally { exclusionLoading.value = false }
+}
 
 interface DiscountForm {
   name: string

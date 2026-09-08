@@ -25,7 +25,7 @@ func TestRechargeReservationRevalidatesFrozenOffer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 			mock.ExpectBegin()
 			tx, err := client.Tx(context.Background())
@@ -59,7 +59,7 @@ func TestRechargeRedemptionIsIdempotentAndRejectsReleasedClaims(t *testing.T) {
 		t.Run(status, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 			mock.ExpectQuery("SELECT promotion_id, discount_amount, status.*FOR UPDATE").WithArgs(int64(8)).WillReturnRows(sqlmock.NewRows([]string{"promotion_id", "discount", "status"}).AddRow(1, "10", status))
 			if status == "reserved" {

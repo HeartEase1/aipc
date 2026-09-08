@@ -811,7 +811,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		pricingAt = timezone.Now()
 	}
 	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, pricingAt)
-	discountResolution := ResolveTokenDiscount(apiKey.Group, pricingAt, multiplier)
+	discountResolution := ResolveTokenDiscountForUser(apiKey.Group, user.ID, pricingAt, multiplier)
 	if discountResolution != nil {
 		multiplier = discountResolution.EffectiveRateMultiplier
 	}

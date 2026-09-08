@@ -46,7 +46,7 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.Float("amount").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
 		field.Float("pay_amount").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
 		field.String("settlement_currency").
 			MaxLen(8).
 			Default("CNY"),
