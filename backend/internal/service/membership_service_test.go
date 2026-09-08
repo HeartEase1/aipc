@@ -11,7 +11,7 @@ import (
 func TestMembershipSummaryExcludesIneligibleUsers(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT EXISTS.*FROM users").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 	s := &PaymentService{sqlDB: db}
 	result, err := s.GetMembershipSummary(context.Background(), 7)
@@ -25,7 +25,7 @@ func TestMembershipSummaryExcludesIneligibleUsers(t *testing.T) {
 func TestMembershipSummaryEmptyTiersRemainDisabled(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT EXISTS.*FROM users").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(CASE").WithArgs(int64(7), "CNY", sqlmock.AnyArg(), sqlmock.AnyArg(), 2).WillReturnRows(sqlmock.NewRows([]string{"amount"}).AddRow("75.00000000"))
 	mock.ExpectQuery("SELECT.*EXISTS.*FROM payment_orders").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"unavailable"}).AddRow(true))
@@ -42,7 +42,7 @@ func TestMembershipSummaryEmptyTiersRemainDisabled(t *testing.T) {
 func TestMembershipSummaryChoosesHighestReachedTier(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	mock.ExpectQuery("SELECT EXISTS.*FROM users").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 	mock.ExpectQuery("SELECT COALESCE\\(SUM\\(CASE").WithArgs(int64(7), "CNY", sqlmock.AnyArg(), sqlmock.AnyArg(), 2).WillReturnRows(sqlmock.NewRows([]string{"amount"}).AddRow("300"))
 	mock.ExpectQuery("SELECT.*EXISTS.*FROM payment_orders").WithArgs(int64(7)).WillReturnRows(sqlmock.NewRows([]string{"unavailable"}).AddRow(true))
@@ -96,7 +96,7 @@ func TestMembershipTierCreateRollsBackInconsistentOrdering(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			db, mock, err := sqlmock.New()
 			require.NoError(t, err)
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			mock.ExpectBegin()
 			mock.ExpectExec("LOCK TABLE balance_membership_tiers IN SHARE ROW EXCLUSIVE MODE").WillReturnResult(sqlmock.NewResult(0, 0))
 			mock.ExpectQuery("INSERT INTO balance_membership_tiers").WithArgs("VIP2", "CNY", tc.threshold, tc.discount, 0, true).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(2))

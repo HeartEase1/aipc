@@ -98,7 +98,7 @@ func (s *PaymentService) releaseClosedRechargeReservation(ctx context.Context, o
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	c := tx.Client()
 	if err := lockRechargeUser(ctx, c, userID); err != nil {
 		return err

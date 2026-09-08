@@ -159,7 +159,7 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 		if err != nil {
 			return err
 		}
-		defer tx.Rollback()
+		defer func() { _ = tx.Rollback() }()
 		client = tx.Client()
 		if err := lockRechargeUser(ctx, client, o.UserID); err != nil {
 			return err

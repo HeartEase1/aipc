@@ -81,7 +81,7 @@ func (s *PaymentService) ListMembershipTiers(ctx context.Context) ([]map[string]
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := make([]map[string]any, 0)
 	for rows.Next() {
 		var id int64
@@ -109,7 +109,7 @@ func (s *PaymentService) CreateMembershipTier(ctx context.Context, in Membership
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	// Serialize rule edits, including two concurrent inserts into an empty set.
 	if _, err := tx.ExecContext(ctx, `LOCK TABLE balance_membership_tiers IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return 0, err
@@ -140,7 +140,7 @@ func (s *PaymentService) UpdateMembershipTier(ctx context.Context, id int64, in 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, `LOCK TABLE balance_membership_tiers IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func validateMembershipTierOrder(ctx context.Context, tx *sql.Tx, currency strin
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var previousThreshold, previousDiscount decimal.Decimal
 	hasPrevious := false
 	for rows.Next() {
@@ -292,7 +292,7 @@ func (s *PaymentService) listRechargePromotionCandidates(ctx context.Context, cu
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var result []RechargePromotionCandidate
 	for rows.Next() {
 		var item RechargePromotionCandidate
@@ -383,7 +383,7 @@ func (s *PaymentService) GetMembershipSummary(ctx context.Context, userID int64)
 	if err != nil {
 		return MembershipSummary{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	type tier struct {
 		name                string
 		threshold, discount decimal.Decimal

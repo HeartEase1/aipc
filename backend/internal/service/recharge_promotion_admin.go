@@ -129,7 +129,7 @@ func (s *PaymentService) ListRechargePromotions(ctx context.Context) ([]Recharge
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	items := make([]RechargePromotionAdmin, 0)
 	for rows.Next() {
 		var v RechargePromotionAdmin
@@ -154,7 +154,7 @@ func (s *PaymentService) SaveRechargePromotion(ctx context.Context, id, adminID 
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if id > 0 {
 		var kind, currency, reserved, used string
 		err := tx.QueryRowContext(ctx, `SELECT kind,settlement_currency,reserved_amount,redeemed_amount FROM recharge_promotions WHERE id=$1 FOR UPDATE`, id).Scan(&kind, &currency, &reserved, &used)
