@@ -469,6 +469,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		WeeklyLimitUSD:                  weeklyLimit,
 		MonthlyLimitUSD:                 monthlyLimit,
 		LongContextPricingEnabled:       input.LongContextPricingEnabled,
+		LongContextPricingExemptModels:  normalizeLongContextPricingExemptModels(input.LongContextPricingExemptModels),
 		ModelPricing:                    modelPricing,
 		AllowImageGeneration:            allowImageGeneration,
 		AllowBatchImageGeneration:       allowBatchImageGeneration,
@@ -673,6 +674,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	}
 	if input.LongContextPricingEnabled != nil {
 		group.LongContextPricingEnabled = *input.LongContextPricingEnabled
+	}
+	if input.LongContextPricingExemptModels != nil {
+		group.LongContextPricingExemptModels = normalizeLongContextPricingExemptModels(*input.LongContextPricingExemptModels)
 	}
 	if input.ModelPricing != nil {
 		modelPricing, normalizeErr := normalizeGroupModelPricing(group.Platform, *input.ModelPricing)
@@ -1030,6 +1034,24 @@ func normalizeGroupModelPricing(platform string, pricing []ChannelModelPricing) 
 		return nil, err
 	}
 	return out, nil
+}
+
+func normalizeLongContextPricingExemptModels(models []string) []string {
+	seen := make(map[string]struct{}, len(models))
+	out := make([]string, 0, len(models))
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" || strings.ContainsAny(model, "*?[]") {
+			continue
+		}
+		key := strings.ToLower(model)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, model)
+	}
+	return out
 }
 
 func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {

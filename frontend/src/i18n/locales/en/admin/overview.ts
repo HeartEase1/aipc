@@ -1017,6 +1017,13 @@ export default {
         description: 'Overrides channel and built-in prices for matching models. Long-context tiers come from official presets — do not enter custom intervals. Use per-request tiers such as realtime, tts, and stt for audio.',
         longContext: 'Enable long-context tier pricing',
         longContextHint: 'When checked, channel intervals or official preset tiers apply. Otherwise the first tier is used unless the account explicitly enables long-context billing.',
+        longContextExemptModels: 'Models exempt from long-context charges',
+        longContextExemptModelsPlaceholder: 'Exact model names, separated by commas',
+        longContextExemptModelsHint: 'Matching models do not receive the long-context surcharge. Exact names only; wildcards are not supported.',
+        applyToAllGroups: 'Apply to all groups',
+        longContextExemptModelsPrompt: 'Enter exact model names exempt from long-context charges, separated by commas:',
+        appliedToAllGroups: 'Applied to all groups',
+        applyToAllGroupsFailed: 'Failed to apply to all groups',
         add: 'Add model price'
       },
       voicePricing: {

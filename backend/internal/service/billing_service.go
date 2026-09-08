@@ -1162,6 +1162,7 @@ type CostInput struct {
 	Resolver                  *ModelPricingResolver // 定价解析器
 	Resolved                  *ResolvedPricing      // 可选：预解析的定价结果（避免重复 Resolve 调用）
 	LongContextBillingEnabled *bool
+	LongContextPricingExempt  bool
 }
 
 // CalculateCostUnified 统一计费入口，支持三种计费模式。
@@ -1172,6 +1173,9 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		applyLongContextBilling := true
 		if input.LongContextBillingEnabled != nil {
 			applyLongContextBilling = *input.LongContextBillingEnabled
+		}
+		if input.LongContextPricingExempt || (input.Group != nil && input.Group.IsLongContextPricingExempt(input.Model)) {
+			applyLongContextBilling = false
 		}
 		breakdown, err := s.calculateCostInternalWithPolicy(
 			input.Model,
@@ -1226,8 +1230,11 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 
 	// 分组开关是统一入口；账号 API 开关保留为额外开启能力，但 false 不否决分组配置。
 	contextTierPricingEnabled := resolved.longContextPricingEnabled
-	if input.LongContextBillingEnabled != nil && *input.LongContextBillingEnabled {
+	if !resolved.longContextPricingExempt && input.LongContextBillingEnabled != nil && *input.LongContextBillingEnabled {
 		contextTierPricingEnabled = true
+	}
+	if resolved.longContextPricingExempt {
+		contextTierPricingEnabled = false
 	}
 
 	pricingContext := totalContext
