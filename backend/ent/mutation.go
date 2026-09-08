@@ -22132,124 +22132,126 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
 	config
-	op                                      Op
-	typ                                     string
-	id                                      *int64
-	created_at                              *time.Time
-	updated_at                              *time.Time
-	deleted_at                              *time.Time
-	name                                    *string
-	description                             *string
-	rate_multiplier                         *float64
-	addrate_multiplier                      *float64
-	peak_rate_enabled                       *bool
-	peak_start                              *string
-	peak_end                                *string
-	peak_rate_multiplier                    *float64
-	addpeak_rate_multiplier                 *float64
-	is_exclusive                            *bool
-	status                                  *string
-	duplicate_operation_id                  *string
-	platform                                *string
-	subscription_type                       *string
-	daily_limit_usd                         *float64
-	adddaily_limit_usd                      *float64
-	weekly_limit_usd                        *float64
-	addweekly_limit_usd                     *float64
-	monthly_limit_usd                       *float64
-	addmonthly_limit_usd                    *float64
-	default_validity_days                   *int
-	adddefault_validity_days                *int
-	allow_image_generation                  *bool
-	allow_batch_image_generation            *bool
-	image_rate_independent                  *bool
-	image_rate_multiplier                   *float64
-	addimage_rate_multiplier                *float64
-	image_price_1k                          *float64
-	addimage_price_1k                       *float64
-	image_price_2k                          *float64
-	addimage_price_2k                       *float64
-	image_price_4k                          *float64
-	addimage_price_4k                       *float64
-	batch_image_discount_multiplier         *float64
-	addbatch_image_discount_multiplier      *float64
-	batch_image_hold_multiplier             *float64
-	addbatch_image_hold_multiplier          *float64
-	video_rate_independent                  *bool
-	video_rate_multiplier                   *float64
-	addvideo_rate_multiplier                *float64
-	video_price_480p                        *float64
-	addvideo_price_480p                     *float64
-	video_price_720p                        *float64
-	addvideo_price_720p                     *float64
-	video_price_1080p                       *float64
-	addvideo_price_1080p                    *float64
-	video_model_prices                      *map[string]map[string]float64
-	web_search_price_per_call               *float64
-	addweb_search_price_per_call            *float64
-	search_price_per_1k                     *float64
-	addsearch_price_per_1k                  *float64
-	audio_realtime_price_per_min            *float64
-	addaudio_realtime_price_per_min         *float64
-	audio_tts_price_per_million_chars       *float64
-	addaudio_tts_price_per_million_chars    *float64
-	audio_stt_price_per_hour                *float64
-	addaudio_stt_price_per_hour             *float64
-	long_context_pricing_enabled            *bool
-	model_pricing                           *json.RawMessage
-	appendmodel_pricing                     json.RawMessage
-	claude_code_only                        *bool
-	fallback_group_id                       *int64
-	addfallback_group_id                    *int64
-	fallback_group_id_on_invalid_request    *int64
-	addfallback_group_id_on_invalid_request *int64
-	model_routing                           *map[string][]int64
-	model_routing_enabled                   *bool
-	mcp_xml_inject                          *bool
-	supported_model_scopes                  *[]string
-	appendsupported_model_scopes            []string
-	sort_order                              *int
-	addsort_order                           *int
-	allow_messages_dispatch                 *bool
-	allow_live                              *bool
-	require_oauth_only                      *bool
-	require_privacy_set                     *bool
-	default_mapped_model                    *string
-	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
-	models_list_config                      *domain.GroupModelsListConfig
-	codex_models_manifest_config            *domain.GroupCodexModelsManifestConfig
-	rpm_limit                               *int
-	addrpm_limit                            *int
-	max_reasoning_effort                    *string
-	reasoning_effort_mappings               *[]domain.ReasoningEffortMapping
-	appendreasoning_effort_mappings         []domain.ReasoningEffortMapping
-	profit_control_enabled                  *bool
-	profit_min_margin                       *float64
-	addprofit_min_margin                    *float64
-	profit_safety_buffer                    *float64
-	addprofit_safety_buffer                 *float64
-	clearedFields                           map[string]struct{}
-	api_keys                                map[int64]struct{}
-	removedapi_keys                         map[int64]struct{}
-	clearedapi_keys                         bool
-	redeem_codes                            map[int64]struct{}
-	removedredeem_codes                     map[int64]struct{}
-	clearedredeem_codes                     bool
-	subscriptions                           map[int64]struct{}
-	removedsubscriptions                    map[int64]struct{}
-	clearedsubscriptions                    bool
-	usage_logs                              map[int64]struct{}
-	removedusage_logs                       map[int64]struct{}
-	clearedusage_logs                       bool
-	accounts                                map[int64]struct{}
-	removedaccounts                         map[int64]struct{}
-	clearedaccounts                         bool
-	allowed_users                           map[int64]struct{}
-	removedallowed_users                    map[int64]struct{}
-	clearedallowed_users                    bool
-	done                                    bool
-	oldValue                                func(context.Context) (*Group, error)
-	predicates                              []predicate.Group
+	op                                       Op
+	typ                                      string
+	id                                       *int64
+	created_at                               *time.Time
+	updated_at                               *time.Time
+	deleted_at                               *time.Time
+	name                                     *string
+	description                              *string
+	rate_multiplier                          *float64
+	addrate_multiplier                       *float64
+	peak_rate_enabled                        *bool
+	peak_start                               *string
+	peak_end                                 *string
+	peak_rate_multiplier                     *float64
+	addpeak_rate_multiplier                  *float64
+	is_exclusive                             *bool
+	status                                   *string
+	duplicate_operation_id                   *string
+	platform                                 *string
+	subscription_type                        *string
+	daily_limit_usd                          *float64
+	adddaily_limit_usd                       *float64
+	weekly_limit_usd                         *float64
+	addweekly_limit_usd                      *float64
+	monthly_limit_usd                        *float64
+	addmonthly_limit_usd                     *float64
+	default_validity_days                    *int
+	adddefault_validity_days                 *int
+	allow_image_generation                   *bool
+	allow_batch_image_generation             *bool
+	image_rate_independent                   *bool
+	image_rate_multiplier                    *float64
+	addimage_rate_multiplier                 *float64
+	image_price_1k                           *float64
+	addimage_price_1k                        *float64
+	image_price_2k                           *float64
+	addimage_price_2k                        *float64
+	image_price_4k                           *float64
+	addimage_price_4k                        *float64
+	batch_image_discount_multiplier          *float64
+	addbatch_image_discount_multiplier       *float64
+	batch_image_hold_multiplier              *float64
+	addbatch_image_hold_multiplier           *float64
+	video_rate_independent                   *bool
+	video_rate_multiplier                    *float64
+	addvideo_rate_multiplier                 *float64
+	video_price_480p                         *float64
+	addvideo_price_480p                      *float64
+	video_price_720p                         *float64
+	addvideo_price_720p                      *float64
+	video_price_1080p                        *float64
+	addvideo_price_1080p                     *float64
+	video_model_prices                       *map[string]map[string]float64
+	web_search_price_per_call                *float64
+	addweb_search_price_per_call             *float64
+	search_price_per_1k                      *float64
+	addsearch_price_per_1k                   *float64
+	audio_realtime_price_per_min             *float64
+	addaudio_realtime_price_per_min          *float64
+	audio_tts_price_per_million_chars        *float64
+	addaudio_tts_price_per_million_chars     *float64
+	audio_stt_price_per_hour                 *float64
+	addaudio_stt_price_per_hour              *float64
+	long_context_pricing_enabled             *bool
+	long_context_pricing_exempt_models       *[]string
+	appendlong_context_pricing_exempt_models []string
+	model_pricing                            *json.RawMessage
+	appendmodel_pricing                      json.RawMessage
+	claude_code_only                         *bool
+	fallback_group_id                        *int64
+	addfallback_group_id                     *int64
+	fallback_group_id_on_invalid_request     *int64
+	addfallback_group_id_on_invalid_request  *int64
+	model_routing                            *map[string][]int64
+	model_routing_enabled                    *bool
+	mcp_xml_inject                           *bool
+	supported_model_scopes                   *[]string
+	appendsupported_model_scopes             []string
+	sort_order                               *int
+	addsort_order                            *int
+	allow_messages_dispatch                  *bool
+	allow_live                               *bool
+	require_oauth_only                       *bool
+	require_privacy_set                      *bool
+	default_mapped_model                     *string
+	messages_dispatch_model_config           *domain.OpenAIMessagesDispatchModelConfig
+	models_list_config                       *domain.GroupModelsListConfig
+	codex_models_manifest_config             *domain.GroupCodexModelsManifestConfig
+	rpm_limit                                *int
+	addrpm_limit                             *int
+	max_reasoning_effort                     *string
+	reasoning_effort_mappings                *[]domain.ReasoningEffortMapping
+	appendreasoning_effort_mappings          []domain.ReasoningEffortMapping
+	profit_control_enabled                   *bool
+	profit_min_margin                        *float64
+	addprofit_min_margin                     *float64
+	profit_safety_buffer                     *float64
+	addprofit_safety_buffer                  *float64
+	clearedFields                            map[string]struct{}
+	api_keys                                 map[int64]struct{}
+	removedapi_keys                          map[int64]struct{}
+	clearedapi_keys                          bool
+	redeem_codes                             map[int64]struct{}
+	removedredeem_codes                      map[int64]struct{}
+	clearedredeem_codes                      bool
+	subscriptions                            map[int64]struct{}
+	removedsubscriptions                     map[int64]struct{}
+	clearedsubscriptions                     bool
+	usage_logs                               map[int64]struct{}
+	removedusage_logs                        map[int64]struct{}
+	clearedusage_logs                        bool
+	accounts                                 map[int64]struct{}
+	removedaccounts                          map[int64]struct{}
+	clearedaccounts                          bool
+	allowed_users                            map[int64]struct{}
+	removedallowed_users                     map[int64]struct{}
+	clearedallowed_users                     bool
+	done                                     bool
+	oldValue                                 func(context.Context) (*Group, error)
+	predicates                               []predicate.Group
 }
 
 var _ ent.Mutation = (*GroupMutation)(nil)
@@ -24458,6 +24460,57 @@ func (m *GroupMutation) ResetLongContextPricingEnabled() {
 	m.long_context_pricing_enabled = nil
 }
 
+// SetLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field.
+func (m *GroupMutation) SetLongContextPricingExemptModels(s []string) {
+	m.long_context_pricing_exempt_models = &s
+	m.appendlong_context_pricing_exempt_models = nil
+}
+
+// LongContextPricingExemptModels returns the value of the "long_context_pricing_exempt_models" field in the mutation.
+func (m *GroupMutation) LongContextPricingExemptModels() (r []string, exists bool) {
+	v := m.long_context_pricing_exempt_models
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLongContextPricingExemptModels returns the old "long_context_pricing_exempt_models" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLongContextPricingExemptModels(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLongContextPricingExemptModels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLongContextPricingExemptModels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLongContextPricingExemptModels: %w", err)
+	}
+	return oldValue.LongContextPricingExemptModels, nil
+}
+
+// AppendLongContextPricingExemptModels adds s to the "long_context_pricing_exempt_models" field.
+func (m *GroupMutation) AppendLongContextPricingExemptModels(s []string) {
+	m.appendlong_context_pricing_exempt_models = append(m.appendlong_context_pricing_exempt_models, s...)
+}
+
+// AppendedLongContextPricingExemptModels returns the list of values that were appended to the "long_context_pricing_exempt_models" field in this mutation.
+func (m *GroupMutation) AppendedLongContextPricingExemptModels() ([]string, bool) {
+	if len(m.appendlong_context_pricing_exempt_models) == 0 {
+		return nil, false
+	}
+	return m.appendlong_context_pricing_exempt_models, true
+}
+
+// ResetLongContextPricingExemptModels resets all changes to the "long_context_pricing_exempt_models" field.
+func (m *GroupMutation) ResetLongContextPricingExemptModels() {
+	m.long_context_pricing_exempt_models = nil
+	m.appendlong_context_pricing_exempt_models = nil
+}
+
 // SetModelPricing sets the "model_pricing" field.
 func (m *GroupMutation) SetModelPricing(jm json.RawMessage) {
 	m.model_pricing = &jm
@@ -25864,7 +25917,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 63)
+	fields := make([]string, 0, 64)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -25984,6 +26037,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.long_context_pricing_enabled != nil {
 		fields = append(fields, group.FieldLongContextPricingEnabled)
+	}
+	if m.long_context_pricing_exempt_models != nil {
+		fields = append(fields, group.FieldLongContextPricingExemptModels)
 	}
 	if m.model_pricing != nil {
 		fields = append(fields, group.FieldModelPricing)
@@ -26142,6 +26198,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.AudioSttPricePerHour()
 	case group.FieldLongContextPricingEnabled:
 		return m.LongContextPricingEnabled()
+	case group.FieldLongContextPricingExemptModels:
+		return m.LongContextPricingExemptModels()
 	case group.FieldModelPricing:
 		return m.ModelPricing()
 	case group.FieldClaudeCodeOnly:
@@ -26277,6 +26335,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAudioSttPricePerHour(ctx)
 	case group.FieldLongContextPricingEnabled:
 		return m.OldLongContextPricingEnabled(ctx)
+	case group.FieldLongContextPricingExemptModels:
+		return m.OldLongContextPricingExemptModels(ctx)
 	case group.FieldModelPricing:
 		return m.OldModelPricing(ctx)
 	case group.FieldClaudeCodeOnly:
@@ -26611,6 +26671,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLongContextPricingEnabled(v)
+		return nil
+	case group.FieldLongContextPricingExemptModels:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLongContextPricingExemptModels(v)
 		return nil
 	case group.FieldModelPricing:
 		v, ok := value.(json.RawMessage)
@@ -27403,6 +27470,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldLongContextPricingEnabled:
 		m.ResetLongContextPricingEnabled()
+		return nil
+	case group.FieldLongContextPricingExemptModels:
+		m.ResetLongContextPricingExemptModels()
 		return nil
 	case group.FieldModelPricing:
 		m.ResetModelPricing()

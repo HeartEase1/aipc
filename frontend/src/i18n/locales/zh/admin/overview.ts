@@ -1014,6 +1014,13 @@ export default {
         description: '匹配模型后覆盖渠道和内置价格。长上下文阶梯沿用官方/预设价卡，无需再手填区间。音频可用按次层级配置 realtime、tts、stt。',
         longContext: '启用长上下文阶梯定价',
         longContextHint: '勾选后按渠道区间或官方预设阶梯计费；关闭后默认按第一档，账号显式开启时除外。',
+        longContextExemptModels: '免收长上下文费用的模型',
+        longContextExemptModelsPlaceholder: '输入精确模型名，多个模型用逗号分隔',
+        longContextExemptModelsHint: '命中的模型不收取长上下文附加价；仅支持精确模型名，不支持通配符。',
+        applyToAllGroups: '应用到全部分组',
+        longContextExemptModelsPrompt: '请输入免收长上下文费用的精确模型名，多个模型用逗号分隔：',
+        appliedToAllGroups: '已应用到全部分组',
+        applyToAllGroupsFailed: '应用到全部分组失败',
         add: '添加模型价格'
       },
       voicePricing: {

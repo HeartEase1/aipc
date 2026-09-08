@@ -574,6 +574,12 @@ func (_c *GroupCreate) SetNillableLongContextPricingEnabled(v *bool) *GroupCreat
 	return _c
 }
 
+// SetLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field.
+func (_c *GroupCreate) SetLongContextPricingExemptModels(v []string) *GroupCreate {
+	_c.mutation.SetLongContextPricingExemptModels(v)
+	return _c
+}
+
 // SetModelPricing sets the "model_pricing" field.
 func (_c *GroupCreate) SetModelPricing(v json.RawMessage) *GroupCreate {
 	_c.mutation.SetModelPricing(v)
@@ -1081,6 +1087,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultLongContextPricingEnabled
 		_c.mutation.SetLongContextPricingEnabled(v)
 	}
+	if _, ok := _c.mutation.LongContextPricingExemptModels(); !ok {
+		v := group.DefaultLongContextPricingExemptModels
+		_c.mutation.SetLongContextPricingExemptModels(v)
+	}
 	if _, ok := _c.mutation.ClaudeCodeOnly(); !ok {
 		v := group.DefaultClaudeCodeOnly
 		_c.mutation.SetClaudeCodeOnly(v)
@@ -1282,6 +1292,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.LongContextPricingEnabled(); !ok {
 		return &ValidationError{Name: "long_context_pricing_enabled", err: errors.New(`ent: missing required field "Group.long_context_pricing_enabled"`)}
+	}
+	if _, ok := _c.mutation.LongContextPricingExemptModels(); !ok {
+		return &ValidationError{Name: "long_context_pricing_exempt_models", err: errors.New(`ent: missing required field "Group.long_context_pricing_exempt_models"`)}
 	}
 	if _, ok := _c.mutation.ClaudeCodeOnly(); !ok {
 		return &ValidationError{Name: "claude_code_only", err: errors.New(`ent: missing required field "Group.claude_code_only"`)}
@@ -1536,6 +1549,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.LongContextPricingEnabled(); ok {
 		_spec.SetField(group.FieldLongContextPricingEnabled, field.TypeBool, value)
 		_node.LongContextPricingEnabled = value
+	}
+	if value, ok := _c.mutation.LongContextPricingExemptModels(); ok {
+		_spec.SetField(group.FieldLongContextPricingExemptModels, field.TypeJSON, value)
+		_node.LongContextPricingExemptModels = value
 	}
 	if value, ok := _c.mutation.ModelPricing(); ok {
 		_spec.SetField(group.FieldModelPricing, field.TypeJSON, value)
@@ -2466,6 +2483,18 @@ func (u *GroupUpsert) SetLongContextPricingEnabled(v bool) *GroupUpsert {
 // UpdateLongContextPricingEnabled sets the "long_context_pricing_enabled" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateLongContextPricingEnabled() *GroupUpsert {
 	u.SetExcluded(group.FieldLongContextPricingEnabled)
+	return u
+}
+
+// SetLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field.
+func (u *GroupUpsert) SetLongContextPricingExemptModels(v []string) *GroupUpsert {
+	u.Set(group.FieldLongContextPricingExemptModels, v)
+	return u
+}
+
+// UpdateLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateLongContextPricingExemptModels() *GroupUpsert {
+	u.SetExcluded(group.FieldLongContextPricingExemptModels)
 	return u
 }
 
@@ -3648,6 +3677,20 @@ func (u *GroupUpsertOne) SetLongContextPricingEnabled(v bool) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateLongContextPricingEnabled() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateLongContextPricingEnabled()
+	})
+}
+
+// SetLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field.
+func (u *GroupUpsertOne) SetLongContextPricingExemptModels(v []string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLongContextPricingExemptModels(v)
+	})
+}
+
+// UpdateLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateLongContextPricingExemptModels() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLongContextPricingExemptModels()
 	})
 }
 
@@ -5052,6 +5095,20 @@ func (u *GroupUpsertBulk) SetLongContextPricingEnabled(v bool) *GroupUpsertBulk 
 func (u *GroupUpsertBulk) UpdateLongContextPricingEnabled() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateLongContextPricingEnabled()
+	})
+}
+
+// SetLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field.
+func (u *GroupUpsertBulk) SetLongContextPricingExemptModels(v []string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetLongContextPricingExemptModels(v)
+	})
+}
+
+// UpdateLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateLongContextPricingExemptModels() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateLongContextPricingExemptModels()
 	})
 }
 

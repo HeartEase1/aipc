@@ -108,6 +108,13 @@
               <Icon name="plus" size="md" class="mr-2" />
               {{ t("admin.groups.createGroup") }}
             </button>
+            <button
+              @click="applyLongContextExemptModelsToAllGroups"
+              class="btn btn-secondary"
+              :title="t('admin.groups.modelPricing.applyToAllGroups')"
+            >
+              {{ t("admin.groups.modelPricing.applyToAllGroups") }}
+            </button>
           </div>
         </div>
       </template>
@@ -1522,6 +1529,11 @@
             <input v-model="createForm.long_context_pricing_enabled" type="checkbox" class="mt-0.5" />
             <span><span class="block text-sm text-gray-700 dark:text-gray-300">{{ t("admin.groups.modelPricing.longContext") }}</span><span class="block text-xs text-gray-500">{{ t("admin.groups.modelPricing.longContextHint") }}</span></span>
           </label>
+          <div class="mt-3">
+            <label class="input-label">{{ t("admin.groups.modelPricing.longContextExemptModels") }}</label>
+            <input v-model="createForm.long_context_pricing_exempt_models_text" type="text" class="input" :placeholder="t('admin.groups.modelPricing.longContextExemptModelsPlaceholder')" />
+            <p class="input-hint">{{ t("admin.groups.modelPricing.longContextExemptModelsHint") }}</p>
+          </div>
           <div class="mt-3 space-y-2">
             <PricingEntryCard v-for="(entry, index) in createForm.model_pricing" :key="index" :entry="entry" :platform="createForm.platform" hide-token-intervals @update="createForm.model_pricing[index] = $event" @remove="createForm.model_pricing.splice(index, 1)" />
           </div>
@@ -3261,6 +3273,11 @@
             <input v-model="editForm.long_context_pricing_enabled" type="checkbox" class="mt-0.5" />
             <span><span class="block text-sm text-gray-700 dark:text-gray-300">{{ t("admin.groups.modelPricing.longContext") }}</span><span class="block text-xs text-gray-500">{{ t("admin.groups.modelPricing.longContextHint") }}</span></span>
           </label>
+          <div class="mt-3">
+            <label class="input-label">{{ t("admin.groups.modelPricing.longContextExemptModels") }}</label>
+            <input v-model="editForm.long_context_pricing_exempt_models_text" type="text" class="input" :placeholder="t('admin.groups.modelPricing.longContextExemptModelsPlaceholder')" />
+            <p class="input-hint">{{ t("admin.groups.modelPricing.longContextExemptModelsHint") }}</p>
+          </div>
           <div class="mt-3 space-y-2">
             <PricingEntryCard v-for="(entry, index) in editForm.model_pricing" :key="index" :entry="entry" :platform="editForm.platform" hide-token-intervals @update="editForm.model_pricing[index] = $event" @remove="editForm.model_pricing.splice(index, 1)" />
           </div>
@@ -5089,6 +5106,7 @@ const createForm = reactive({
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
+  long_context_pricing_exempt_models_text: "",
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -5451,6 +5469,7 @@ const editForm = reactive({
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
+  long_context_pricing_exempt_models_text: "",
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -5894,6 +5913,30 @@ const openCreateModal = () => {
   loadModelsListCandidates("create", 0, createForm.platform);
 };
 
+const applyLongContextExemptModelsToAllGroups = async () => {
+  const value = window.prompt(
+    t("admin.groups.modelPricing.longContextExemptModelsPrompt"),
+  );
+  if (value === null) return;
+  const models = parseLongContextExemptModels(value);
+  try {
+    const groups = await adminAPI.groups.getAllIncludingInactive();
+    await Promise.all(
+      groups.map((group) =>
+        adminAPI.groups.update(group.id, {
+          long_context_pricing_exempt_models: models,
+        }),
+      ),
+    );
+    appStore.showSuccess(t("admin.groups.modelPricing.appliedToAllGroups"));
+    await loadGroups();
+  } catch (error: any) {
+    appStore.showError(
+      extractApiErrorMessage(error, t("admin.groups.modelPricing.applyToAllGroupsFailed")),
+    );
+  }
+};
+
 const closeCreateModal = () => {
   showCreateModal.value = false;
   createModelRoutingRules.value.forEach((rule) => {
@@ -5925,6 +5968,7 @@ const closeCreateModal = () => {
   createForm.video_price_1080p = null;
   createForm.video_model_prices = createVideoModelPricesForm();
   createForm.long_context_pricing_enabled = true;
+  createForm.long_context_pricing_exempt_models_text = "";
   createForm.model_pricing = [];
   createForm.web_search_price_per_call = null;
   createForm.search_price_per_1k = null;
@@ -5985,6 +6029,20 @@ const normalizeRateMultiplier = (
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
 };
 
+const parseLongContextExemptModels = (value: string): string[] => {
+  const seen = new Set<string>();
+  return value
+    .split(",")
+    .map((model) => model.trim())
+    .filter((model) => model.length > 0)
+    .filter((model) => {
+      const key = model.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return !/[?*\[\]]/.test(model);
+    });
+};
+
 // 利润控制表单辅助（换算与校验逻辑见 groupsProfitControl.ts，便于单测）。
 const percentToDecimal = profitPercentToDecimal;
 const decimalToPercent = profitDecimalToPercent;
@@ -6025,6 +6083,7 @@ const handleCreateGroup = async () => {
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createGroupForm,
+      long_context_pricing_exempt_models: parseLongContextExemptModels(createForm.long_context_pricing_exempt_models_text),
       model_pricing: groupPricingToAPI(
         createForm.model_pricing,
         createForm.platform,
@@ -6155,6 +6214,8 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.monthly_limit_usd = group.monthly_limit_usd;
   editForm.long_context_pricing_enabled =
     group.long_context_pricing_enabled ?? true;
+  editForm.long_context_pricing_exempt_models_text =
+    (group.long_context_pricing_exempt_models ?? []).join(", ");
   editForm.model_pricing = groupPricingFromAPI(group.model_pricing);
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.allow_batch_image_generation =
@@ -6329,6 +6390,7 @@ const handleUpdateGroup = async () => {
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,
+      long_context_pricing_exempt_models: parseLongContextExemptModels(editForm.long_context_pricing_exempt_models_text),
       model_pricing: groupPricingToAPI(
         editForm.model_pricing,
         editForm.platform,
