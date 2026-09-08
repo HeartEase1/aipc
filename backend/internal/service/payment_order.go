@@ -294,7 +294,7 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 			original, _ := strconv.ParseFloat(quote.OriginalAmount, 64)
 			discounted, _ := strconv.ParseFloat(quote.DiscountedAmount, 64)
 			discount, _ := strconv.ParseFloat(quote.DiscountAmount, 64)
-			snapshot := map[string]interface{}{
+			snapshot := map[string]any{
 				"original_amount": quote.OriginalAmount, "discounted_amount": quote.DiscountedAmount,
 				"discount_amount": quote.DiscountAmount, "fee_amount": quote.FeeAmount,
 				"pay_amount": quote.PayAmount, "credited_amount": quote.CreditedAmount,

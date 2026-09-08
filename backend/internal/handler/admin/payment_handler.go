@@ -187,7 +187,7 @@ func (h *PaymentHandler) RetryFulfillment(c *gin.Context) {
 }
 
 type AdminPaymentOrderResult struct {
-	Pricing map[string]interface{} `json:"pricing,omitempty"`
+	Pricing map[string]any `json:"pricing,omitempty"`
 
 	OriginalAmount      *float64   `json:"original_amount,omitempty"`
 	DiscountedAmount    *float64   `json:"discounted_amount,omitempty"`
