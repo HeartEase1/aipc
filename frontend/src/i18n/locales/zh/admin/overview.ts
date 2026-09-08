@@ -1015,6 +1015,7 @@ export default {
         longContext: '启用长上下文阶梯定价',
         longContextHint: '勾选后按渠道区间或官方预设阶梯计费；关闭后默认按第一档，账号显式开启时除外。',
         longContextExemptModels: '免收长上下文费用的模型',
+        longContextExemptModelsSelect: '从当前分组模型列表选择',
         longContextExemptModelsPlaceholder: '输入精确模型名，多个模型用逗号分隔',
         longContextExemptModelsHint: '命中的模型不收取长上下文附加价；仅支持精确模型名，不支持通配符。',
         applyToAllGroups: '应用到全部分组',

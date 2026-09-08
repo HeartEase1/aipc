@@ -1018,6 +1018,7 @@ export default {
         longContext: 'Enable long-context tier pricing',
         longContextHint: 'When checked, channel intervals or official preset tiers apply. Otherwise the first tier is used unless the account explicitly enables long-context billing.',
         longContextExemptModels: 'Models exempt from long-context charges',
+        longContextExemptModelsSelect: 'Choose from this group\'s model list',
         longContextExemptModelsPlaceholder: 'Exact model names, separated by commas',
         longContextExemptModelsHint: 'Matching models do not receive the long-context surcharge. Exact names only; wildcards are not supported.',
         applyToAllGroups: 'Apply to all groups',

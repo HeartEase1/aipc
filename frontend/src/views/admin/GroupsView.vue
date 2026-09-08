@@ -1531,7 +1531,21 @@
           </label>
           <div class="mt-3">
             <label class="input-label">{{ t("admin.groups.modelPricing.longContextExemptModels") }}</label>
-            <input v-model="createForm.long_context_pricing_exempt_models_text" type="text" class="input" :placeholder="t('admin.groups.modelPricing.longContextExemptModelsPlaceholder')" />
+            <div class="rounded-lg border border-gray-200 bg-white p-2 dark:border-dark-600 dark:bg-dark-800">
+              <div class="mb-2 flex flex-wrap gap-1.5">
+                <span v-for="model in parseLongContextExemptModels(createForm.long_context_pricing_exempt_models_text)" :key="model" class="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                  {{ model }}
+                  <button type="button" class="text-primary-500 hover:text-primary-700" @click="removeLongContextExemptModel(createForm, model)">×</button>
+                </span>
+              </div>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <select class="input min-w-0 flex-1" @change="addLongContextExemptModel(createForm, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
+                  <option value="">{{ t('admin.groups.modelPricing.longContextExemptModelsSelect') }}</option>
+                  <option v-for="model in createModelsListCandidateIDs" :key="model" :value="model">{{ model }}</option>
+                </select>
+                <input v-model="createForm.long_context_pricing_exempt_models_input" type="text" class="input min-w-0 flex-1" :placeholder="t('admin.groups.modelPricing.longContextExemptModelsPlaceholder')" @keydown.enter.prevent="addLongContextExemptModel(createForm, createForm.long_context_pricing_exempt_models_input)" @paste="pasteLongContextExemptModels($event, createForm)" />
+              </div>
+            </div>
             <p class="input-hint">{{ t("admin.groups.modelPricing.longContextExemptModelsHint") }}</p>
           </div>
           <div class="mt-3 space-y-2">
@@ -3275,7 +3289,21 @@
           </label>
           <div class="mt-3">
             <label class="input-label">{{ t("admin.groups.modelPricing.longContextExemptModels") }}</label>
-            <input v-model="editForm.long_context_pricing_exempt_models_text" type="text" class="input" :placeholder="t('admin.groups.modelPricing.longContextExemptModelsPlaceholder')" />
+            <div class="rounded-lg border border-gray-200 bg-white p-2 dark:border-dark-600 dark:bg-dark-800">
+              <div class="mb-2 flex flex-wrap gap-1.5">
+                <span v-for="model in parseLongContextExemptModels(editForm.long_context_pricing_exempt_models_text)" :key="model" class="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                  {{ model }}
+                  <button type="button" class="text-primary-500 hover:text-primary-700" @click="removeLongContextExemptModel(editForm, model)">×</button>
+                </span>
+              </div>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <select class="input min-w-0 flex-1" @change="addLongContextExemptModel(editForm, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
+                  <option value="">{{ t('admin.groups.modelPricing.longContextExemptModelsSelect') }}</option>
+                  <option v-for="model in editModelsListCandidateIDs" :key="model" :value="model">{{ model }}</option>
+                </select>
+                <input v-model="editForm.long_context_pricing_exempt_models_input" type="text" class="input min-w-0 flex-1" :placeholder="t('admin.groups.modelPricing.longContextExemptModelsPlaceholder')" @keydown.enter.prevent="addLongContextExemptModel(editForm, editForm.long_context_pricing_exempt_models_input)" @paste="pasteLongContextExemptModels($event, editForm)" />
+              </div>
+            </div>
             <p class="input-hint">{{ t("admin.groups.modelPricing.longContextExemptModelsHint") }}</p>
           </div>
           <div class="mt-3 space-y-2">
@@ -5107,6 +5135,7 @@ const createForm = reactive({
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
   long_context_pricing_exempt_models_text: "",
+  long_context_pricing_exempt_models_input: "",
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -5470,6 +5499,7 @@ const editForm = reactive({
   monthly_limit_usd: null as number | null,
   long_context_pricing_enabled: true,
   long_context_pricing_exempt_models_text: "",
+  long_context_pricing_exempt_models_input: "",
   model_pricing: [] as PricingFormEntry[],
   // 图片生成计费配置
   allow_image_generation: false,
@@ -6041,6 +6071,50 @@ const parseLongContextExemptModels = (value: string): string[] => {
       seen.add(key);
       return !/[?*\[\]]/.test(model);
     });
+};
+
+type LongContextExemptModelForm = {
+  long_context_pricing_exempt_models_text: string;
+  long_context_pricing_exempt_models_input: string;
+};
+
+const addLongContextExemptModel = (
+  form: LongContextExemptModelForm,
+  rawValue: string,
+) => {
+  const existing = parseLongContextExemptModels(form.long_context_pricing_exempt_models_text);
+  const incoming = rawValue
+    .split(/[\s,，;；]+/)
+    .map((model) => model.trim())
+    .filter((model) => model.length > 0 && !/[?*\[\]]/.test(model));
+  const seen = new Set(existing.map((model) => model.toLowerCase()));
+  for (const model of incoming) {
+    if (!seen.has(model.toLowerCase())) {
+      existing.push(model);
+      seen.add(model.toLowerCase());
+    }
+  }
+  form.long_context_pricing_exempt_models_text = existing.join(", ");
+  form.long_context_pricing_exempt_models_input = "";
+};
+
+const removeLongContextExemptModel = (
+  form: LongContextExemptModelForm,
+  model: string,
+) => {
+  form.long_context_pricing_exempt_models_text = parseLongContextExemptModels(
+    form.long_context_pricing_exempt_models_text,
+  ).filter((item) => item.toLowerCase() !== model.toLowerCase()).join(", ");
+};
+
+const pasteLongContextExemptModels = (
+  event: ClipboardEvent,
+  form: LongContextExemptModelForm,
+) => {
+  const text = event.clipboardData?.getData("text") ?? "";
+  if (!text) return;
+  event.preventDefault();
+  addLongContextExemptModel(form, text);
 };
 
 // 利润控制表单辅助（换算与校验逻辑见 groupsProfitControl.ts，便于单测）。
