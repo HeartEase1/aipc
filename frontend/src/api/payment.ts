@@ -35,6 +35,7 @@ export interface MembershipSummary {
   amount_to_next?: string
   progress_percent: string
   first_recharge_eligible: boolean
+  first_recharge_status?: 'eligible' | 'reserved' | 'used' | 'ineligible'
 }
 
 export interface RechargeQuote {

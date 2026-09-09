@@ -22,6 +22,7 @@ const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
+const getMembership = vi.hoisted(() => vi.fn().mockResolvedValue({ data: { enabled: false, current_discount_percent: '0' } }))
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
@@ -81,7 +82,7 @@ vi.mock('@/stores', () => ({
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
     getCheckoutInfo,
-    getMembership: vi.fn().mockResolvedValue({ data: { enabled: false, current_discount_percent: '0' } }),
+    getMembership,
     quote: vi.fn().mockImplementation((amount: string) => Promise.resolve({ data: { original_amount: amount, discounted_amount: amount, discount_amount: '0', fee_amount: '0', pay_amount: amount, credited_amount: amount, currency: 'CNY' } })),
   },
 }))
@@ -564,6 +565,25 @@ describe('PaymentView payment recovery', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="method-selector"]').text()).toBe('ldc')
+  })
+})
+
+describe('PaymentView account summary appearance', () => {
+  it.each([null, { name: 'VIP', discount_percent: '1' }])('keeps the profile-style background with tier %j', async (tier) => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    window.localStorage.clear()
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture())
+    getMembership.mockResolvedValueOnce({ data: { enabled: true, current_tier: tier, current_discount_percent: tier ? '1' : '0' } })
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true } },
+    })
+    await flushPromises()
+    const card = wrapper.get('[data-testid="recharge-account-card"]')
+    expect(card.classes()).toEqual(expect.arrayContaining([
+      'account-summary-surface', 'bg-gradient-to-br', 'from-primary-50', 'to-amber-50/70',
+    ]))
+    wrapper.unmount()
   })
 })
 

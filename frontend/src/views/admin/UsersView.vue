@@ -431,6 +431,16 @@
             </span>
           </template>
 
+          <template #cell-membership="{ row }">
+            <div v-if="membershipStats[row.id]" class="min-w-36 space-y-1 text-sm">
+              <p class="font-medium text-primary-700 dark:text-primary-300">{{ membershipStats[row.id].current_tier || t('payment.membership.defaultTier') }}</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('balanceMarketing.rollingPaid') }}: {{ membershipStats[row.id].settlement_currency }} {{ Number(membershipStats[row.id].current_amount).toFixed(2) }}</p>
+            </div>
+            <span v-else class="text-xs text-gray-400">{{ membershipLoadFailed ? t('balanceMarketing.error') : t('common.loading') }}</span>
+          </template>
+          <template #cell-total_recharged="{ row }">
+            <span class="whitespace-nowrap text-sm" :title="t('balanceMarketing.totalRechargedHint')">{{ row.total_recharged == null ? '-' : `$${row.total_recharged.toFixed(2)}` }}</span>
+          </template>
           <template #cell-balance="{ value, row }">
             <div class="flex items-center gap-2">
               <div class="group relative">
@@ -794,6 +804,7 @@ import Icon from '@/components/icons/Icon.vue'
 const { t } = useI18n()
 const router = useRouter()
 import { adminAPI } from '@/api/admin'
+import { getMembershipSummaries, type AdminMembershipSummary } from '@/api/admin/payment'
 import type { AdminUser, AdminGroup, UserAttributeDefinition } from '@/types'
 import type { BatchUserUsageStats } from '@/api/admin/dashboard'
 import type { PlatformQuotaItem } from '@/api/admin/users'
@@ -883,6 +894,8 @@ const allColumns = computed<Column[]>(() => [
   { key: 'groups', label: t('admin.users.columns.groups'), sortable: false },
   { key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
+  { key: 'membership', label: t('balanceMarketing.tier'), sortable: false },
+  { key: 'total_recharged', label: t('balanceMarketing.totalRecharged'), sortable: false },
   { key: 'balance_platform_quota', label: t('admin.users.columns.balancePlatformQuota'), sortable: false },
   { key: 'usage', label: t('admin.users.columns.usage'), sortable: false },
   { key: 'usage_anthropic', label: t('admin.users.columns.usageAnthropic'), sortable: false },
@@ -989,7 +1002,7 @@ const toggleColumn = (key: string) => {
     hiddenColumns.add(key)
   }
   saveColumnsToStorage()
-  if (wasHidden && (key === 'usage' || key.startsWith('usage_') || key.startsWith('attr_') || key === 'balance_platform_quota')) {
+  if (wasHidden && (key === 'membership' || key === 'usage' || key.startsWith('usage_') || key.startsWith('attr_') || key === 'balance_platform_quota')) {
     refreshCurrentPageSecondaryData()
   }
   if (key === 'subscriptions') {
@@ -1357,6 +1370,8 @@ const closePlatformQuotaModal = () => {
 }
 let abortController: AbortController | null = null
 let secondaryDataSeq = 0
+const membershipStats = ref<Record<number, AdminMembershipSummary>>({})
+const membershipLoadFailed = ref(false)
 
 const loadUsersSecondaryData = async (
   userIds: number[],
@@ -1366,6 +1381,20 @@ const loadUsersSecondaryData = async (
   if (userIds.length === 0) return
 
   const tasks: Promise<void>[] = []
+
+  if (!hiddenColumns.has('membership')) {
+    tasks.push((async () => {
+      try {
+        const result = await getMembershipSummaries(userIds, signal)
+        if (signal?.aborted || (expectedSeq !== undefined && expectedSeq !== secondaryDataSeq)) return
+        membershipStats.value = result
+        membershipLoadFailed.value = false
+      } catch {
+        if (signal?.aborted || (expectedSeq !== undefined && expectedSeq !== secondaryDataSeq)) return
+        membershipLoadFailed.value = true
+      }
+    })())
+  }
 
   if (hasVisibleUsageColumn.value) {
     tasks.push(
@@ -1611,6 +1640,8 @@ const loadUsers = async () => {
       return
     }
     users.value = response.items
+    membershipStats.value = {}
+    membershipLoadFailed.value = false
     pagination.total = response.total
     pagination.pages = response.pages
     usageStats.value = {}

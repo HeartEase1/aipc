@@ -12,7 +12,7 @@
       <p class="text-xs text-gray-500 dark:text-gray-400">{{ summary.next_tier ? t('balanceMarketing.nextTier', { amount: amountOnly(summary.amount_to_next || '0'), tier: summary.next_tier }) : t('payment.membership.maxTier') }}</p>
       <p>{{ t('balanceMarketing.memberBenefit', { percent: Number(summary.current_discount_percent) }) }}</p>
     </template>
-    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t(summary.first_recharge_eligible ? 'balanceMarketing.firstEligible' : 'balanceMarketing.firstUnavailable') }}</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t(summary.first_recharge_status ? `balanceMarketing.firstStates.${summary.first_recharge_status}` : summary.first_recharge_eligible ? 'balanceMarketing.firstEligible' : 'balanceMarketing.firstUnavailable') }}</p>
     <BaseDialog :show="showRules" :title="t('balanceMarketing.rules')" size="md" @close="showRules = false">
       <div class="space-y-4 text-sm leading-6 text-gray-700 dark:text-gray-300">
         <p>{{ t('balanceMarketing.ruleWindow', { currency: summary.settlement_currency, hours: summary.rules?.window_hours || 720 }) }}</p>

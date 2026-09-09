@@ -135,6 +135,7 @@ func RegisterAdminRoutes(
 }
 
 func registerMembershipRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	admin.POST("/payment/membership-summaries", h.Admin.Payment.GetMembershipSummaries)
 	tiers := admin.Group("/payment/membership-tiers")
 	tiers.GET("", h.Admin.Payment.ListMembershipTiers)
 	tiers.POST("", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.CreateMembershipTier)

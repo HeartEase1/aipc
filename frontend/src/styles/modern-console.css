@@ -652,7 +652,7 @@ html.dark[data-console-ui-mode='modern'] {
 }
 
 .modern-console-shell :is(.card, .glass-card, .card-glass, .stat-card):not(
-    .profile-overview-hero
+    .account-summary-surface
   ) {
   background: var(--console-surface-raised);
 }

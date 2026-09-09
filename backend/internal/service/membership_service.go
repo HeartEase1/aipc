@@ -26,6 +26,7 @@ type MembershipSummary struct {
 	AmountToNext          string          `json:"amount_to_next,omitempty"`
 	ProgressPercent       string          `json:"progress_percent"`
 	FirstRechargeEligible bool            `json:"first_recharge_eligible"`
+	FirstRechargeStatus   string          `json:"first_recharge_status"`
 }
 
 type MembershipRules struct {
@@ -357,7 +358,7 @@ func (s *PaymentService) GetMembershipSummary(ctx context.Context, userID int64)
 		return MembershipSummary{}, err
 	}
 	currency := cfg.SettlementCurrency
-	result := MembershipSummary{SettlementCurrency: currency, CurrentAmount: "0.00000000", CurrentDiscount: "0", ProgressPercent: "0"}
+	result := MembershipSummary{SettlementCurrency: currency, CurrentAmount: "0.00000000", CurrentDiscount: "0", ProgressPercent: "0", FirstRechargeStatus: "ineligible"}
 	result.Rules = MembershipRules{WindowHours: 720, Priority: []string{"first_recharge", "campaign", "membership"}, SettlementCurrency: currency, AffiliateCommissionRate: cfg.AffiliateCommissionRate, Tiers: []map[string]string{}}
 	if s == nil || s.sqlDB == nil {
 		return result, nil
@@ -390,15 +391,22 @@ func (s *PaymentService) GetMembershipSummary(ctx context.Context, userID int64)
 		return MembershipSummary{}, err
 	}
 	current := decimal.Max(paid, decimal.Zero).Round(8)
-	var firstUnavailable bool
+	var firstUsed, firstReserved bool
 	if err := s.sqlDB.QueryRowContext(ctx, `SELECT
 		EXISTS(SELECT 1 FROM payment_orders WHERE user_id = $1 AND order_type = 'balance'
 		  AND (paid_at IS NOT NULL OR completed_at IS NOT NULL OR status IN ('COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED')))
-		OR EXISTS(SELECT 1 FROM recharge_promotion_claims WHERE user_id = $1 AND source = 'first_recharge' AND status IN ('reserved', 'redeemed'))`, userID).Scan(&firstUnavailable); err != nil {
+		OR EXISTS(SELECT 1 FROM recharge_promotion_claims WHERE user_id = $1 AND source = 'first_recharge' AND status = 'redeemed'),
+		EXISTS(SELECT 1 FROM recharge_promotion_claims WHERE user_id = $1 AND source = 'first_recharge' AND status = 'reserved')`, userID).Scan(&firstUsed, &firstReserved); err != nil {
 		return MembershipSummary{}, err
 	}
 	result.CurrentAmount = current.StringFixed(8)
-	result.FirstRechargeEligible = !firstUnavailable
+	result.FirstRechargeEligible = !firstUsed && !firstReserved
+	result.FirstRechargeStatus = "eligible"
+	if firstUsed {
+		result.FirstRechargeStatus = "used"
+	} else if firstReserved {
+		result.FirstRechargeStatus = "reserved"
+	}
 	rows, err := s.sqlDB.QueryContext(ctx, `SELECT name, threshold_amount, discount_percent FROM balance_membership_tiers WHERE enabled = TRUE AND settlement_currency = $1 ORDER BY threshold_amount ASC, sort_order ASC, id ASC`, currency)
 	if err != nil {
 		return MembershipSummary{}, err

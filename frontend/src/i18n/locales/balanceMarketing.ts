@@ -1,9 +1,11 @@
 export const en = {
+  totalRecharged: 'Total recharge credit', totalRechargedHint: 'Existing cumulative recharge credit in USD; not gateway payments or the 30-day membership total.',
+  firstStates: { eligible: 'No successful balance recharge yet. First-recharge offers are subject to campaign rules.', reserved: 'First-recharge eligibility is reserved by an unpaid order, not used. After cancellation, it remains reserved until the provider confirms closure and non-payment and callback protection ends. Contact support if it remains pending.', used: 'A balance recharge has succeeded. First-recharge eligibility has been used and is not restored by refunds.', ineligible: 'This account is not eligible for balance membership offers.' },
   tabs: { usage: 'Usage discounts', recharge: 'Recharge discounts', membership: 'Membership & first recharge' },
   rules: 'Membership rules', rollingPaid: 'Eligible payments in 30 days', progress: 'Membership progress', tier: 'Tier', threshold: '30-day payment threshold', reduction: 'Reduction percentage',
   nextTier: '{amount} more to reach {tier}', memberBenefit: '{percent}% off balance recharge',
   firstEligible: 'No successful balance recharge yet. First-recharge offers are subject to campaign rules.', firstUnavailable: 'A successful recharge exists or a first-recharge order is in progress.',
-  ruleWindow: 'Successful balance payments, including fees, count within a rolling {hours}-hour window in {currency} only. Settled refunds are deducted. Tiers may decrease as orders leave the window.',
+  ruleWindow: 'Successful balance payments, including fees, count within a rolling {hours}-hour window. Settled refunds are deducted. Tiers may decrease as orders leave the window.',
   ruleExclusions: 'Subscriptions neither count toward membership nor receive recharge discounts. Redeem codes, benefits, admin credits and referral rebates do not count.',
   rulePriority: 'Offers do not stack. Fixed priority: first recharge > campaign > membership, regardless of discount size. Within a category the largest actual discount wins. Insufficient budgets fall through to other offers.',
   ruleFirst: 'The first successful balance payment permanently consumes first-recharge eligibility, even after refunds. Unpaid orders reserve eligibility and budget until non-payment is confirmed and callback protection ends.',
@@ -21,11 +23,13 @@ export const en = {
   sources: { first_recharge: 'First recharge', campaign: 'Recharge campaign', membership: 'Membership', none: 'No offer' },
 }
 export const zh = {
+  totalRecharged: '累计充值额度', totalRechargedHint: '沿用现有累计充值额度（美元），不是支付渠道累计实付，也不是近 30 天会员累计。',
+  firstStates: { eligible: '尚无成功余额充值，可按活动规则享首充优惠。', reserved: '首充资格被未支付订单暂时占用，尚未使用。取消后须确认支付渠道已关单、未支付且回调保护期结束才能恢复；长时间未恢复请联系管理员。', used: '已有成功余额充值，首充资格已使用；退款不会恢复资格。', ineligible: '此账户不参与余额会员优惠。' },
   tabs: { usage: '用量折扣', recharge: '充值折扣', membership: '会员与首充' },
   rules: '会员规则', rollingPaid: '近 30 天有效实付', progress: '会员进度', tier: '会员等级', threshold: '30 天实付门槛', reduction: '减免比例',
   nextTier: '还需有效实付 {amount} 达到 {tier}', memberBenefit: '会员余额充值减免 {percent}%',
   firstEligible: '尚无成功余额充值，可按活动规则享首充优惠。', firstUnavailable: '已有成功余额充值或首充优惠订单正在处理。',
-  ruleWindow: '按滚动 {hours} 小时内成功余额充值的实付金额（含手续费）累计，仅统计 {currency}。扣除成功退款对应的实付金额，历史订单移出窗口后可能降级。',
+  ruleWindow: '按滚动 {hours} 小时内成功余额充值的实付金额（含手续费）累计。扣除成功退款对应的实付金额，历史订单移出窗口后可能降级。',
   ruleExclusions: '订阅购买不累计会员进度，也不享受充值优惠。兑换码、福利补偿、管理员加款和邀请返利均不累计会员进度。',
   rulePriority: '优惠不叠加，固定优先级：新人首充 > 限时充值活动 > 会员折扣，不比较三类优惠力度。同类活动选择实际优惠最多的一项，预算不足会顺延其他优惠。',
   ruleFirst: '首笔成功余额充值永久核销首充资格，退款不恢复。待支付订单会预占资格和预算，取消或超时后需确认未支付并等待回调保护期才能释放。',
@@ -43,10 +47,12 @@ export const zh = {
   sources: { first_recharge: '新人首充', campaign: '限时充值活动', membership: '会员折扣', none: '无优惠' },
 }
 export const ja = {
+  totalRecharged: '累計チャージ残高', totalRechargedHint: '従来の累計チャージ残高（USD）。決済実払額や30日間の会員集計とは異なります。',
+  firstStates: { eligible: '成功した残高チャージはありません。初回特典は活動条件に従います。', reserved: '初回資格は未払い注文で予約中です。使用済みではありません。取消後、決済側の終了・未払い確認と保護期間終了後に復活します。長時間続く場合は管理者に連絡してください。', used: '残高チャージが成功したため初回資格は使用済みです。返金でも復活しません。', ineligible: 'このアカウントは残高会員特典の対象外です。' },
   tabs: { usage: '利用割引', recharge: 'チャージ割引', membership: '会員・初回チャージ' },
   rules: '会員規約', rollingPaid: '直近30日の対象支払額', progress: '会員進捗', tier: '会員ランク', threshold: '30日間の支払基準', reduction: '割引率',
   nextTier: 'あと {amount} で {tier}', memberBenefit: '残高チャージ {percent}% 割引', firstEligible: '成功したチャージ履歴はありません。初回特典は活動条件に従います。', firstUnavailable: '成功履歴があるか初回注文を処理中です。',
-  ruleWindow: '直近 {hours} 時間の成功した残高支払額（手数料を含む）を {currency} のみ集計します。確定返金を差し引き、期間外になると降格する場合があります。',
+  ruleWindow: '直近 {hours} 時間の成功した残高支払額（手数料を含む）を集計します。確定返金を差し引き、期間外になると降格する場合があります。',
   ruleExclusions: 'サブスクリプションは会員集計・割引の対象外。交換コード、補償、管理者加算、紹介報酬も集計しません。',
   rulePriority: '併用不可。初回 > 期間限定 > 会員の固定優先順です。同種は実際の割引額が最大のものを選び、予算不足は次へ進みます。',
   ruleFirst: '最初の成功で初回資格を永久に消費し、返金でも復活しません。未払い注文の資格・予算は未払い確認とコールバック保護期間の終了後に解放します。',

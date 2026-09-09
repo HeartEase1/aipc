@@ -64,6 +64,7 @@ export interface UserProfileSourceContext {
 }
 
 export interface User {
+  total_recharged?: number
   membership_tier?: string
   id: number
   username: string

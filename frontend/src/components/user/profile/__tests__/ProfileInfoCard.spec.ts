@@ -83,6 +83,7 @@ describe('ProfileInfoCard', () => {
     })
 
     expect(wrapper.text()).toContain('alice@example.com')
+    expect(wrapper.get('[data-testid="profile-overview-hero"]').classes()).toContain('account-summary-surface')
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('User')
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)

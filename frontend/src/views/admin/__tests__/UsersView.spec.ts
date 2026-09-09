@@ -6,17 +6,21 @@ import UsersView from '../UsersView.vue'
 
 const {
   listUsers,
+  getMembershipSummaries,
   getAllGroups,
   getBatchUsersUsage,
   listEnabledDefinitions,
   getBatchUserAttributes
 } = vi.hoisted(() => ({
   listUsers: vi.fn(),
+  getMembershipSummaries: vi.fn(),
   getAllGroups: vi.fn(),
   getBatchUsersUsage: vi.fn(),
   listEnabledDefinitions: vi.fn(),
   getBatchUserAttributes: vi.fn()
 }))
+
+vi.mock('@/api/admin/payment', () => ({ getMembershipSummaries }))
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
@@ -61,6 +65,7 @@ const createAdminUser = (overrides: Partial<AdminUser> = {}): AdminUser => ({
   email: 'scoped@example.com',
   role: 'user',
   balance: 0,
+  total_recharged: 200,
   concurrency: 1,
   status: 'active',
   allowed_groups: [],
@@ -98,6 +103,8 @@ const DataTableStub = {
       </template>
       <div v-for="row in data" :key="row.id">
         <slot name="cell-last_used_at" :value="row.last_used_at" :row="row" />
+        <slot name="cell-membership" :row="row" />
+        <slot name="cell-total_recharged" :row="row" />
       </div>
     </div>
   `
@@ -125,6 +132,7 @@ describe('admin UsersView', () => {
     localStorage.clear()
 
     listUsers.mockReset()
+    getMembershipSummaries.mockReset().mockResolvedValue({ 42: { current_tier: 'VIP', current_amount: '500', settlement_currency: 'CNY' } })
     getAllGroups.mockReset()
     getBatchUsersUsage.mockReset()
     listEnabledDefinitions.mockReset()
@@ -148,6 +156,7 @@ describe('admin UsersView', () => {
   })
 
   it('shows active, used, and created activity columns in order and requests last_used_at sort', async () => {
+    vi.useFakeTimers()
     const wrapper = mount(UsersView, {
       global: {
         stubs: {
@@ -184,6 +193,14 @@ describe('admin UsersView', () => {
     const visibleColumns = columns.split(',')
     expect(visibleColumns.slice(-4, -1)).toEqual(['last_active_at', 'last_used_at', 'created_at'])
     expect(visibleColumns).not.toContain('last_login_at')
+    expect(visibleColumns).toContain('membership')
+    expect(visibleColumns).toContain('total_recharged')
+    await vi.advanceTimersByTimeAsync(60)
+    await flushPromises()
+    expect(getMembershipSummaries).toHaveBeenCalledWith([42], expect.any(AbortSignal))
+    expect(wrapper.text()).toContain('VIP')
+    expect(wrapper.text()).toContain('CNY 500.00')
+    expect(wrapper.text()).toContain('$200.00')
 
     await wrapper.get('[data-test="sort-last-used"]').trigger('click')
     await flushPromises()
