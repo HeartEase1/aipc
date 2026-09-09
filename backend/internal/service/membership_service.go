@@ -30,11 +30,55 @@ type MembershipSummary struct {
 }
 
 type MembershipRules struct {
-	WindowHours             int                 `json:"window_hours"`
-	Priority                []string            `json:"priority"`
-	SettlementCurrency      string              `json:"settlement_currency"`
-	AffiliateCommissionRate string              `json:"affiliate_commission_rate"`
-	Tiers                   []map[string]string `json:"tiers"`
+	FirstRechargeOffers     []FirstRechargeOffer `json:"first_recharge_offers,omitempty"`
+	WindowHours             int                  `json:"window_hours"`
+	Priority                []string             `json:"priority"`
+	SettlementCurrency      string               `json:"settlement_currency"`
+	AffiliateCommissionRate string               `json:"affiliate_commission_rate"`
+	Tiers                   []map[string]string  `json:"tiers"`
+}
+
+// FirstRechargeOffer exposes display rules, never internal budget or claim data.
+type FirstRechargeOffer struct {
+	ID                int64      `json:"id"`
+	Name              string     `json:"name"`
+	DiscountPercent   string     `json:"discount_percent"`
+	MinAmount         *string    `json:"min_amount"`
+	MaxAmount         *string    `json:"max_amount"`
+	MaxDiscountAmount *string    `json:"max_discount_amount"`
+	StartsAt          *time.Time `json:"starts_at"`
+	EndsAt            *time.Time `json:"ends_at"`
+}
+
+// GetMembershipDisplaySummary keeps display-only queries out of payment pricing and auth/me.
+func (s *PaymentService) GetMembershipDisplaySummary(ctx context.Context, userID int64) (MembershipSummary, error) {
+	summary, err := s.GetMembershipSummary(ctx, userID)
+	if err != nil || !summary.Eligible {
+		return summary, err
+	}
+	summary.Rules.FirstRechargeOffers, err = s.listFirstRechargeDisplayOffers(ctx, summary.SettlementCurrency, time.Now())
+	return summary, err
+}
+
+func (s *PaymentService) listFirstRechargeDisplayOffers(ctx context.Context, currency string, now time.Time) ([]FirstRechargeOffer, error) {
+	rows, err := s.sqlDB.QueryContext(ctx, `SELECT id, name, discount_percent, min_amount, max_amount, max_discount_amount, starts_at, ends_at
+		FROM recharge_promotions WHERE enabled = TRUE AND kind = 'first_recharge' AND settlement_currency = $1
+		AND (starts_at IS NULL OR starts_at <= $2) AND (ends_at IS NULL OR ends_at > $2)
+		AND (budget_amount IS NULL OR budget_amount > reserved_amount + redeemed_amount)
+		ORDER BY id ASC`, currency, now)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	offers := make([]FirstRechargeOffer, 0)
+	for rows.Next() {
+		var offer FirstRechargeOffer
+		if err := rows.Scan(&offer.ID, &offer.Name, &offer.DiscountPercent, &offer.MinAmount, &offer.MaxAmount, &offer.MaxDiscountAmount, &offer.StartsAt, &offer.EndsAt); err != nil {
+			return nil, err
+		}
+		offers = append(offers, offer)
+	}
+	return offers, rows.Err()
 }
 
 type RechargeQuote struct {

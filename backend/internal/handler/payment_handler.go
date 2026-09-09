@@ -51,7 +51,7 @@ func (h *PaymentHandler) GetMembership(c *gin.Context) {
 		response.Error(c, 401, "authentication required")
 		return
 	}
-	summary, err := h.paymentService.GetMembershipSummary(c.Request.Context(), subject.UserID)
+	summary, err := h.paymentService.GetMembershipDisplaySummary(c.Request.Context(), subject.UserID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
