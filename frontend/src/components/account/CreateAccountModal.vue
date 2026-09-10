@@ -2934,6 +2934,10 @@
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" @click="form.expires_at = getAccountExpiryTimestamp(1)">{{ t('payment.oneMonth') }}</button>
+          <button type="button" class="btn btn-secondary btn-sm" @click="form.expires_at = getAccountExpiryTimestamp(12)">{{ t('payment.oneYear') }}</button>
+        </div>
         <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
       </div>
 
@@ -3835,6 +3839,7 @@ import {
 } from '@/components/account/credentialsBuilder'
 import { formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
+import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,

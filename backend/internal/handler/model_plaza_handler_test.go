@@ -50,6 +50,18 @@ func TestFilterPlazaVisibleGroups_AuthedEmptySetSeesNoExclusive(t *testing.T) {
 	require.Len(t, visible, 2)
 }
 
+func TestFilterPlazaVisibleGroups_SubscribedExclusiveGroup(t *testing.T) {
+	groups := []service.PlazaGroup{
+		{ID: 42, IsExclusive: true, SubscriptionType: "subscription"},
+		{ID: 43, IsExclusive: true, SubscriptionType: "subscription"},
+		{ID: 44, IsExclusive: true, SubscriptionType: "standard"},
+	}
+	require.Empty(t, filterPlazaVisibleGroups(groups, nil))
+	visible := filterPlazaVisibleGroups(groups, map[int64]struct{}{42: {}})
+	require.Len(t, visible, 1)
+	require.Equal(t, int64(42), visible[0].ID)
+}
+
 func TestModelPlazaHandler_NilSettingServiceFailsClosed404(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &ModelPlazaHandler{} // settingService == nil → fail-closed

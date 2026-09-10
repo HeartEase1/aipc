@@ -148,6 +148,16 @@ function mountUsageView() {
 }
 
 describe('user UsageView', () => {
+  it('loads API keys beyond the first page for filters', async () => {
+    list.mockResolvedValueOnce({ items: [{ id: 1, name: 'first' }], pages: 2 })
+      .mockResolvedValueOnce({ items: [{ id: 101, name: 'second-page' }], pages: 2 })
+    const wrapper = mountUsageView()
+    await flushPromises()
+    expect(list).toHaveBeenCalledWith(2, 100)
+    const filters = wrapper.findAllComponents({ name: 'Select' })
+    expect(filters.some(filter => JSON.stringify(filter.props('options')).includes('second-page'))).toBe(true)
+    wrapper.unmount()
+  })
   beforeEach(() => {
     query.mockReset()
     getStats.mockReset()

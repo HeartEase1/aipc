@@ -569,6 +569,24 @@ describe('PaymentView payment recovery', () => {
 })
 
 describe('PaymentView account summary appearance', () => {
+  it('renders payment help as sanitized Markdown', async () => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    window.localStorage.clear()
+    getCheckoutInfo.mockResolvedValue(checkoutInfoFixture({
+      help_text: '**Payment help** <img src="x" onerror="alert(1)"><script>alert(1)</script> [bad](javascript:alert(1))',
+    }))
+    const wrapper = shallowMount(PaymentView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' }, Teleport: true } },
+    })
+    await flushPromises()
+    const help = wrapper.get('[data-testid="payment-help"]')
+    expect(help.find('strong').text()).toBe('Payment help')
+    expect(help.find('script').exists()).toBe(false)
+    expect(help.html()).not.toContain('onerror')
+    expect(help.html()).not.toContain('javascript:')
+    wrapper.unmount()
+  })
   it.each([null, { name: 'VIP', discount_percent: '1' }])('keeps the profile-style background with tier %j', async (tier) => {
     routeState.path = '/purchase'
     routeState.query = {}
