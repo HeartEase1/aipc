@@ -1588,6 +1588,10 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 		return openAIGPT54FallbackPricing
 	}
 
+	// Image 2.5 must have a catalog entry; never substitute an older image rate.
+	if strings.HasPrefix(model, "gpt-image-2.5") {
+		return nil
+	}
 	if isOpenAIImageGenerationModel(model) {
 		for _, candidate := range []string{"gpt-image-2", "gpt-image-1.5", "gpt-image-1"} {
 			if pricing, ok := s.pricingData[candidate]; ok {

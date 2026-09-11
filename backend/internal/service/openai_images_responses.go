@@ -1097,8 +1097,13 @@ func openAIImagesToolUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 	if !inputOK || !outputOK || !imageOutputOK {
 		return OpenAIUsage{}, false
 	}
+	imageInputTokens, _ := boundedJSONNonNegativeInt(value.Get("input_tokens_details.image_tokens"))
+	if imageInputTokens > inputTokens {
+		imageInputTokens = inputTokens
+	}
 	return OpenAIUsage{
 		InputTokens:       inputTokens,
+		ImageInputTokens:  imageInputTokens,
 		OutputTokens:      outputTokens,
 		ImageOutputTokens: imageOutputTokens,
 	}, true
