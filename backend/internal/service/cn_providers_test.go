@@ -107,6 +107,28 @@ func TestParseKimiUsageTiers_LimitZero(t *testing.T) {
 	require.InDelta(t, 0.0, tiers[0].UsedPercent, 1e-9)
 }
 
+func TestParseMiniMaxUsageTiers_GeneralOnlyAndWeeklyStatus(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{
+		"model_remains": [
+			{"model_name":"video","current_interval_remaining_percent":10,"end_time":1700000000000,"current_weekly_status":1,"current_weekly_remaining_percent":20,"weekly_end_time":1700003600000},
+			{"model_name":"general","current_interval_remaining_percent":67,"end_time":1700000000000,"current_weekly_status":1,"current_weekly_remaining_percent":40,"weekly_end_time":1700003600000}
+		]
+	}`)
+	tiers := parseMiniMaxUsageTiers(body)
+	require.Len(t, tiers, 2)
+	require.Equal(t, "5h", tiers[0].Window)
+	require.InDelta(t, 33.0, tiers[0].UsedPercent, 1e-9)
+	require.Equal(t, "weekly", tiers[1].Window)
+	require.InDelta(t, 60.0, tiers[1].UsedPercent, 1e-9)
+
+	noWeekly := []byte(`{"model_remains":[{"model_name":"general","current_interval_remaining_percent":80,"end_time":1700000000,"current_weekly_status":0,"current_weekly_remaining_percent":10}]}`)
+	tiers = parseMiniMaxUsageTiers(noWeekly)
+	require.Len(t, tiers, 1)
+	require.Equal(t, "5h", tiers[0].Window)
+	require.InDelta(t, 20.0, tiers[0].UsedPercent, 1e-9)
+}
+
 // TestParseZhipuTokenTiers_UnitClassification 显式 unit（3=5h / 6=weekly）优先分类，
 // 不能被 reset 时间排序覆盖（周期末尾周窗口会更早重置）。
 func TestParseZhipuTokenTiers_UnitClassification(t *testing.T) {

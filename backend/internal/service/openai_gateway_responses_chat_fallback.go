@@ -86,6 +86,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 		}
 		return nil, err
 	}
+	chatBody = clampOllamaCloudUpstreamMaxTokens(account, chatBody)
 	logger.L().Debug("openai responses: forwarding via raw chat completions",
 		zap.Int64("account_id", account.ID),
 		zap.String("original_model", originalModel),

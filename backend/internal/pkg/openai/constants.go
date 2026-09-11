@@ -33,6 +33,8 @@ var DefaultModels = []Model{
 	{ID: "gpt-image-1", Object: "model", Created: 1733875200, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 1"},
 	{ID: "gpt-image-1.5", Object: "model", Created: 1735689600, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 1.5"},
 	{ID: "gpt-image-2", Object: "model", Created: 1738368000, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2"},
+	{ID: "gpt-image-2.5-flare", Object: "model", Created: 1788825600, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2.5 Flare"},
+	{ID: "gpt-image-2.5-sunburst", Object: "model", Created: 1788825600, OwnedBy: "openai", Type: "model", DisplayName: "GPT Image 2.5 Sunburst"},
 }
 
 // DefaultModelIDs returns the default model ID list
@@ -69,6 +71,11 @@ var instructionsGPT52 string
 //go:embed instructions_gpt5_5.txt
 var instructionsGPT55 string
 
+// Source: openai/codex models-manager GPT-6 Astra base prompt.
+//
+//go:embed instructions_gpt6_astra.txt
+var instructionsGPT6Astra string
+
 // latestCodexInstructions 返回当前已知最新版本的 Codex base instructions，
 // 当前为 GPT-5.5；若 5.5 prompt 意外为空则回退到 DefaultInstructions 保证非空。
 func latestCodexInstructions() string {
@@ -88,7 +95,14 @@ func latestCodexInstructions() string {
 // 任一专用 prompt 意外为空时回退链最终落到 DefaultInstructions，保证返回非空。
 func CodexBaseInstructionsForModel(model string) string {
 	m := strings.ToLower(strings.TrimSpace(model))
+	if slash := strings.LastIndexByte(m, '/'); slash >= 0 {
+		m = strings.TrimSpace(m[slash+1:])
+	}
 	switch {
+	case m == "gpt-6" || m == "gpt-6-astra" || strings.HasPrefix(m, "gpt-6-astra-"):
+		if v := strings.TrimSpace(instructionsGPT6Astra); v != "" {
+			return instructionsGPT6Astra
+		}
 	case strings.Contains(m, "codex"):
 		return DefaultInstructions
 	case strings.HasPrefix(m, "gpt-5.5"):

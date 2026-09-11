@@ -27,7 +27,7 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 		{"implemented chat bridge", []Account{bridge}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, tt.accounts, nil, true)
+			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, tt.accounts, nil, nil, true)
 			require.NoError(t, err)
 			model := decodeCodexManifestModels(t, body)[0]
 			require.Equal(t, "public-astra", model["slug"])
@@ -45,7 +45,7 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 			"comp_hash": json.RawMessage(`"3000"`), "tool_mode": json.RawMessage("null"), "use_responses_lite": json.RawMessage("false"),
 		}},
 	}})
-	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{official, custom}, nil, true)
+	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{official, custom}, nil, nil, true)
 	require.NoError(t, err)
 	model := decodeCodexManifestModels(t, body)[0]
 	require.Equal(t, true, model["supports_search_tool"])
@@ -113,7 +113,7 @@ func TestBuildCodexModelsManifestForGroupAdvertisesSearchOnlyForChatBridgeRoutes
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			body, err := buildCodexModelsManifestForAccounts(
-				PlatformOpenAI, []string{"company-coding-model"}, tc.accounts, nil, true,
+				PlatformOpenAI, []string{"company-coding-model"}, tc.accounts, nil, nil, true,
 			)
 			require.NoError(t, err)
 			models := decodeCodexManifestModels(t, body)
@@ -196,7 +196,7 @@ func TestAstraCodexToolCapabilitiesKeepAPIKeyResponsesLiteGuard(t *testing.T) {
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{"use_responses_lite": json.RawMessage("true")}},
 	}})
-	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"my-astra"}, []Account{account}, nil, true)
+	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"my-astra"}, []Account{account}, nil, nil, true)
 	require.NoError(t, err)
 	require.Equal(t, false, decodeCodexManifestModels(t, body)[0]["use_responses_lite"])
 	body, err = adjustAPIKeyCodexModelsManifest([]byte(`{"models":[{"slug":"my-astra","use_responses_lite":true}]}`), &account)

@@ -545,9 +545,14 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	}
 
 	if result != nil && result.ImageCount > 0 {
-		// 渠道定价为 token 计费时走 token 路径，否则走图片计费
-		if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved == nil || resolved.Mode != BillingModeToken {
+		// Keep 1.0.70 per-image billing when the group configured 1K/2K/4K prices
+		// or an independent image multiplier. Otherwise Image 2.5 uses official token rates.
+		useTokenImageBilling := isGPTImage25BillingModel(billingModel) && !apiKeyHasGroupImageBillingOverride(apiKey, result.ImageSize)
+		if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); !useTokenImageBilling && (resolved == nil || resolved.Mode != BillingModeToken) {
 			return s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier), nil
+		}
+		if useTokenImageBilling && !hasOpenAIImageTokenUsage(tokens) {
+			return nil, fmt.Errorf("%w: gpt-image-2.5 usage is missing image tokens", ErrModelPricingUnavailable)
 		}
 	}
 
@@ -1125,4 +1130,22 @@ func (s *OpenAIGatewayService) UpdateCodexUsageSnapshotFromHeaders(ctx context.C
 	if snapshot := ParseCodexRateLimitHeaders(headers); snapshot != nil {
 		s.updateCodexUsageSnapshot(ctx, accountID, snapshot)
 	}
+}
+
+func isGPTImage25BillingModel(model string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-2.5")
+}
+
+func hasOpenAIImageTokenUsage(tokens UsageTokens) bool {
+	return tokens.InputTokens > 0 || tokens.OutputTokens > 0 || tokens.ImageInputTokens > 0 || tokens.ImageOutputTokens > 0
+}
+
+func apiKeyHasGroupImageBillingOverride(apiKey *APIKey, imageSize string) bool {
+	if apiKey == nil || apiKey.Group == nil {
+		return false
+	}
+	if apiKey.Group.ImageRateIndependent {
+		return true
+	}
+	return apiKeyHasConfiguredImagePrice(apiKey, NormalizeImageBillingTierOrDefault(imageSize))
 }

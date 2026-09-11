@@ -9,6 +9,7 @@ import (
 
 var codexToolCapabilityFields = []string{
 	"supports_search_tool", "apply_patch_tool_type", "comp_hash", "tool_mode", "use_responses_lite",
+	"multi_agent_reasoning_effort", "multi_agent_version",
 }
 
 func applyCodexToolCapabilities(dst, src map[string]json.RawMessage, overwrite bool) bool {
@@ -89,10 +90,18 @@ func accountCodexToolCapabilities(account *Account, modelID string) map[string]j
 	return capabilities
 }
 
+func codexModelRoutingAccountIDs(group *Group, modelID string) []int64 {
+	if group == nil {
+		return nil
+	}
+	return group.GetRoutingAccountIDs(strings.TrimSpace(modelID))
+}
+
 func groupCodexModelMetadata(
 	platform string,
 	modelID string,
 	accounts []Account,
+	group *Group,
 	compositeRoutes []CompositeModelRoute,
 	compositeRoutesAvailable bool,
 ) (codexModelMetadataOverride, bool) {
@@ -100,6 +109,8 @@ func groupCodexModelMetadata(
 	if modelID == "" {
 		return codexModelMetadataOverride{}, false
 	}
+	routedAccountIDs := codexModelRoutingAccountIDs(group, modelID)
+	routed := len(routedAccountIDs) > 0
 	upstreamModel := modelID
 	if platform == PlatformComposite {
 		var resolved bool
@@ -110,7 +121,7 @@ func groupCodexModelMetadata(
 			compositeRoutesAvailable,
 		)
 		if !resolved {
-			if codexExplicitModelTargetsConflict(accounts, modelID) {
+			if !routed && codexExplicitModelTargetsConflict(accounts, modelID) {
 				return codexModelMetadataOverride{
 					reasoningConflict:       true,
 					inputModalitiesConflict: true,
@@ -125,20 +136,28 @@ func groupCodexModelMetadata(
 
 	explicitClaims := false
 	if upstreamModel == modelID {
-		for _, account := range accounts {
-			if account.Platform == platform && codexExplicitModelMappingClaims(account, modelID) {
+		for i := range accounts {
+			account := &accounts[i]
+			if routed && !containsInt64(routedAccountIDs, account.ID) {
+				continue
+			}
+			if account.Platform == platform && codexExplicitModelMappingClaims(*account, modelID) {
 				explicitClaims = true
 				break
 			}
 		}
 	}
-	explicitTargetsConflict := explicitClaims && codexExplicitModelTargetsConflictForPlatform(accounts, platform, modelID)
+	explicitTargetsConflict := explicitClaims && !routed &&
+		codexExplicitModelTargetsConflictForPlatform(accounts, platform, modelID)
 	publicAlias := upstreamModel != modelID
 	candidates := make([]UpstreamModelMetadata, 0)
 	missingMetadata := false
 	for i := range accounts {
 		account := &accounts[i]
 		if account.Platform != platform {
+			continue
+		}
+		if routed && !containsInt64(routedAccountIDs, account.ID) {
 			continue
 		}
 		var lookupModel string
@@ -408,6 +427,8 @@ func configuredCodexReasoningLevelDescription(level string) string {
 		return "Extra-high reasoning depth for difficult tasks"
 	case "max":
 		return "Maximum reasoning depth for complex tasks"
+	case "ultra":
+		return "Maximum reasoning with automatic task delegation"
 	default:
 		return "Reasoning effort supported by the upstream model"
 	}

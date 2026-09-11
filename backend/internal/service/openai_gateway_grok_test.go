@@ -306,6 +306,25 @@ func TestNormalizeGrokChatReasoningEffort(t *testing.T) {
 	require.False(t, gjson.GetBytes(patched, "reasoning_effort").Exists())
 }
 
+func TestSanitizeGrokUnsupportedFieldsDropsNestedChatCompletionsFields(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{
+		"model": "grok-4.5",
+		"messages": [{"role": "user", "content": "hello"}],
+		"external_web_access": true,
+		"tools": [
+			{"type": "function", "name": "kept_fn", "external_web_access": true, "parameters": {"type": "object", "properties": {"q": {"type": "string", "external_web_access": true}}}}
+		]
+	}`)
+
+	patched, err := sanitizeGrokUnsupportedFields(body)
+	require.NoError(t, err)
+	require.True(t, json.Valid(patched))
+	require.False(t, strings.Contains(string(patched), "external_web_access"))
+	require.Equal(t, "kept_fn", gjson.GetBytes(patched, "tools.0.name").String())
+}
+
 func TestPatchGrokResponsesBodyDropsNestedUnsupportedFields(t *testing.T) {
 	t.Parallel()
 

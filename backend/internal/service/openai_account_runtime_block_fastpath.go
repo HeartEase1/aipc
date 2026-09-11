@@ -35,8 +35,8 @@ const (
 )
 
 // classifyOpenAIOAuth429 separates exhausted subscription quota from a
-// request-scoped throttle. Only explicit quota/reset evidence may park the
-// account; a bare 429 remains eligible for the gateway's normal failover.
+// request-scoped throttle. Only a 100% Codex window or an explicit body reset
+// may park the account; reset-after headers alone are not quota exhaustion.
 func classifyOpenAIOAuth429(headers http.Header, responseBody []byte) (openAIOAuth429Disposition, *time.Time) {
 	if snapshot := ParseCodexRateLimitHeaders(headers); snapshot != nil {
 		if normalized := snapshot.Normalize(); normalized != nil {
@@ -204,13 +204,16 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context
 	}
 	s.clearOpenAIOAuth429TransientState(account.ID)
 
-	cooldownUntil := time.Now().Add(openAIOAuth429FallbackCooldown)
-	if resetAt != nil && resetAt.After(time.Now()) {
+	now := time.Now()
+	cooldownUntil := now.Add(openAIOAuth429FallbackCooldown)
+	if resetAt != nil && resetAt.After(now) {
 		cooldownUntil = *resetAt
 	} else if s.rateLimitService != nil {
-		if cooldown, ok := s.rateLimitService.get429FallbackCooldown(ctx, account); ok && cooldown > 0 {
-			cooldownUntil = time.Now().Add(cooldown)
+		cooldown, ok := s.rateLimitService.get429FallbackCooldown(ctx, account)
+		if !ok || cooldown <= 0 {
+			return
 		}
+		cooldownUntil = now.Add(cooldown)
 	}
 	s.BlockAccountScheduling(account, cooldownUntil, "429")
 }

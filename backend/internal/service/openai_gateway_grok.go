@@ -659,11 +659,13 @@ func grokSupportsReasoningEffort(model string) bool {
 	}
 }
 
-var grokResponsesUnsupportedRecursiveFields = map[string]struct{}{
+// grokUnsupportedRecursiveFields lists Grok fields rejected by both Responses
+// and Chat Completions. Nested copies are stripped as well.
+var grokUnsupportedRecursiveFields = map[string]struct{}{
 	"external_web_access": {},
 }
 
-func sanitizeGrokResponsesUnsupportedFields(body []byte) ([]byte, error) {
+func sanitizeGrokUnsupportedFields(body []byte) ([]byte, error) {
 	if !bytes.Contains(body, []byte(`"external_web_access"`)) {
 		return body, nil
 	}
@@ -672,11 +674,14 @@ func sanitizeGrokResponsesUnsupportedFields(body []byte) ([]byte, error) {
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, err
 	}
-	if !deleteJSONFields(payload, grokResponsesUnsupportedRecursiveFields) {
+	if !deleteJSONFields(payload, grokUnsupportedRecursiveFields) {
 		return body, nil
 	}
 	return json.Marshal(payload)
 }
+
+// sanitizeGrokResponsesUnsupportedFields keeps the previous name as an alias.
+var sanitizeGrokResponsesUnsupportedFields = sanitizeGrokUnsupportedFields
 
 func deleteJSONFields(value any, fields map[string]struct{}) bool {
 	switch typed := value.(type) {

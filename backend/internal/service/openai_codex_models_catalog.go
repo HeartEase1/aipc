@@ -330,6 +330,7 @@ type configuredCodexModelDescriptor struct {
 	Description                       string                          `json:"description"`
 	DefaultReasoningLevel             *string                         `json:"default_reasoning_level,omitempty"`
 	SupportedReasoningLevels          []configuredCodexReasoningLevel `json:"supported_reasoning_levels"`
+	MultiAgentReasoningEffort         *string                         `json:"multi_agent_reasoning_effort,omitempty"`
 	ShellType                         string                          `json:"shell_type"`
 	Visibility                        string                          `json:"visibility"`
 	SupportedInAPI                    bool                            `json:"supported_in_api"`
@@ -462,6 +463,9 @@ func newConfiguredCodexModelDescriptor(modelID string) configuredCodexModelDescr
 				descriptor.MaxContextWindow = configuredCodexGPT56MaxContext
 			}
 			if isOpenAIGPT6AstraModel(modelID) {
+				multiAgentEffort := "xhigh"
+				descriptor.MultiAgentReasoningEffort = &multiAgentEffort
+				descriptor.MultiAgentVersion = "v2"
 				descriptor.ContextWindow = configuredCodexGPT6AstraContext
 				descriptor.MaxContextWindow = configuredCodexGPT6AstraContext
 			}
@@ -572,7 +576,7 @@ func configuredCodexGPTReasoningLevels(modelID string) []configuredCodexReasonin
 			Description: "Maximum reasoning depth for complex tasks",
 		})
 	}
-	if normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" {
+	if isOpenAIGPT6AstraModel(modelID) || normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" {
 		levels = append(levels, configuredCodexReasoningLevel{
 			Effort:      "ultra",
 			Description: "Maximum reasoning with automatic task delegation",
@@ -820,7 +824,7 @@ func buildCodexCatalogForGroup(ctx context.Context, channels *ChannelService, gr
 		if len(candidates) == 0 {
 			continue
 		}
-		body, err := buildCodexModelsManifestForAccounts(targetPlatform, []string{modelID}, candidates, nil, true)
+		body, err := buildCodexModelsManifestForAccounts(targetPlatform, []string{modelID}, candidates, group, nil, true)
 		if err != nil {
 			return nil, err
 		}
@@ -836,6 +840,7 @@ func buildCodexModelsManifestForAccounts(
 	effectivePlatform string,
 	modelIDs []string,
 	accounts []Account,
+	group *Group,
 	compositeRoutes []CompositeModelRoute,
 	compositeRoutesAvailable bool,
 ) ([]byte, error) {
@@ -873,6 +878,7 @@ func buildCodexModelsManifestForAccounts(
 			effectivePlatform,
 			modelID,
 			accounts,
+			group,
 			compositeRoutes,
 			compositeRoutesAvailable,
 		); ok {

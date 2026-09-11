@@ -91,3 +91,9 @@ func TestAccountTestService_OpenAIImageAPIKeyUsesConfiguredV1BaseURL(t *testing.
 	require.Contains(t, rec.Body.String(), "data:image/png;base64,aGVsbG8=")
 	require.Contains(t, rec.Body.String(), "\"success\":true")
 }
+
+func TestIsOpenAIImageModelIncludesImage25(t *testing.T) {
+	require.True(t, isOpenAIImageModel("gpt-image-2.5-flare"))
+	require.True(t, isOpenAIImageModel("gpt-image-2.5-sunburst"))
+	require.False(t, isOpenAIImageModel("gpt-5.6-luna"))
+}

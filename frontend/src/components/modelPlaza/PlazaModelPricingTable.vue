@@ -219,7 +219,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { formatScaled } from '@/utils/pricing'
+import { formatScaled, resolveIntervalPrices } from '@/utils/pricing'
 import { platformAccentColor, platformBadgeLightClass, platformLabel } from '@/utils/platformColors'
 import {
   BILLING_MODE_TOKEN,
@@ -338,7 +338,8 @@ function hasOfficialCache(o: NonNullable<PlazaModel['official_pricing']>): boole
 
 /** token 模式的阶梯定价(内联进输入/输出列)。 */
 function tokenIntervals(m: PlazaModel): UserPricingInterval[] {
-  return m.pricing?.intervals ?? []
+  if (!m.pricing) return []
+  return (m.pricing.intervals ?? []).map(iv => resolveIntervalPrices(iv, m.pricing!))
 }
 
 /** 按次/按图模式的阶梯定价(仅保留配了按次价的档位)。 */

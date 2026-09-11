@@ -17,7 +17,9 @@ type plazaVisibilityUserRepo struct {
 	err  error
 }
 
-func (r *plazaVisibilityUserRepo) GetByID(context.Context, int64) (*User, error) { return r.user, r.err }
+func (r *plazaVisibilityUserRepo) GetByID(context.Context, int64) (*User, error) {
+	return r.user, r.err
+}
 
 type plazaVisibilitySubRepo struct {
 	UserSubscriptionRepository

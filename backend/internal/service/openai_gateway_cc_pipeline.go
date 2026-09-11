@@ -181,9 +181,14 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
 	grokCacheIdentity string,
 ) (*http.Response, error) {
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
+	cancelUpstream := func() {}
+	if stream {
+		upstreamCtx, cancelUpstream = context.WithCancel(upstreamCtx)
+	}
 	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(body))
 	releaseUpstreamCtx()
 	if err != nil {
+		cancelUpstream()
 		return nil, fmt.Errorf("build upstream request: %w", err)
 	}
 	// 记录本次实际选择的协议端点，供错误日志和用量日志在没有
@@ -229,9 +234,28 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
 	}
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
+		cancelUpstream()
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
+	if stream {
+		resp.Body = &cancelOnCloseBody{ReadCloser: resp.Body, cancel: cancelUpstream}
+	}
 	return resp, nil
+}
+
+type cancelOnCloseBody struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnCloseBody) Close() error {
+	if b != nil && b.cancel != nil {
+		b.cancel()
+	}
+	if b == nil || b.ReadCloser == nil {
+		return nil
+	}
+	return b.ReadCloser.Close()
 }
 
 // ccStreamScanState 是 scanCCStream 返回的读取状态快照。
