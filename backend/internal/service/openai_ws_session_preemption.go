@@ -265,10 +265,6 @@ func (s *OpenAIGatewayService) watchOpenAIWSSessionPreemptOwner(ctx context.Cont
 	return func() { once.Do(func() { close(stopCh) }) }
 }
 
-func isOpenAIWSSessionPreempted(ctx context.Context) bool {
-	return ctx != nil && errors.Is(context.Cause(ctx), errOpenAIWSSessionPreempted)
-}
-
 func IsOpenAIWSSessionPreemptedError(err error) bool {
 	if err == nil {
 		return false

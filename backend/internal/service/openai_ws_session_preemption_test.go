@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -104,7 +105,7 @@ func TestOpenAIWSSessionPreemptContextEligibilityAndLocalCancellation(t *testing
 	_, secondCleanup, armed, replaced := svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 7, 11, "sess", false)
 	require.True(t, armed)
 	require.True(t, replaced)
-	require.True(t, isOpenAIWSSessionPreempted(firstCtx))
+	require.True(t, firstCtx != nil && errors.Is(context.Cause(firstCtx), errOpenAIWSSessionPreempted))
 	require.True(t, IsOpenAIWSSessionPreemptedError(context.Cause(firstCtx)))
 	_, turnStateExists := stateStore.GetSessionTurnState(7, "sess")
 	_, sessionConnExists := stateStore.GetSessionConn(7, "sess")

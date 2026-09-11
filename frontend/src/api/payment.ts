@@ -24,7 +24,7 @@ export interface PublicOrderVerifyResult {
 }
 
 export interface MembershipSummary {
-	 rules?: { window_hours: number; priority: string[]; settlement_currency: string; affiliate_commission_rate: string; tiers: { name: string; threshold_amount: string; discount_percent: string }[] }
+  rules?: { window_hours: number; priority: string[]; settlement_currency: string; affiliate_commission_rate: string; tiers: { name: string; threshold_amount: string; discount_percent: string }[]; first_recharge_offers?: { id: number; name: string; discount_percent: string; min_amount?: string | null; max_amount?: string | null; max_discount_amount?: string | null; starts_at?: string | null; ends_at?: string | null }[] }
   enabled: boolean
   settlement_currency: string
   current_amount: string

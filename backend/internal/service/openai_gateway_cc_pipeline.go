@@ -238,9 +238,18 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
 	if stream {
-		resp.Body = &cancelOnCloseBody{ReadCloser: resp.Body, cancel: cancelUpstream}
+		resp.Body = attachCancelOnClose(resp.Body, cancelUpstream)
+	} else {
+		cancelUpstream()
 	}
 	return resp, nil
+}
+
+func attachCancelOnClose(body io.ReadCloser, cancel context.CancelFunc) io.ReadCloser {
+	if cancel == nil {
+		return body
+	}
+	return &cancelOnCloseBody{ReadCloser: body, cancel: cancel}
 }
 
 type cancelOnCloseBody struct {

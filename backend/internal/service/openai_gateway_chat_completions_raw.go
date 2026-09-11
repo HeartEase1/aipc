@@ -333,7 +333,7 @@ func (s *OpenAIGatewayService) streamRawChatCompletions(
 				}
 			}
 		}
-		line = sanitizeRawChatToolCallIdentityForAccount(account, line)
+		line = applyOllamaCloudRawChatCompletionsSSELine(account, sanitizeRawChatToolCallIdentityForAccount(account, line))
 
 		writeLine(line)
 		if line == "" {
@@ -455,6 +455,7 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
 	}
+	respBody = applyOllamaCloudRawChatCompletionsResponse(account, respBody)
 	observer.ObserveOpenAI(respBody, strings.TrimSpace(gjson.GetBytes(respBody, "type").String()))
 
 	var usage OpenAIUsage
