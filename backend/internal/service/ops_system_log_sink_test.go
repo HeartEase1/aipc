@@ -32,9 +32,9 @@ func TestOpsSystemLogSink_ShouldIndex(t *testing.T) {
 			want:  true,
 		},
 		{
-			name:  "access component",
+			name:  "access component disabled by default",
 			event: &logger.LogEvent{Level: "info", Component: "http.access"},
-			want:  true,
+			want:  false,
 		},
 		{
 			name: "rejected access excluded from database sink",
@@ -46,13 +46,13 @@ func TestOpsSystemLogSink_ShouldIndex(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "access component from fields (real zap path)",
+			name: "access component from fields disabled by default",
 			event: &logger.LogEvent{
 				Level:     "info",
 				Component: "",
 				Fields:    map[string]any{"component": "http.access"},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name:  "audit component",
@@ -79,6 +79,37 @@ func TestOpsSystemLogSink_ShouldIndex(t *testing.T) {
 		if got := sink.shouldIndex(tc.event); got != tc.want {
 			t.Fatalf("%s: shouldIndex()=%v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// 开关打开后 access 日志才落库；显式 skip 标记与其它级别的语义不受影响。
+func TestOpsSystemLogSink_ShouldIndexAccessLogsOnlyWhenEnabled(t *testing.T) {
+	sink := &OpsSystemLogSink{}
+	sink.SetPersistAccessLogs(true)
+
+	if !sink.shouldIndex(&logger.LogEvent{Level: "info", Component: "http.access"}) {
+		t.Fatal("access logs should be indexed once persistence is enabled")
+	}
+	if !sink.shouldIndex(&logger.LogEvent{
+		Level:  "info",
+		Fields: map[string]any{"component": "http.access"},
+	}) {
+		t.Fatal("access logs from zap fields should be indexed once enabled")
+	}
+	if sink.shouldIndex(&logger.LogEvent{
+		Level:     "info",
+		Component: "http.access",
+		Fields:    map[string]any{logger.OpsSystemLogSkipField: true},
+	}) {
+		t.Fatal("explicit skip flag must still win over the persistence toggle")
+	}
+
+	sink.SetPersistAccessLogs(false)
+	if sink.shouldIndex(&logger.LogEvent{Level: "info", Component: "http.access"}) {
+		t.Fatal("disabling persistence should stop indexing access logs")
+	}
+	if !sink.shouldIndex(&logger.LogEvent{Level: "error", Component: "http.access"}) {
+		t.Fatal("error-level access logs must always be indexed")
 	}
 }
 

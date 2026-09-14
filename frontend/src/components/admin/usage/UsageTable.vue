@@ -203,6 +203,7 @@
             <!-- Token Detail Tooltip -->
             <div
               class="group relative"
+              data-testid="token-details-trigger"
               @mouseenter="showTokenTooltip($event, row)"
               @mouseleave="hideTokenTooltip"
             >
@@ -348,8 +349,17 @@
         top: tokenTooltipPosition.y + 'px'
       }"
     >
-      <div class="whitespace-nowrap rounded-lg border border-gray-700 bg-gray-900 px-3 py-2.5 text-xs text-white shadow-xl dark:border-gray-600 dark:bg-gray-800">
-        <div class="space-y-1.5">
+      <div
+        ref="tokenTooltipRef"
+        data-testid="token-details-tooltip"
+        class="relative w-[min(20rem,calc(100vw-1rem))] text-xs text-white"
+        :class="tokenTooltipPlacement === 'left' ? '-translate-x-full' : ''"
+      >
+        <div
+          data-testid="token-details-scroll"
+          class="max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 px-3 py-2.5 shadow-xl dark:border-gray-600 dark:bg-gray-800"
+        >
+          <div class="space-y-1.5">
           <div>
             <div class="text-xs font-semibold text-gray-300 mb-1">{{ t('usage.tokenDetails') }}</div>
             <div v-if="tokenTooltipData && tokenTooltipData.input_tokens > 0 && !hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
@@ -412,12 +422,20 @@
               <span class="font-medium text-white">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }}</span>
             </div>
           </div>
-          <div class="flex items-center justify-between gap-6 border-t border-gray-700 pt-1.5">
-            <span class="text-gray-400">{{ t('usage.totalTokens') }}</span>
-            <span class="font-semibold text-blue-400">{{ ((tokenTooltipData?.input_tokens || 0) + (tokenTooltipData?.output_tokens || 0) + (tokenTooltipData?.cache_creation_tokens || 0) + (tokenTooltipData?.cache_read_tokens || 0)).toLocaleString() }}</span>
+            <div class="flex items-center justify-between gap-6 border-t border-gray-700 pt-1.5">
+              <span class="text-gray-400">{{ t('usage.totalTokens') }}</span>
+              <span class="font-semibold text-blue-400">{{ ((tokenTooltipData?.input_tokens || 0) + (tokenTooltipData?.output_tokens || 0) + (tokenTooltipData?.cache_creation_tokens || 0) + (tokenTooltipData?.cache_read_tokens || 0)).toLocaleString() }}</span>
+            </div>
           </div>
         </div>
-        <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-gray-900 border-t-transparent dark:border-r-gray-800"></div>
+        <div
+          v-if="tokenTooltipPlacement === 'right'"
+          class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-gray-900 border-t-transparent dark:border-r-gray-800"
+        ></div>
+        <div
+          v-else
+          class="absolute left-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-l-[6px] border-t-[6px] border-b-transparent border-l-gray-900 border-t-transparent dark:border-l-gray-800"
+        ></div>
       </div>
     </div>
   </Teleport>
@@ -594,7 +612,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
@@ -764,6 +782,9 @@ const tooltipData = ref<AdminUsageLog | null>(null)
 const tokenTooltipVisible = ref(false)
 const tokenTooltipPosition = ref({ x: 0, y: 0 })
 const tokenTooltipData = ref<AdminUsageLog | null>(null)
+const tokenTooltipPlacement = ref<'left' | 'right'>('right')
+const tokenTooltipRef = ref<HTMLElement | null>(null)
+const tokenTooltipAnchorRect = ref<DOMRect | null>(null)
 
 // Tooltip state - output rate comparison
 const outputRateTooltipVisible = ref(false)
@@ -826,18 +847,48 @@ const hideTooltip = () => {
 }
 
 // Token tooltip functions
-const showTokenTooltip = (event: MouseEvent, row: AdminUsageLog) => {
+const updateTokenTooltipPosition = () => {
+  const rect = tokenTooltipAnchorRect.value
+  if (!rect) return
+
+  const tooltip = tokenTooltipRef.value
+  const gap = 8
+  const padding = 8
+  const viewportWidth = Math.max(window.innerWidth || 0, 1)
+  const viewportHeight = Math.max(window.innerHeight || 0, 1)
+  // Use the rendered dimensions when available. The fallback keeps the first
+  // frame safe before the teleported tooltip has completed layout.
+  const width = tooltip?.offsetWidth || Math.min(320, Math.max(220, viewportWidth - padding * 2))
+  const height = tooltip?.offsetHeight || 220
+  const canOpenRight = rect.right + gap + width <= viewportWidth - padding
+
+  tokenTooltipPlacement.value = canOpenRight ? 'right' : 'left'
+  tokenTooltipPosition.value = {
+    x: canOpenRight
+      ? rect.right + gap
+      : Math.max(padding + width, rect.left - gap),
+    y: Math.min(
+      Math.max(padding + height / 2, rect.top + rect.height / 2),
+      Math.max(padding + height / 2, viewportHeight - padding - height / 2),
+    ),
+  }
+}
+
+const showTokenTooltip = async (event: MouseEvent, row: AdminUsageLog) => {
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
+  tokenTooltipAnchorRect.value = rect
   tokenTooltipData.value = row
-  tokenTooltipPosition.value.x = rect.right + 8
-  tokenTooltipPosition.value.y = rect.top + rect.height / 2
   tokenTooltipVisible.value = true
+  updateTokenTooltipPosition()
+  await nextTick()
+  updateTokenTooltipPosition()
 }
 
 const hideTokenTooltip = () => {
   tokenTooltipVisible.value = false
   tokenTooltipData.value = null
+  tokenTooltipAnchorRect.value = null
 }
 
 const showOutputRateTooltip = (event: MouseEvent | FocusEvent, row: AdminUsageLog) => {

@@ -42,6 +42,10 @@ export default {
         samplingInitial: '采样初始条数',
         samplingThereafter: '后续采样间隔',
         retentionDays: '保留天数',
+        retentionDaysHint: '由定时数据清理任务执行。',
+        persistAccessLogs: '将访问日志写入数据库',
+        persistAccessLogsHint:
+          '默认关闭，因为访问日志会为每个请求新增一条带索引的数据库记录。警告、错误和审计日志始终会保留。',
         caller: '调用方',
         sampling: '采样',
         saveAndApply: '保存并应用',

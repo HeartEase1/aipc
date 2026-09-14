@@ -332,6 +332,60 @@ describe('admin UsageTable tooltip', () => {
     expect(rate.attributes('aria-label')).toBe('Cache hit rate 77.8%')
   })
 
+  it('keeps the cache token tooltip inside a narrow viewport', async () => {
+    const previousWidth = window.innerWidth
+    const previousHeight = window.innerHeight
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 360 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 240 })
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 320,
+      y: 196,
+      top: 196,
+      left: 320,
+      right: 352,
+      bottom: 212,
+      width: 32,
+      height: 16,
+      toJSON: () => ({}),
+    } as DOMRect)
+
+    try {
+      const wrapper = mount(UsageTable, {
+        props: {
+          data: [{
+            ...baseImageRow,
+            request_id: 'req-admin-cache-tooltip-viewport',
+            billing_mode: 'token',
+            input_tokens: 100,
+            output_tokens: 20,
+            cache_creation_tokens: 40,
+            cache_read_tokens: 80,
+          }],
+          loading: false,
+          columns: [],
+        },
+        global: {
+          stubs: {
+            DataTable: DataTableStub,
+            EmptyState: true,
+            Icon: true,
+            Teleport: true,
+          },
+        },
+      })
+
+      await wrapper.get('[data-testid="token-details-trigger"]').trigger('mouseenter')
+      await nextTick()
+
+      const tooltip = wrapper.get('[data-testid="token-details-tooltip"]')
+      expect(tooltip.classes()).toContain('-translate-x-full')
+      expect(wrapper.get('[data-testid="token-details-scroll"]').classes()).toContain('max-h-[calc(100vh-1rem)]')
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: previousWidth })
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: previousHeight })
+    }
+  })
+
   it('shows average output speed over the complete request duration', () => {
     const wrapper = mount(UsageTable, {
       props: {

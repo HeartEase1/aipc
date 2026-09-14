@@ -1,6 +1,9 @@
 .PHONY: build build-backend build-frontend build-playground test test-backend test-frontend test-frontend-critical test-playground
 
 FRONTEND_CRITICAL_VITEST := \
+	src/components/admin/usage/__tests__/UsageTable.spec.ts \
+	src/components/payment/__tests__/PaymentMethodSelector.spec.ts \
+	src/views/admin/ops/components/__tests__/OpsSystemLogTable.spec.ts \
 	src/api/__tests__/client.spec.ts \
 	src/api/__tests__/tokenRefresh.spec.ts \
 	src/api/__tests__/channelMonitorV2.spec.ts \

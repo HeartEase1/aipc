@@ -814,6 +814,8 @@ export interface OpsAggregationSettings {
 
 export interface OpsRuntimeLogConfig {
   level: 'debug' | 'info' | 'warn' | 'error'
+  /** 是否把高频 http.access 日志复制进数据库。warn/error 与审计事件始终落库。 */
+  persist_access_logs: boolean
   enable_sampling: boolean
   sampling_initial: number
   sampling_thereafter: number

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 )
 
 const (
@@ -360,6 +362,9 @@ func (s *OpsService) UpdateOpsAlertRuntimeSettings(ctx context.Context, cfg *Ops
 func defaultOpsAdvancedSettings() *OpsAdvancedSettings {
 	return &OpsAdvancedSettings{
 		DataRetention: OpsDataRetentionSettings{
+			// 兜底沿用历史默认 false。真正的默认值请走
+			// defaultOpsAdvancedSettingsForConfig，使其与 ops.cleanup.enabled 对齐，
+			// 避免首次读取 settings 时把已配置的清理静默关掉。
 			CleanupEnabled:             false,
 			CleanupSchedule:            opsCleanupDefaultSchedule,
 			ErrorLogRetentionDays:      30,
@@ -380,6 +385,17 @@ func defaultOpsAdvancedSettings() *OpsAdvancedSettings {
 		AutoRefreshEnabled:              false,
 		AutoRefreshIntervalSec:          30,
 	}
+}
+
+// defaultOpsAdvancedSettingsForConfig 让 DB 侧默认值跟随 ops.cleanup.enabled。
+// 否则 settings 表还没写过 ops_advanced_settings 时，一次读取就会把 yaml/env 里
+// 已开启的清理当成"用户关闭"，导致系统日志无界增长。
+func defaultOpsAdvancedSettingsForConfig(cfg *config.Config) *OpsAdvancedSettings {
+	defaults := defaultOpsAdvancedSettings()
+	if cfg != nil {
+		defaults.DataRetention.CleanupEnabled = cfg.Ops.Cleanup.Enabled
+	}
+	return defaults
 }
 
 func normalizeOpsAdvancedSettings(cfg *OpsAdvancedSettings) {
@@ -456,6 +472,7 @@ func (s *OpsService) OpsAdvancedSettingsSnapshot() OpsAdvancedSettings {
 		if snapshot := s.runtimeSettings.Load(); snapshot != nil {
 			return snapshot.advanced
 		}
+		return *defaultOpsAdvancedSettingsForConfig(s.cfg)
 	}
 	return *defaultOpsAdvancedSettings()
 }

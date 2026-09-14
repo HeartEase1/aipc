@@ -2589,3 +2589,40 @@ func TestLoad_DefaultGatewayImageStreamConfig(t *testing.T) {
 		t.Fatalf("image stream timeout = %d, want greater than ordinary stream timeout %d", cfg.Gateway.ImageStreamDataIntervalTimeout, cfg.Gateway.StreamDataIntervalTimeout)
 	}
 }
+
+// 系统日志保留天数必须有正数默认值，且在开启清理时不允许为 0（否则日志表无界增长）。
+func TestLoadDefaultOpsCleanupConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if !cfg.Ops.Cleanup.Enabled {
+		t.Fatal("Ops.Cleanup.Enabled = false, want true")
+	}
+	if cfg.Ops.Cleanup.SystemLogRetentionDays != 30 {
+		t.Fatalf("Ops.Cleanup.SystemLogRetentionDays = %d, want 30", cfg.Ops.Cleanup.SystemLogRetentionDays)
+	}
+}
+
+func TestValidateOpsCleanupSystemLogRetention(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	cfg.Ops.Cleanup.Enabled = true
+	cfg.Ops.Cleanup.SystemLogRetentionDays = 0
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "ops.cleanup.system_log_retention_days") {
+		t.Fatalf("Validate() error = %v, want ops.cleanup.system_log_retention_days failure", err)
+	}
+
+	// 关闭清理时不强制要求正数，保持与错误日志/指标一致的宽松语义。
+	cfg.Ops.Cleanup.Enabled = false
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() with cleanup disabled error: %v", err)
+	}
+}

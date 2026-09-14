@@ -42,6 +42,10 @@ export default {
         samplingInitial: 'Sampling initial',
         samplingThereafter: 'Sampling thereafter',
         retentionDays: 'Retention days',
+        retentionDaysHint: 'Applied by the scheduled data-cleanup job.',
+        persistAccessLogs: 'Store access logs in database',
+        persistAccessLogsHint:
+          'Disabled by default because access logs add one indexed database row per request. Warning, error, and audit logs are always stored.',
         caller: 'caller',
         sampling: 'sampling',
         saveAndApply: 'Save and apply',

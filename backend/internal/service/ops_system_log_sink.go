@@ -42,10 +42,11 @@ type OpsSystemLogSink struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	droppedCount uint64
-	writeFailed  uint64
-	writtenCount uint64
-	totalDelayNs uint64
+	droppedCount      uint64
+	writeFailed       uint64
+	writtenCount      uint64
+	totalDelayNs      uint64
+	persistAccessLogs atomic.Bool
 
 	lastError atomic.Value
 }
@@ -166,13 +167,24 @@ func (s *OpsSystemLogSink) shouldIndex(event *logger.LogEvent) bool {
 			component = fc
 		}
 	}
+	// http.access 是最大的落库来源（每请求一条）。默认不再无条件写库，
+	// 由 ops_runtime_log_config.persist_access_logs 显式开启。
 	if strings.Contains(component, "http.access") {
-		return true
+		return s.persistAccessLogs.Load()
 	}
 	if strings.Contains(component, "audit") {
 		return true
 	}
 	return false
+}
+
+// SetPersistAccessLogs 控制高频 http.access 日志是否复制进 PostgreSQL。
+// warn/error 与 audit 事件始终保留，不受本开关影响。
+func (s *OpsSystemLogSink) SetPersistAccessLogs(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.persistAccessLogs.Store(enabled)
 }
 
 func (s *OpsSystemLogSink) run() {

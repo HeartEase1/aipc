@@ -25,14 +25,14 @@ describe('PaymentMethodSelector', () => {
     })
 
     const grid = wrapper.get('[data-testid="payment-method-grid"]')
-    expect(grid.classes()).toEqual(expect.arrayContaining(['grid', 'sm:grid-cols-3', 'lg:grid-cols-4']))
-    expect(grid.classes()).not.toContain('sm:flex')
+    expect(grid.classes()).toEqual(expect.arrayContaining(['grid', 'grid-cols-1']))
 
     const buttons = wrapper.findAll('button')
     expect(buttons).toHaveLength(methods.length)
     expect(buttons.every(button => button.classes().includes('min-w-0'))).toBe(true)
     expect(buttons.every((button, index) => button.attributes('title') === methods[index].display_name)).toBe(true)
-    expect(wrapper.findAll('[data-testid="payment-method-label"]').every(label => label.classes().includes('truncate'))).toBe(true)
+    expect(wrapper.findAll('[data-testid="payment-method-label"]')
+      .every(label => label.classes().includes('whitespace-normal'))).toBe(true)
   })
 
   it('shows the configured display name for custom EasyPay methods', () => {
