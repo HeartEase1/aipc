@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,6 +75,33 @@ func TestImage25UsesGroupPerImagePriceWhenConfigured(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(BillingModeImage), cost.BillingMode)
 	require.InDelta(t, 0.4, cost.TotalCost, 1e-12)
+}
+
+func TestImage25ChannelPricingCountsEveryImage(t *testing.T) {
+	for _, model := range []string{"gpt-image-2.5-flare", "gpt-image-2.5-sunburst"} {
+		for _, count := range []int{1, 3} {
+			for _, withTokens := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/count=%d/tokens=%t", model, count, withTokens), func(t *testing.T) {
+					svc := &OpenAIGatewayService{
+						billingService: NewBillingService(nil, &PricingService{}),
+						resolver:       newOpenAIImageChannelPricingResolverForTest(t, 1, model, 0.2),
+					}
+					tokens := UsageTokens{}
+					if withTokens {
+						tokens = UsageTokens{InputTokens: 100, OutputTokens: 100, ImageOutputTokens: 100}
+					}
+					cost, err := svc.calculateOpenAIRecordUsageCost(context.Background(),
+						&OpenAIForwardResult{ImageCount: count, ImageSize: "1K"},
+						&APIKey{Group: &Group{ID: 1}}, []string{model},
+						7, 2, 1, 1, tokens, "", nil, time.Now())
+					require.NoError(t, err)
+					require.Equal(t, string(BillingModeImage), cost.BillingMode)
+					require.InDelta(t, float64(count)*0.2, cost.TotalCost, 1e-12)
+					require.InDelta(t, float64(count)*0.2*2, cost.ActualCost, 1e-12)
+				})
+			}
+		}
+	}
 }
 
 func TestImage25UsesIndependentImageMultiplier(t *testing.T) {

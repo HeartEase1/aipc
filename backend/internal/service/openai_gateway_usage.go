@@ -546,9 +546,12 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 
 	if result != nil && result.ImageCount > 0 {
 		// Keep 1.0.70 per-image billing when the group configured 1K/2K/4K prices
-		// or an independent image multiplier. Otherwise Image 2.5 uses official token rates.
-		useTokenImageBilling := isGPTImage25BillingModel(billingModel) && !apiKeyHasGroupImageBillingOverride(apiKey, result.ImageSize)
-		if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); !useTokenImageBilling && (resolved == nil || resolved.Mode != BillingModeToken) {
+		// or an independent image multiplier. Explicit group/channel image pricing
+		// must also use the image path, which carries ImageCount and the size tier.
+		resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+		hasPerImagePricing := resolved != nil && (resolved.Mode == BillingModeImage || resolved.Mode == BillingModePerRequest)
+		useTokenImageBilling := isGPTImage25BillingModel(billingModel) && !apiKeyHasGroupImageBillingOverride(apiKey, result.ImageSize) && !hasPerImagePricing
+		if !useTokenImageBilling && (resolved == nil || resolved.Mode != BillingModeToken) {
 			return s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier), nil
 		}
 		if useTokenImageBilling && !hasOpenAIImageTokenUsage(tokens) {
