@@ -216,6 +216,7 @@ type SystemSettings struct {
 
 	// Online playground feature switch (user-facing)
 	OnlinePlaygroundEnabled bool `json:"online_playground_enabled"`
+	UsageGuideEnabled bool `json:"usage_guide_enabled"`
 
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled     bool   `json:"model_plaza_enabled"`
@@ -401,6 +402,7 @@ type PublicSettings struct {
 
 	// Online playground feature switch (user-facing)
 	OnlinePlaygroundEnabled bool `json:"online_playground_enabled"`
+	UsageGuideEnabled bool `json:"usage_guide_enabled"`
 
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaEnabled     bool `json:"model_plaza_enabled"`

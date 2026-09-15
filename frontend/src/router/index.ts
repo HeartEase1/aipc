@@ -965,6 +965,14 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
+  if (to.path === '/guide') {
+    try { await appStore.fetchPublicSettings(true) } catch (error) { console.warn('Failed to refresh usage guide setting', error) }
+    if (appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.usage_guide_enabled === false) {
+      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
+  }
+
   // Check admin requirement
   if (requiresAdmin && !authStore.isAdmin) {
     // User is authenticated but not admin, redirect to user dashboard

@@ -734,6 +734,7 @@ export interface SystemSettings {
 
   // Online browser playground feature switch
   online_playground_enabled: boolean;
+  usage_guide_enabled: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
@@ -1037,6 +1038,7 @@ export interface UpdateSettingsRequest {
   model_plaza_require_auth?: boolean;
   model_plaza_description?: string;
   online_playground_enabled?: boolean;
+  usage_guide_enabled?: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

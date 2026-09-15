@@ -522,6 +522,7 @@ const (
 	// It defaults to true for backwards compatibility; administrators can disable the
 	// route and navigation entry without affecting the regular API gateway.
 	SettingKeyOnlinePlaygroundEnabled = "online_playground_enabled"
+	SettingKeyUsageGuideEnabled = "usage_guide_enabled"
 
 	// SettingKeyModelPlazaEnabled is a DB-backed soft switch for the Model Plaza page
 	// (public group/model pricing showcase). When false: the plaza endpoint returns 404

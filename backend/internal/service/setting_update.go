@@ -441,6 +441,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// Online playground feature switch
 	updates[SettingKeyOnlinePlaygroundEnabled] = strconv.FormatBool(settings.OnlinePlaygroundEnabled)
+	updates[SettingKeyUsageGuideEnabled] = strconv.FormatBool(settings.UsageGuideEnabled)
 
 	// Model plaza feature switches + description
 	updates[SettingKeyModelPlazaEnabled] = strconv.FormatBool(settings.ModelPlazaEnabled)

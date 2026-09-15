@@ -69,6 +69,10 @@
         <div class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
       </div>
 
+      <div v-else-if="loadError" class="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300">
+        {{ loadError }}
+      </div>
+
       <template v-else-if="data">
         <section aria-labelledby="leaderboard-summary-title">
           <div class="leaderboard-summary-heading mb-4 flex items-start gap-3 bg-white p-4 dark:bg-dark-800">
@@ -360,6 +364,7 @@ const period = ref<LeaderboardPeriod>('24h')
 const activeTab = ref<LeaderboardTabKey>('usage')
 const data = ref<LeaderboardResponse | null>(null)
 const loading = ref(false)
+const loadError = ref('')
 const savingParticipation = ref(false)
 const participating = ref(true)
 
@@ -521,11 +526,17 @@ function formatSharePercentage(value: number): string {
 
 async function load(): Promise<void> {
   loading.value = true
+  loadError.value = ''
   try {
-    data.value = await leaderboardAPI.getLeaderboard(period.value)
+    const response = await leaderboardAPI.getLeaderboard(period.value)
+    if (!response?.usage || !response?.consumption || !response?.rebate) {
+      throw new Error('Invalid leaderboard response')
+    }
+    data.value = response
     participating.value = data.value.participating
   } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('leaderboard.loadFailed')))
+    loadError.value = extractApiErrorMessage(error, t('leaderboard.loadFailed'))
+    appStore.showError(loadError.value)
   } finally {
     loading.value = false
   }

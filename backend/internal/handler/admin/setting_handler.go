@@ -385,6 +385,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 		OnlinePlaygroundEnabled:  settings.OnlinePlaygroundEnabled,
+		UsageGuideEnabled: settings.UsageGuideEnabled,
 
 		ModelPlazaEnabled:     settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth: settings.ModelPlazaRequireAuth,

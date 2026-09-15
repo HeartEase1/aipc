@@ -114,6 +114,7 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Online Playground',
   }),
+  usageGuide: defineFlag({ key: 'usage_guide_enabled', mode: 'opt-out', label: 'Usage Guide' }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',

@@ -7839,6 +7839,17 @@
           </div>
         </div>
 
+        <div class="card" data-testid="usage-guide-settings-card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">使用教程页面</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">控制用户侧使用教程入口和页面是否显示。</p>
+          </div>
+          <div class="space-y-5 p-6"><div class="flex items-center justify-between gap-6">
+            <div><label class="text-sm font-medium text-gray-700 dark:text-gray-300">显示使用教程</label><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">关闭后用户菜单和直接访问都会被隐藏。</p></div>
+            <Toggle v-model="form.usage_guide_enabled" data-testid="usage-guide-toggle" />
+          </div></div>
+        </div>
+
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -10616,6 +10627,7 @@ const form = reactive<SettingsForm>({
   model_plaza_description: '',
   // Online browser playground feature switch (enabled for backwards compatibility)
   online_playground_enabled: true,
+  usage_guide_enabled: true,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
   // Allow user view error requests
@@ -12308,6 +12320,7 @@ async function saveSettings() {
       model_plaza_description: form.model_plaza_description,
       // Online browser playground feature switch
       online_playground_enabled: form.online_playground_enabled,
+      usage_guide_enabled: form.usage_guide_enabled,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,

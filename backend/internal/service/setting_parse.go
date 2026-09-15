@@ -206,6 +206,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 
 		// Online playground feature (default enabled to preserve existing deployments)
 		SettingKeyOnlinePlaygroundEnabled: "true",
+		SettingKeyUsageGuideEnabled: "true",
 
 		// Model plaza feature (default disabled; opt-in, public unless require_auth)
 		SettingKeyModelPlazaEnabled:     "false",
