@@ -1155,7 +1155,7 @@ func TestAPIContracts(t *testing.T) {
 					"oidc_connect_use_pkce": true,
 					"oidc_connect_validate_id_token": true,
 					"online_playground_enabled": true,
-					"usage_guide_enabled": true,
+					"usage_guide_enabled": false,
 					"oidc_connect_allowed_signing_algs": "RS256,ES256,PS256",
 					"oidc_connect_clock_skew_seconds": 120,
 					"oidc_connect_require_email_verified": false,
