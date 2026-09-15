@@ -115,7 +115,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
 		OnlinePlaygroundEnabled:  settings.OnlinePlaygroundEnabled,
-		UsageGuideEnabled: settings.UsageGuideEnabled,
+		UsageGuideEnabled:        settings.UsageGuideEnabled,
 
 		ModelPlazaEnabled:     settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth: settings.ModelPlazaRequireAuth,

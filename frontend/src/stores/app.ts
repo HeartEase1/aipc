@@ -335,6 +335,7 @@ export const useAppStore = defineStore('app', () => {
         invitation_code_enabled: false,
         turnstile_enabled: false,
         turnstile_site_key: '',
+        usage_guide_enabled: true,
         aliyun_captcha_enabled: false,
         aliyun_captcha_scene_id: '',
         aliyun_captcha_prefix: '',

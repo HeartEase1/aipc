@@ -347,7 +347,7 @@ type UpdateSettingsRequest struct {
 
 	// Online playground feature switch (user-facing)
 	OnlinePlaygroundEnabled *bool `json:"online_playground_enabled"`
-	UsageGuideEnabled *bool `json:"usage_guide_enabled"`
+	UsageGuideEnabled       *bool `json:"usage_guide_enabled"`
 
 	// Model Plaza feature switches + description
 	ModelPlazaEnabled     *bool   `json:"model_plaza_enabled"`
@@ -1968,7 +1968,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			return previousSettings.OnlinePlaygroundEnabled
 		}(),
 		UsageGuideEnabled: func() bool {
-			if req.UsageGuideEnabled != nil { return *req.UsageGuideEnabled }
+			if req.UsageGuideEnabled != nil {
+				return *req.UsageGuideEnabled
+			}
 			return previousSettings.UsageGuideEnabled
 		}(),
 		ModelPlazaEnabled: func() bool {
@@ -2411,7 +2413,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
 		OnlinePlaygroundEnabled:  updatedSettings.OnlinePlaygroundEnabled,
-		UsageGuideEnabled: updatedSettings.UsageGuideEnabled,
+		UsageGuideEnabled:        updatedSettings.UsageGuideEnabled,
 
 		ModelPlazaEnabled:     updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth: updatedSettings.ModelPlazaRequireAuth,
