@@ -148,6 +148,15 @@ func (s *OpsSystemLogSink) WriteLogEvent(event *logger.LogEvent) {
 	}
 }
 
+// SetPersistAccessLogs controls whether high-volume request access logs are
+// copied into PostgreSQL. Warning/error and audit events are always retained.
+func (s *OpsSystemLogSink) SetPersistAccessLogs(enabled bool) {
+	if s == nil {
+		return
+	}
+	s.persistAccessLogs.Store(enabled)
+}
+
 func (s *OpsSystemLogSink) shouldIndex(event *logger.LogEvent) bool {
 	if event != nil && event.Fields != nil {
 		if skip, _ := event.Fields[logger.OpsSystemLogSkipField].(bool); skip {

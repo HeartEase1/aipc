@@ -25,11 +25,17 @@ type RateLimitService struct {
 	cfg                   *config.Config
 	geminiQuotaService    *GeminiQuotaService
 	tempUnschedCache      TempUnschedCache
+	openAIAPIKeyHealth    OpenAIAPIKeyHealthCache
 	timeoutCounterCache   TimeoutCounterCache
 	openAI403CounterCache OpenAI403CounterCache
 	settingService        *SettingService
 	tokenCacheInvalidator TokenCacheInvalidator
 	runtimeBlocker        AccountRuntimeBlocker
+	// ollamaCloudUsageProbe is the optional Ollama Cloud usage probe scheduler
+	// injected via SetOllamaCloudUsageProbeScheduler. See
+	// ratelimit_service_ollama_429.go for how real-Ollama 429s schedule an async
+	// probe to learn the true usage-window reset.
+	ollamaCloudUsageProbe ollamaCloudUsageProbeScheduler
 	usageCacheMu          sync.RWMutex
 	usageCache            map[int64]*geminiUsageCacheEntry
 
@@ -74,6 +80,8 @@ const (
 const (
 	openAIImageRateLimitDefaultCooldown = time.Minute
 	openAIImageRateLimitReason          = "openai_image_rate_limited"
+	openAIImageCapabilityLossCooldown   = 30 * time.Minute
+	openAIImageCapabilityLossReason     = "openai_image_capability_lost"
 )
 
 var openAIImageTryAgainPattern = regexp.MustCompile(`(?i)try again in\s+([0-9]+(?:\.[0-9]+)?)\s*(ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes)`)
@@ -103,6 +111,10 @@ func NewRateLimitService(accountRepo AccountRepository, usageRepo UsageLogReposi
 // SetTimeoutCounterCache 设置超时计数器缓存（可选依赖）
 func (s *RateLimitService) SetTimeoutCounterCache(cache TimeoutCounterCache) {
 	s.timeoutCounterCache = cache
+}
+
+func (s *RateLimitService) SetOpenAIAPIKeyHealthCache(cache OpenAIAPIKeyHealthCache) {
+	s.openAIAPIKeyHealth = cache
 }
 
 // SetOpenAI403CounterCache 设置 OpenAI 403 连续失败计数器（可选依赖）
@@ -162,6 +174,7 @@ func (s *RateLimitService) ApplyAccountSchedulingThreshold(ctx context.Context, 
 	thresholds := s.settingService.GetAccountSchedulingThresholds(ctx)
 	decision := EvaluateAccountSchedulingThreshold(account, thresholds, now)
 	if !decision.ShouldPause || decision.Until == nil || !decision.Until.After(now) {
+		s.applyAnthropicFableSchedulingThreshold(ctx, account, thresholds, now)
 		return false
 	}
 
@@ -215,6 +228,43 @@ func (s *RateLimitService) ApplyAccountSchedulingThreshold(ctx context.Context, 
 	return true
 }
 
+func (s *RateLimitService) applyAnthropicFableSchedulingThreshold(ctx context.Context, account *Account, thresholds map[string]int, now time.Time) {
+	decision := evaluateAnthropicFableSchedulingThreshold(account, thresholds, now)
+	if !decision.ShouldPause || decision.Until == nil || !decision.Until.After(now) {
+		return
+	}
+	if account.isRateLimitActiveForKey(anthropicFableRateLimitKey) {
+		return
+	}
+
+	reason := BuildDetailedAccountSchedulingThresholdReason(AccountSchedulingThresholdReasonInput{
+		Platform:         decision.Platform,
+		Window:           decision.Window,
+		Scope:            decision.Scope,
+		ThresholdPercent: decision.ThresholdPercent,
+		UsedPercent:      decision.UsedPercent,
+		Until:            *decision.Until,
+		Now:              now,
+	})
+	setAccountModelRateLimitSnapshot(account, anthropicFableRateLimitKey, *decision.Until, reason, now)
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, anthropicFableRateLimitKey, *decision.Until, reason); err != nil {
+		slog.Warn("anthropic_fable_scheduling_threshold_set_model_limit_failed",
+			"account_id", account.ID,
+			"threshold_percent", decision.ThresholdPercent,
+			"used_percent", decision.UsedPercent,
+			"until", decision.Until.UTC(),
+			"error", err)
+		return
+	}
+
+	slog.Info("anthropic_fable_scheduling_threshold_model_limited",
+		"account_id", account.ID,
+		"scope", anthropicFableRateLimitKey,
+		"threshold_percent", decision.ThresholdPercent,
+		"used_percent", decision.UsedPercent,
+		"until", decision.Until.UTC())
+}
+
 func accountHasSameSchedulingThresholdPause(account *Account, until time.Time, reason string) bool {
 	if account == nil || account.TempUnschedulableUntil == nil {
 		return false
@@ -266,6 +316,11 @@ func (s *RateLimitService) CheckErrorPolicy(ctx context.Context, account *Accoun
 		}
 		return ErrorPolicySkipped
 	}
+	// The global overload cooldown is the default for ordinary accounts. Explicit
+	// account policies above retain precedence over this fallback.
+	if statusCode == 529 {
+		return ErrorPolicyMatched
+	}
 	if s.tryTempUnschedulable(ctx, account, statusCode, responseBody, firstRequestedModel(requestedModel)) {
 		return ErrorPolicyTempUnscheduled
 	}
@@ -298,6 +353,15 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		return false
 	}
 
+	if statusCode == 529 {
+		if customErrorCodesEnabled {
+			s.handleCustomErrorCode(ctx, account, statusCode, extractUpstreamErrorMessage(responseBody))
+			return true
+		}
+		s.handle529(ctx, account)
+		return false
+	}
+
 	if len(requestedModel) > 0 && s.HandleUpstreamModelNotFound(ctx, account, requestedModel[0], statusCode, responseBody) {
 		return true
 	}
@@ -307,12 +371,16 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	// otherwise a broad "rate limit" keyword rule can shorten a multi-hour
 	// cooldown to a local temporary pause.
 	if statusCode == http.StatusTooManyRequests && account.Platform == PlatformAnthropic {
+		// Fable may be rejected because the organization has no usage credits for
+		// this model. Anthropic reports that as 429, but it is a model entitlement
+		// failure rather than a shared account window exhaustion.
+		fableCreditsRequired := s.persistAnthropicFableCreditsRequired(ctx, account, headers, responseBody, firstRequestedModel(requestedModel))
 		// 7d_oi 是 Fable 模型专属的 7d 窗口：只标记模型级限流，账号对其他模型仍可调度。
 		fableLimited := s.persistAnthropicFableWindowLimit(ctx, account, headers)
 		if s.persistAnthropicExhaustedWindowLimit(ctx, account, headers) {
 			return false
 		}
-		if fableLimited {
+		if fableCreditsRequired || fableLimited {
 			return false
 		}
 	}
@@ -449,7 +517,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	case 402:
 		// 国产供应商：余额不足是可恢复状态（充值/检测恢复后由周期任务自动解除），
 		// 不能走 handleAuthError 永久置 status=error。改为可恢复的临时停调。
-		if account.IsCNProvider() {
+		if account.IsCNProvider() || account.IsOpenCodeZen() {
 			s.handleCNProviderInsufficientBalance(ctx, account, upstreamMsg)
 			shouldDisable = true
 			break
@@ -485,7 +553,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		s.handle429(ctx, account, headers, responseBody)
 		shouldDisable = false
 	case 529:
-		s.handle529(ctx, account)
+		// Handled after pool/custom-code policy gates above.
 		shouldDisable = false
 	default:
 		// 自定义错误码启用时：在列表中的错误码都应该停止调度
@@ -927,7 +995,7 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	// 国产供应商与 openai 同口径:HTML 403(CDN/代理拦截页)不构成账号失效证据,
 	// 且 403 在 failover 状态集里会被逐账号重放——直接 SetError 会让一个坏请求/
 	// 一层坏代理连环永久禁用整组账号。走 HTML 豁免 + N 次累计 + 临时冷却。
-	if account.Platform == PlatformOpenAI || IsCNProvider(account.Platform) {
+	if account.Platform == PlatformOpenAI || IsCNProvider(account.Platform) || account.IsOpenCodeGo() {
 		return s.handleOpenAI403(ctx, account, upstreamMsg, responseBody)
 	}
 	// 非 Antigravity 平台：保持原有行为
@@ -1068,17 +1136,38 @@ func (s *RateLimitService) handleCustomErrorCode(ctx context.Context, account *A
 // handle429 处理429限流错误
 // 解析响应头获取重置时间，标记账号为限流状态
 func (s *RateLimitService) handle429(ctx context.Context, account *Account, headers http.Header, responseBody []byte) {
+	// OpenAI OAuth stays on the same account for the gateway's bounded retry
+	// window. Persisting a rate-limit reset on the first 429 would make the next
+	// retry ineligible and silently turn same-account recovery into a switch.
+	if account != nil && isOpenAIOAuthAccount(account) && s.runtimeBlocker != nil {
+		if checker, ok := s.runtimeBlocker.(interface {
+			ShouldRetryOpenAIOAuth429(*Account, http.Header, []byte) bool
+		}); ok && checker.ShouldRetryOpenAIOAuth429(account, headers, responseBody) {
+			return
+		}
+	}
 	// Spark 影子：限流/熔断状态 100% 由 QueryUsage(/wham/usage body 的 codex_bengalfox)驱动。
 	// /responses 的 429 携带的 x-codex-*/usage_limit_reached 是 global codex 道(plan/spec §8),
 	// 套到影子会把 spark 误耦合到 global 窗口——即便 spark 仍有配额也会被冷却到 global reset,
 	// 单影子场景直接变成无可用账号(外审第8轮 P1)。整段跳过;影子的 codex_* 仅由 account_usage 的
 	// QueryUsage→persistOpenAICodexProbeSnapshot 维护,枯竭由调度守卫处理。
 	if account.IsShadow() {
+		if account.ParentAccountID != nil {
+			notifyOpenAIAutoReset(*account.ParentAccountID)
+		}
+		return
+	}
+	// 真实 Ollama Cloud 用量账号（credentials base_url 指向 ollama.com）的 429 由
+	// ollama.com 的用量窗口驱动。其响应头不得被当作 OpenAI codex / Anthropic /
+	// CN 限流来解析，故在国产供应商分支之前单独处理：先设置永不缩短的临时冷却，
+	// 再调度异步 probe 学习真实重置点（详见 ratelimit_service_ollama_429.go）。
+	if account != nil && IsOllamaCloudUsageAccount(account) {
+		s.handleOllamaCloudUsage429(ctx, account, headers)
 		return
 	}
 	// 国产供应商（kimi/zhipu/deepseek）的 429 走专用可恢复路径：余额不足 → 临时停调，
 	// Coding Plan 窗口耗尽 → 冷却到快照重置点。未命中则继续默认 429 逻辑。
-	if account.IsCNProvider() {
+	if account.IsCNProvider() || account.IsOpenCodeGo() {
 		if s.applyCNProviderReactive429(ctx, account, headers, responseBody) {
 			return
 		}
@@ -1099,6 +1188,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	if account.Platform == PlatformOpenAI {
 		persistOpenAI429PlanType(ctx, s.accountRepo, account, responseBody)
 		s.persistOpenAICodexSnapshot(ctx, account, headers)
+		notifyOpenAIAutoReset(account.ID)
 		if resetAt := s.calculateOpenAI429ResetTime(headers); resetAt != nil {
 			s.notifyAccountSchedulingBlocked(account, *resetAt, "429")
 			if err := s.accountRepo.SetRateLimited(ctx, account.ID, *resetAt); err != nil {
@@ -1413,7 +1503,59 @@ func (s *RateLimitService) persistAnthropicExhaustedWindowLimit(ctx context.Cont
 	return true
 }
 
-const anthropicFableWindowReason = "anthropic_7d_oi_window_exhausted"
+const (
+	anthropicFableWindowReason          = "anthropic_7d_oi_window_exhausted"
+	anthropicFableCreditsRequiredReason = "anthropic_fable_credits_required"
+)
+
+// persistAnthropicFableCreditsRequired handles Anthropic's credits_required
+// response for Fable. Although the upstream status is 429, this response only
+// says that the organization cannot use Fable; marking the whole account rate
+// limited would unnecessarily stop Sonnet, Opus, and Haiku scheduling.
+func (s *RateLimitService) persistAnthropicFableCreditsRequired(ctx context.Context, account *Account, headers http.Header, responseBody []byte, requestedModel string) bool {
+	if s == nil || s.accountRepo == nil || account == nil {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(gjson.GetBytes(responseBody, "error.details.error_code").String()), "credits_required") {
+		return false
+	}
+
+	model := strings.TrimSpace(gjson.GetBytes(responseBody, "error.details.model").String())
+	if model == "" {
+		model = strings.TrimSpace(requestedModel)
+	}
+	if !isAnthropicFableModel(model) {
+		return false
+	}
+
+	now := time.Now()
+	resetAt, ok := parseAnthropicResetTimestamp(headers.Get("anthropic-ratelimit-unified-reset"), now, 366*24*time.Hour)
+	if !ok {
+		cooldown, enabled := s.get429FallbackCooldown(ctx, account)
+		if !enabled {
+			slog.Info("anthropic_fable_credits_required_cooldown_ignored", "account_id", account.ID)
+			return true
+		}
+		resetAt = now.Add(cooldown)
+	}
+
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, anthropicFableRateLimitKey, resetAt, anthropicFableCreditsRequiredReason); err != nil {
+		slog.Warn("anthropic_fable_credits_required_rate_limit_set_failed",
+			"account_id", account.ID,
+			"scope", anthropicFableRateLimitKey,
+			"reset_at", resetAt,
+			"error", err)
+		// The response is still known to be Fable-specific. Do not widen a
+		// persistence failure into an account-level rate limit.
+		return true
+	}
+	slog.Info("anthropic_fable_credits_required_model_rate_limited",
+		"account_id", account.ID,
+		"scope", anthropicFableRateLimitKey,
+		"reset_at", resetAt,
+		"reset_in", time.Until(resetAt).Truncate(time.Second))
+	return true
+}
 
 // selectAnthropicFableWindowLimit parses the Anthropic 7d_oi per-model window
 // headers (the Fable-only 7d window, e.g. anthropic-ratelimit-unified-7d_oi-*).
@@ -1602,7 +1744,9 @@ func (s *RateLimitService) persistOpenAICodexSnapshot(ctx context.Context, accou
 	}
 	if err := s.accountRepo.UpdateExtra(ctx, account.ID, updates); err != nil {
 		slog.Warn("openai_codex_snapshot_persist_failed", "account_id", account.ID, "error", err)
+		return
 	}
+	notifyOpenAIAutoReset(account.ID)
 }
 
 // parseOpenAIRateLimitResetTime 解析 OpenAI 兼容格式的 429 响应，返回重置时间的 Unix 时间戳
@@ -2153,6 +2297,81 @@ func (s *RateLimitService) HandleOpenAIImageRateLimit(ctx context.Context, accou
 	}
 	slog.Info("openai_image_rate_limited", "account_id", account.ID, "scope", openAIImageGenerationRateLimitKey, "reset_at", resetAt, "reset_in", time.Until(resetAt).Truncate(time.Second))
 	return true
+}
+
+// HandleOpenAICodexSparkRateLimit 将 Spark 独立配额窗口记录为模型级限流。
+// Spark 的 x-codex-* 使用率和 reset 时间只代表 Spark 模型维度，不能写入账号级
+// RateLimitResetAt，否则同一 OAuth 账号上的其他模型也会被错误停调。
+func (s *RateLimitService) HandleOpenAICodexSparkRateLimit(ctx context.Context, account *Account, requestedModel string, statusCode int, headers http.Header, responseBody []byte) bool {
+	if s == nil || account == nil || s.accountRepo == nil || statusCode != http.StatusTooManyRequests || !isOpenAIOAuthAccount(account) {
+		return false
+	}
+	if !isCodexSparkModel(requestedModel) || !account.ShouldHandleErrorCode(statusCode) {
+		return false
+	}
+
+	modelKey := normalizeCodexModel(modelRateLimitKeyForUpstreamModelNotFound(ctx, account, requestedModel))
+	if modelKey == "" {
+		return false
+	}
+	now := time.Now()
+	disposition, resetAt := classifyOpenAIOAuth429(headers, responseBody)
+	// Spark 只有明确耗尽 5h/7d 窗口时才能使用上游长 reset；普通瞬时 429
+	// 即使携带全局 reset 头，也只能使用短时回避，避免错误冷却数天。
+	if disposition != openAIOAuth429Quota5h && disposition != openAIOAuth429Quota7d {
+		resetAt = nil
+	}
+	if resetAt == nil || !resetAt.After(now) {
+		cooldown, ok := s.get429FallbackCooldown(ctx, account)
+		if !ok || cooldown <= 0 {
+			cooldown = time.Duration(defaultRateLimit429CooldownSeconds) * time.Second
+		}
+		reset := now.Add(cooldown)
+		resetAt = &reset
+	}
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, *resetAt, openAICodexSparkRateLimitReason); err != nil {
+		slog.Warn("openai_codex_spark_model_rate_limit_set_failed", "account_id", account.ID, "model", modelKey, "error", err)
+	}
+	slog.Info("openai_codex_spark_model_rate_limited", "account_id", account.ID, "model", modelKey, "reset_at", *resetAt)
+	return true
+}
+
+func (s *RateLimitService) HandleOpenAIImageCapabilityLoss(ctx context.Context, account *Account, statusCode int, responseBody []byte) bool {
+	if s == nil || account == nil || s.accountRepo == nil {
+		return false
+	}
+	if account.Platform != PlatformOpenAI {
+		return false
+	}
+	if !account.ShouldHandleErrorCode(statusCode) {
+		slog.Info("openai_image_capability_loss_skipped_by_error_code_policy", "account_id", account.ID, "status_code", statusCode)
+		return false
+	}
+	if !isOpenAIImageCapabilityLossError(statusCode, responseBody) {
+		return false
+	}
+
+	resetAt := time.Now().Add(openAIImageCapabilityLossCooldown)
+	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, openAIImageGenerationRateLimitKey, resetAt, openAIImageCapabilityLossReason); err != nil {
+		slog.Warn("openai_image_capability_loss_set_model_rate_limit_failed", "account_id", account.ID, "scope", openAIImageGenerationRateLimitKey, "error", err)
+		return true
+	}
+	slog.Info("openai_image_capability_lost", "account_id", account.ID, "scope", openAIImageGenerationRateLimitKey, "reset_at", resetAt, "reset_in", time.Until(resetAt).Truncate(time.Second))
+	return true
+}
+
+// isOpenAIImageCapabilityLossError reports whether upstream rejected the
+// image_generation tool choice that sub2api itself put into the request body.
+// Only meaningful for self-built images requests, where tools always carries a
+// matching image_generation entry — upstream saying otherwise means the account
+// lost the capability.
+func isOpenAIImageCapabilityLossError(statusCode int, body []byte) bool {
+	if statusCode != http.StatusBadRequest || len(body) == 0 {
+		return false
+	}
+	lower := strings.ToLower(string(body))
+	return strings.Contains(lower, "image_generation") &&
+		strings.Contains(lower, "not found in 'tools' parameter")
 }
 
 func isOpenAIImageRateLimitError(statusCode int, body []byte) bool {

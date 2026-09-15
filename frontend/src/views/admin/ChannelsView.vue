@@ -763,9 +763,9 @@ const form = reactive({
 let abortController: AbortController | null = null
 
 // ── Platform config ──
-const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek']
+const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
 // Composite pricing/mapping may target every concrete schedulable provider.
-const compositePlatforms: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek']
+const compositePlatforms: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
 
 // ── Helpers ──
 function formatDate(value: string): string {
@@ -861,6 +861,7 @@ function addPricingEntry(sectionIdx: number) {
     input_price: null,
     output_price: null,
     cache_write_price: null,
+    cache_write_1h_price: null,
     cache_read_price: null,
     fast_multiplier: null,
     flex_multiplier: null,
@@ -898,6 +899,7 @@ async function syncLatestModels(sectionIdx: number) {
       input_price: null,
       output_price: null,
       cache_write_price: null,
+      cache_write_1h_price: null,
       cache_read_price: null,
       fast_multiplier: null,
       flex_multiplier: null,
@@ -967,6 +969,7 @@ function addRulePricingEntry(sectionIdx: number, ruleIndex: number) {
     input_price: null,
     output_price: null,
     cache_write_price: null,
+    cache_write_1h_price: null,
     cache_read_price: null,
     image_input_price: null,
     image_output_price: null,
@@ -1084,6 +1087,7 @@ function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
             input_price: mTokToPerToken(p.input_price),
             output_price: mTokToPerToken(p.output_price),
             cache_write_price: mTokToPerToken(p.cache_write_price),
+            cache_write_1h_price: mTokToPerToken(p.cache_write_1h_price),
             cache_read_price: mTokToPerToken(p.cache_read_price),
             max_reasoning_effort_multiplier: p.max_reasoning_effort_multiplier != null && p.max_reasoning_effort_multiplier !== '' ? Number(p.max_reasoning_effort_multiplier) : null,
             image_input_price: mTokToPerToken(p.image_input_price),
@@ -1127,6 +1131,7 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
         input_price: mTokToPerToken(entry.input_price),
         output_price: mTokToPerToken(entry.output_price),
         cache_write_price: mTokToPerToken(entry.cache_write_price),
+        cache_write_1h_price: mTokToPerToken(entry.cache_write_1h_price),
         cache_read_price: mTokToPerToken(entry.cache_read_price),
         fast_multiplier: entry.fast_multiplier != null && entry.fast_multiplier !== '' ? Number(entry.fast_multiplier) : null,
         flex_multiplier: entry.flex_multiplier != null && entry.flex_multiplier !== '' ? Number(entry.flex_multiplier) : null,
@@ -1229,6 +1234,7 @@ function apiToForm(channel: Channel): PlatformSection[] {
         input_price: perTokenToMTok(p.input_price),
         output_price: perTokenToMTok(p.output_price),
         cache_write_price: perTokenToMTok(p.cache_write_price),
+        cache_write_1h_price: perTokenToMTok(p.cache_write_1h_price),
         cache_read_price: perTokenToMTok(p.cache_read_price),
         fast_multiplier: p.fast_multiplier,
         flex_multiplier: p.flex_multiplier,
@@ -1422,6 +1428,7 @@ function distributeRulesToPlatforms(apiRules: AccountStatsPricingRule[]) {
         input_price: perTokenToMTok(p.input_price),
         output_price: perTokenToMTok(p.output_price),
         cache_write_price: perTokenToMTok(p.cache_write_price),
+        cache_write_1h_price: perTokenToMTok(p.cache_write_1h_price),
         cache_read_price: perTokenToMTok(p.cache_read_price),
         image_input_price: perTokenToMTok(p.image_input_price),
         image_output_price: perTokenToMTok(p.image_output_price),
