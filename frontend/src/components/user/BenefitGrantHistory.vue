@@ -204,14 +204,42 @@
       </div>
     </template>
 
-    <Pagination
-      v-if="!isLoading && !loadFailed && total > pageSize"
-      :total="total"
-      :page="page"
-      :page-size="pageSize"
-      :show-page-size-selector="false"
-      @update:page="changePage"
-    />
+    <div
+      v-if="!isLoading && !loadFailed && (redeemTotal > 0 || total > pageSize)"
+      class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-dark-700 dark:border-dark-700"
+    >
+      <div
+        v-if="redeemTotal > 0"
+        data-testid="redeem-history-pagination"
+        :aria-disabled="redeemPaginationDisabled"
+        :class="redeemPaginationDisabled ? 'pointer-events-none opacity-60' : ''"
+      >
+        <p class="bg-gray-50 px-5 pt-3 text-xs font-medium text-gray-500 dark:bg-dark-800 dark:text-gray-400 sm:px-6">
+          {{ t('benefits.redeemPagination') }}
+        </p>
+        <Pagination
+          :total="redeemTotal"
+          :page="redeemPage"
+          :page-size="redeemPageSize"
+          :page-size-options="[20, 50, 100]"
+          @update:page="changeRedeemPage"
+          @update:page-size="changeRedeemPageSize"
+        />
+      </div>
+
+      <div v-if="total > pageSize" data-testid="benefit-history-pagination">
+        <p class="bg-gray-50 px-5 pt-3 text-xs font-medium text-gray-500 dark:bg-dark-800 dark:text-gray-400 sm:px-6">
+          {{ t('benefits.grantPagination') }}
+        </p>
+        <Pagination
+          :total="total"
+          :page="page"
+          :page-size="pageSize"
+          :show-page-size-selector="false"
+          @update:page="changePage"
+        />
+      </div>
+    </div>
   </section>
 </template>
 
@@ -230,15 +258,25 @@ const props = withDefaults(
   defineProps<{
     redeemHistory?: RedeemHistoryItem[]
     redeemLoading?: boolean
+    redeemPage?: number
+    redeemPageSize?: number
+    redeemTotal?: number
+    redeemPaginationDisabled?: boolean
   }>(),
   {
     redeemHistory: () => [],
     redeemLoading: false,
+    redeemPage: 1,
+    redeemPageSize: 20,
+    redeemTotal: 0,
+    redeemPaginationDisabled: false,
   },
 )
 
 const emit = defineEmits<{
   refreshRedeemHistory: []
+  'update:redeemPage': [page: number]
+  'update:redeemPageSize': [pageSize: number]
 }>()
 
 const { t } = useI18n()
@@ -368,6 +406,16 @@ function refreshAll() {
 function changePage(next: number) {
   page.value = next
   void load()
+}
+
+function changeRedeemPage(next: number) {
+  if (props.redeemLoading || props.redeemPaginationDisabled) return
+  emit('update:redeemPage', next)
+}
+
+function changeRedeemPageSize(next: number) {
+  if (props.redeemLoading || props.redeemPaginationDisabled) return
+  emit('update:redeemPageSize', next)
 }
 
 onMounted(() => {

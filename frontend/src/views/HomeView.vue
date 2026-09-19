@@ -94,7 +94,7 @@
   <div
     v-else
     data-testid="default-home"
-    class="relative flex min-h-screen flex-col overflow-hidden bg-[#030712]"
+    class="terminal-container relative flex min-h-screen flex-col overflow-hidden bg-[#030712]"
   >
     <!-- Background: subtle deep-space grid + radial glow -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">

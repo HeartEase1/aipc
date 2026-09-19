@@ -4,6 +4,8 @@ export default {
     description: 'Review welfare and compensation grants issued by administrators.',
     historyTitle: 'Account Activity',
     historyDescription: 'Redemptions, subscriptions, administrator adjustments, welfare, and compensation in one timeline.',
+    redeemPagination: 'Redemptions and adjustments',
+    grantPagination: 'Welfare and compensation grants',
     empty: 'No account activity yet',
     emptyHint: 'Redemptions, subscriptions, welfare, and compensation will remain available here.',
     loadFailed: 'Failed to load grant history. Please try again.',

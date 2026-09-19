@@ -4,6 +4,8 @@ export default {
     description: '查看管理员发放的福利和补偿记录。',
     historyTitle: '账户活动',
     historyDescription: '兑换、订阅、管理员调整以及福利补偿按时间统一展示。',
+    redeemPagination: '兑换与调整记录',
+    grantPagination: '福利与补偿记录',
     empty: '暂无账户活动',
     emptyHint: '兑换、订阅或收到福利和补偿后，记录会长期保留在这里。',
     loadFailed: '到账记录加载失败，请稍后重试。',

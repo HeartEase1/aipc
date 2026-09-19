@@ -212,7 +212,13 @@
           class="redeem-activity-card"
           :redeem-history="history"
           :redeem-loading="loadingHistory"
-          @refresh-redeem-history="fetchHistory"
+          :redeem-page="historyPage"
+          :redeem-page-size="historyPageSize"
+          :redeem-total="historyTotal"
+          :redeem-pagination-disabled="submitting"
+          @refresh-redeem-history="refreshHistory"
+          @update:redeem-page="fetchHistory"
+          @update:redeem-page-size="changeHistoryPageSize"
         />
       </aside>
     </div>
@@ -253,17 +259,40 @@ const errorMessage = ref('')
 // History data
 const history = ref<RedeemHistoryItem[]>([])
 const loadingHistory = ref(false)
+const historyPage = ref(1)
+const historyPageSize = ref(20)
+const historyTotal = ref(0)
+let historyRequest = 0
+let loadedHistoryPageSize = 20
 const contactInfo = ref('')
 
-const fetchHistory = async () => {
+const fetchHistory = async (page = 1) => {
+  const request = ++historyRequest
+  const pageSize = historyPageSize.value
   loadingHistory.value = true
   try {
-    history.value = await redeemAPI.getHistory()
+    const result = await redeemAPI.getHistory(page, pageSize)
+    if (request !== historyRequest) return
+    history.value = result.items
+    historyTotal.value = result.total
+    historyPage.value = page
+    historyPageSize.value = pageSize
+    loadedHistoryPageSize = pageSize
   } catch (error) {
+    if (request !== historyRequest) return
+    historyPageSize.value = loadedHistoryPageSize
+    appStore.showError(t('redeem.historyLoadFailed'))
     console.error('Failed to fetch history:', error)
   } finally {
-    loadingHistory.value = false
+    if (request === historyRequest) loadingHistory.value = false
   }
+}
+
+const refreshHistory = () => fetchHistory(historyPage.value)
+
+const changeHistoryPageSize = (pageSize: number) => {
+  historyPageSize.value = pageSize
+  return fetchHistory(1)
 }
 
 const handleRedeem = async () => {
