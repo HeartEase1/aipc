@@ -1,5 +1,8 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col">
+  <div
+    class="ops-error-log-table flex min-h-0 flex-col"
+    :class="{ 'ops-error-log-table--fixed-viewport': fixedViewport, 'h-full': !fixedViewport }"
+  >
     <div class="flex min-h-0 flex-1 flex-col overflow-hidden" :class="flat ? '' : 'card'">
       <IpGeoBatchToolbar :ips="rows.map((r) => r.client_ip)" @failed="emit('ipGeoBatchFailed')" />
 
@@ -299,6 +302,8 @@ interface Props {
   summaryFirst?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
+  /** 现代控制台中与用量明细保持一致的固定高度表格窗口 */
+  fixedViewport?: boolean
 }
 
 interface Emits {
@@ -341,3 +346,16 @@ function formatSmartMessage(msg: string): string {
   return msg.length > 200 ? msg.substring(0, 200) + '...' : msg
 }
 </script>
+
+<style>
+@media (min-width: 768px) {
+  .modern-console-shell .ops-error-log-table--fixed-viewport {
+    height: calc(var(--console-usage-table-height, clamp(24rem, 48dvh, 30rem)) + 4rem);
+    min-height: 0;
+  }
+
+  .modern-console-shell .ops-error-log-table--fixed-viewport .table-wrapper {
+    height: 100%;
+  }
+}
+</style>

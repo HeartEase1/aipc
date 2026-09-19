@@ -85,6 +85,36 @@
 
         <UsageFilters v-model="filters" ref="usageFiltersRef" flat :mode="activeTab" class="border-b border-gray-100 dark:border-dark-700/50" :start-date="startDate" :end-date="endDate" :exporting="exporting" :model-options="modelNameOptions" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
           <template #after-reset>
+            <button
+              v-if="activeTab === 'usage'"
+              type="button"
+              class="btn btn-secondary px-2 md:px-3"
+              :class="compactUserDetails ? 'border-primary-300 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-950/30 dark:text-primary-300' : ''"
+              :aria-pressed="compactUserDetails"
+              :title="compactUserDetails ? t('admin.usage.expandUserDetails') : t('admin.usage.collapseUserDetails')"
+              data-testid="toggle-compact-user"
+              @click="toggleCompactUserDetails"
+            >
+              <Icon name="users" size="sm" />
+              <span class="hidden xl:inline">
+                {{ compactUserDetails ? t('admin.usage.expandUserDetails') : t('admin.usage.collapseUserDetails') }}
+              </span>
+            </button>
+            <button
+              v-if="activeTab === 'usage'"
+              type="button"
+              class="btn btn-secondary px-2 md:px-3"
+              :class="compactResponseModelDetails ? 'border-primary-300 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-950/30 dark:text-primary-300' : ''"
+              :aria-pressed="compactResponseModelDetails"
+              :title="compactResponseModelDetails ? t('admin.usage.expandResponseModelDetails') : t('admin.usage.collapseResponseModelDetails')"
+              data-testid="toggle-compact-response-model"
+              @click="toggleCompactResponseModelDetails"
+            >
+              <Icon name="cube" size="sm" />
+              <span class="hidden xl:inline">
+                {{ compactResponseModelDetails ? t('admin.usage.expandResponseModelDetails') : t('admin.usage.collapseResponseModelDetails') }}
+              </span>
+            </button>
             <div v-if="activeTab !== 'ranking'" class="relative" ref="columnDropdownRef">
               <button
                 data-testid="usage-column-settings"
@@ -125,12 +155,15 @@
         <div v-show="activeTab === 'usage'" class="overflow-hidden rounded-b-2xl">
           <UsageTable
             flat
+            fixed-viewport
             :data="usageLogs"
             :loading="loading"
             :columns="visibleColumns"
             :server-side-sort="true"
             :default-sort-key="'created_at'"
             :default-sort-order="'desc'"
+            :compact-user="compactUserDetails"
+            :compact-response-model="compactResponseModelDetails"
             @sort="handleSort"
             @userClick="handleUserClick"
             @ipGeoBatchFailed="handleIpGeoBatchFailed"
@@ -140,6 +173,7 @@
         <div v-show="activeTab === 'errors'" class="overflow-hidden rounded-b-2xl">
           <OpsErrorLogTable
             flat
+            fixed-viewport
             :rows="errRows" :total="errTotal" :loading="errLoading"
             :page="errPage" :page-size="errPageSize"
             :visible-column-keys="errVisibleColumnKeys"
@@ -636,6 +670,10 @@ const HIDDEN_COLUMNS_VERSION_KEY = 'usage-hidden-columns-version'
 // 隐藏列版本链：每级只把当级新增列加入隐藏集，不重置用户已显式打开的列。
 const HIDDEN_COLUMNS_PREV_VERSION = 'request-id-hidden-by-default'
 const HIDDEN_COLUMNS_CURRENT_VERSION = 'upstream-request-id-hidden-by-default'
+const COMPACT_USER_DETAILS_KEY = 'admin-usage-compact-user-details'
+const COMPACT_RESPONSE_MODEL_DETAILS_KEY = 'admin-usage-compact-response-model-details'
+const compactUserDetails = ref(false)
+const compactResponseModelDetails = ref(false)
 
 const allColumns = computed(() => [
   { key: 'user', label: t('admin.usage.user'), sortable: false },
@@ -782,6 +820,34 @@ const loadSavedColumns = () => {
   }
 }
 
+const persistCompactPreference = (key: string, value: boolean) => {
+  try {
+    localStorage.setItem(key, value ? 'true' : 'false')
+  } catch (error) {
+    console.error('Failed to save usage display preference:', error)
+  }
+}
+
+const toggleCompactUserDetails = () => {
+  compactUserDetails.value = !compactUserDetails.value
+  persistCompactPreference(COMPACT_USER_DETAILS_KEY, compactUserDetails.value)
+}
+
+const toggleCompactResponseModelDetails = () => {
+  compactResponseModelDetails.value = !compactResponseModelDetails.value
+  persistCompactPreference(COMPACT_RESPONSE_MODEL_DETAILS_KEY, compactResponseModelDetails.value)
+}
+
+const loadCompactPreferences = () => {
+  try {
+    compactUserDetails.value = localStorage.getItem(COMPACT_USER_DETAILS_KEY) === 'true'
+    compactResponseModelDetails.value = localStorage.getItem(COMPACT_RESPONSE_MODEL_DETAILS_KEY) === 'true'
+  } catch {
+    compactUserDetails.value = false
+    compactResponseModelDetails.value = false
+  }
+}
+
 // Detail tabs
 type DetailTab = 'usage' | 'errors' | 'ranking'
 const activeTab = ref<DetailTab>('usage')
@@ -875,6 +941,7 @@ onMounted(() => {
   }, 120)
   loadSavedColumns()
   loadSavedErrColumns()
+  loadCompactPreferences()
   document.addEventListener('click', handleColumnClickOutside)
 })
 onUnmounted(() => { abortController?.abort(); exportAbortController?.abort(); document.removeEventListener('click', handleColumnClickOutside) })

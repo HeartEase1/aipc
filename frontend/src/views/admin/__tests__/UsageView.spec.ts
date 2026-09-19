@@ -34,6 +34,10 @@ const messages: Record<string, string> = {
   'admin.usage.failedToLoadUser': 'Failed to load user',
 	'admin.usage.requestId': 'Request ID',
 	'admin.usage.upstreamRequestId': 'Upstream ID',
+	'admin.usage.collapseUserDetails': 'Collapse user details',
+	'admin.usage.expandUserDetails': 'Expand user details',
+	'admin.usage.collapseResponseModelDetails': 'Collapse response model',
+	'admin.usage.expandResponseModelDetails': 'Expand response model',
 	'usage.requestedModel': 'Requested model',
 	'usage.sentUpstreamModel': 'Sent upstream model',
 	'usage.upstreamResponseModel': 'Upstream response model',
@@ -135,7 +139,12 @@ const UsageFiltersStub = defineComponent({
   template: '<div><span data-test="user-filter-label">{{ userKeyword }}</span><slot name="after-reset" /></div>',
 })
 const UsageTableStub = {
-  props: ['columns'],
+  props: {
+    columns: Array,
+    fixedViewport: Boolean,
+    compactUser: Boolean,
+    compactResponseModel: Boolean,
+  },
   emits: ['userClick'],
   template: '<div data-test="usage-table"><button class="user-click" @click="$emit(\'userClick\', 2)">user</button></div>',
 }
@@ -563,6 +572,67 @@ describe('admin UsageView request ID column visibility', () => {
     expect(usageTable.props('columns')).toEqual(
       expect.arrayContaining([expect.objectContaining({ key: 'upstream_request_id', label: 'Upstream ID' })]),
     )
+  })
+})
+
+describe('admin UsageView compact display controls', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.mocked(localStorage.getItem).mockReset().mockReturnValue(null)
+    vi.mocked(localStorage.setItem).mockReset()
+    list.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    getStats.mockReset().mockResolvedValue({
+      total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
+      total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
+    })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+    getModelStats.mockReset().mockResolvedValue({ models: [] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('bounds the modern table and persists both compact modes', async () => {
+    const wrapper = mount(UsageView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UsageStatsCards: true,
+          UsageFilters: UsageFiltersStub,
+          UsageTable: UsageTableStub,
+          UsageExportProgress: true,
+          UsageCleanupDialog: true,
+          UserBalanceHistoryModal: true,
+          AuditLogModal: true,
+          OpsErrorLogTable: true,
+          Pagination: true,
+          Select: true,
+          DateRangePicker: true,
+          Icon: true,
+          TokenUsageTrend: true,
+          ModelDistributionChart: true,
+          GroupDistributionChart: true,
+          EndpointDistributionChart: true,
+          UserTokenRanking: true,
+        },
+      },
+    })
+    await wrapper.vm.$nextTick()
+
+    const table = wrapper.findComponent(UsageTableStub)
+    expect(table.props('fixedViewport')).toBe(true)
+    expect(table.props('compactUser')).toBe(false)
+    expect(table.props('compactResponseModel')).toBe(false)
+
+    await wrapper.get('[data-testid="toggle-compact-user"]').trigger('click')
+    await wrapper.get('[data-testid="toggle-compact-response-model"]').trigger('click')
+
+    expect(table.props('compactUser')).toBe(true)
+    expect(table.props('compactResponseModel')).toBe(true)
+    expect(localStorage.setItem).toHaveBeenCalledWith('admin-usage-compact-user-details', 'true')
+    expect(localStorage.setItem).toHaveBeenCalledWith('admin-usage-compact-response-model-details', 'true')
+    wrapper.unmount()
   })
 })
 

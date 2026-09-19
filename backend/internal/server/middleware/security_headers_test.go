@@ -151,6 +151,58 @@ func TestSecurityHeaders(t *testing.T) {
 		assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
 	})
 
+	t.Run("hosted_playground_allows_only_same_origin_embedding", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; script-src 'self' __CSP_NONCE__; frame-ancestors 'none'; frame-ancestors https://untrusted.example",
+		}
+		middleware := SecurityHeaders(cfg, nil)
+
+		for _, path := range []string{
+			"/playground-app",
+			"/playground-app/",
+			"/playground-app/index.html",
+		} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, path+"?hosted=1", nil)
+
+			middleware(c)
+
+			assert.Equal(t, "SAMEORIGIN", w.Header().Get("X-Frame-Options"), path)
+			csp := w.Header().Get("Content-Security-Policy")
+			assert.Equal(t, 1, countDirectiveValue(csp, "frame-ancestors", "'self'"), path)
+			assert.Equal(t, 0, countDirectiveValue(csp, "frame-ancestors", "'none'"), path)
+			assert.Equal(t, 0, countDirectiveValue(csp, "frame-ancestors", "https://untrusted.example"), path)
+			assert.Contains(t, csp, "'nonce-", path)
+		}
+	})
+
+	t.Run("playground_assets_and_console_pages_remain_non_embeddable", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; frame-ancestors 'none'",
+		}
+		middleware := SecurityHeaders(cfg, nil)
+
+		for _, path := range []string{
+			"/playground-app/assets/index.js",
+			"/online-playground",
+			"/login",
+		} {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, path, nil)
+
+			middleware(c)
+
+			assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"), path)
+			csp := w.Header().Get("Content-Security-Policy")
+			assert.Equal(t, 1, countDirectiveValue(csp, "frame-ancestors", "'none'"), path)
+			assert.Equal(t, 0, countDirectiveValue(csp, "frame-ancestors", "'self'"), path)
+		}
+	})
+
 	t.Run("api_route_skips_csp_nonce_generation", func(t *testing.T) {
 		cfg := config.CSPConfig{
 			Enabled: true,

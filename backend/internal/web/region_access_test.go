@@ -6,8 +6,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -86,4 +89,46 @@ func TestHostedPlaygroundPathsDoNotFallBackToConsole(t *testing.T) {
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/playground-app/assets/missing.js", nil))
 	require.Equal(t, http.StatusNotFound, response.Code)
+}
+
+func TestHostedPlaygroundDocumentAllowsOnlySameOriginEmbedding(t *testing.T) {
+	frontend, err := NewFrontendServer(&regionAccessProviderStub{})
+	require.NoError(t, err)
+	router := gin.New()
+	router.Use(servermiddleware.SecurityHeaders(config.CSPConfig{
+		Enabled: true,
+		Policy:  "default-src 'self'; script-src 'self' __CSP_NONCE__; frame-ancestors 'none'",
+	}, nil))
+	router.Use(frontend.Middleware())
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(
+		http.MethodGet,
+		"/playground-app/?hosted=1&user=42&session=1234567890abcdef",
+		nil,
+	))
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, "SAMEORIGIN", response.Header().Get("X-Frame-Options"))
+	csp := response.Header().Get("Content-Security-Policy")
+	require.Contains(t, csp, "frame-ancestors 'self'")
+	require.NotContains(t, csp, "frame-ancestors 'none'")
+	require.Contains(t, response.Body.String(), "<div id=\"root\"></div>")
+
+	assetPath := firstPlaygroundAssetPath(t, response.Body.String())
+	assetResponse := httptest.NewRecorder()
+	router.ServeHTTP(assetResponse, httptest.NewRequest(http.MethodGet, assetPath, nil))
+	require.Equal(t, http.StatusOK, assetResponse.Code)
+	require.Equal(t, "DENY", assetResponse.Header().Get("X-Frame-Options"))
+}
+
+func firstPlaygroundAssetPath(t *testing.T, html string) string {
+	t.Helper()
+	marker := "./assets/"
+	start := strings.Index(html, marker)
+	require.NotEqual(t, -1, start)
+	start += 2 // drop the relative "./" prefix
+	end := strings.IndexAny(html[start:], "\"'")
+	require.NotEqual(t, -1, end)
+	return "/playground-app/" + html[start:start+end]
 }

@@ -178,6 +178,7 @@
 
       <template v-if="activeTab === 'usage'">
         <UsageTable
+          fixed-viewport
           :data="usageLogs"
           :loading="loading"
           :columns="visibleColumns"
@@ -202,6 +203,7 @@
 
       <UserErrorRequestsTable
         v-else-if="errorViewEnabled"
+        fixed-viewport
         :rows="errorRows"
         :total="errorTotal"
         :loading="errorLoading"

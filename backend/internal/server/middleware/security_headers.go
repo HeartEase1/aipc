@@ -119,6 +119,7 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 
 	return func(c *gin.Context) {
 		finalPolicy := policy
+		allowSameOriginFrame := isHostedPlaygroundDocumentPath(c)
 		if getFrameSrcOrigins != nil {
 			for _, origin := range getFrameSrcOrigins() {
 				if origin != "" {
@@ -126,9 +127,19 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 				}
 			}
 		}
+		if allowSameOriginFrame {
+			// The hosted playground is a trusted, bundled same-origin application
+			// rendered by the console in an iframe. Keep every other page denied,
+			// while allowing only this document to be embedded by the same origin.
+			finalPolicy = replaceDirective(finalPolicy, "frame-ancestors", "'self'")
+		}
 
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		if allowSameOriginFrame {
+			c.Header("X-Frame-Options", "SAMEORIGIN")
+		} else {
+			c.Header("X-Frame-Options", "DENY")
+		}
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		if isAPIRoutePath(c) {
 			c.Next()
@@ -149,6 +160,14 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 		c.Next()
 	}
+}
+
+func isHostedPlaygroundDocumentPath(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	path := strings.Trim(strings.TrimSpace(c.Request.URL.Path), "/")
+	return path == "playground-app" || path == "playground-app/index.html"
 }
 
 func isAPIRoutePath(c *gin.Context) bool {
@@ -210,6 +229,33 @@ func addToDirective(policy, directive, value string) string {
 		trimmed += ";"
 	}
 	return trimmed + " " + newCSPDirective(directive, value)
+}
+
+// replaceDirective replaces the complete value list of a CSP directive. It is
+// intentionally used instead of addToDirective for frame-ancestors because the
+// special value 'none' must never be combined with another source expression.
+func replaceDirective(policy, directive, value string) string {
+	directives := make([]string, 0, strings.Count(policy, ";")+1)
+	replaced := false
+	for _, rawDirective := range strings.Split(policy, ";") {
+		trimmed := strings.TrimSpace(rawDirective)
+		if trimmed == "" {
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) > 0 && fields[0] == directive {
+			if !replaced {
+				directives = append(directives, directive+" "+value)
+				replaced = true
+			}
+			continue
+		}
+		directives = append(directives, trimmed)
+	}
+	if !replaced {
+		directives = append(directives, directive+" "+value)
+	}
+	return strings.Join(directives, "; ") + ";"
 }
 
 func cspDirectiveEnd(policy, directive string) (int, bool) {

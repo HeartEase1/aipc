@@ -89,6 +89,7 @@ const DataTableStub = {
   template: `
     <div>
       <div v-for="row in data" :key="row.request_id">
+        <slot name="cell-user" :row="row" :value="row.user" />
         <slot name="cell-model" :row="row" :value="row.model" />
         <slot name="cell-reasoning_effort" :row="row" :value="row.reasoning_effort" />
         <slot name="cell-billing_mode" :row="row" />
@@ -421,6 +422,66 @@ describe('admin UsageTable tooltip', () => {
     const text = wrapper.text()
     expect(text).toContain('claude-sonnet-4')
     expect(text).toContain('claude-sonnet-4-20250514')
+  })
+
+  it('collapses the user cell to platform ID without removing its drill-down action', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          request_id: 'req-compact-user',
+          user_id: 42,
+          user: { email: 'owner@example.com' },
+        }],
+        loading: false,
+        columns: [],
+        compactUser: true,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('#42')
+    expect(wrapper.text()).not.toContain('owner@example.com')
+    expect(wrapper.get('button').attributes('title')).toBe('owner@example.com')
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.emitted('userClick')?.[0]).toEqual([42, 'owner@example.com'])
+    wrapper.unmount()
+  })
+
+  it('collapses the exact response model while retaining the audit conclusion', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          request_id: 'req-compact-response-model',
+          model: 'gpt-5.6-sol',
+          upstream_model: 'gpt-5.5',
+          upstream_response_model: 'gpt-5.5-2026-08-01',
+          upstream_model_mismatch: true,
+        }],
+        loading: false,
+        columns: [],
+        compactResponseModel: true,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('Possible version variant')
+    expect(wrapper.text()).not.toContain('gpt-5.5-2026-08-01')
+    expect(wrapper.get('[title*="Upstream response"]').attributes('title')).toContain('gpt-5.5-2026-08-01')
+    wrapper.unmount()
   })
 
   it('shows requested and forwarded reasoning effort separately when they differ', () => {
