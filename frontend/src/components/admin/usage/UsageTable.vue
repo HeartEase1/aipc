@@ -266,13 +266,17 @@
                 : LATENCY_BAR_CLASSES[durationSeverity(row.duration_ms ?? 0)]"
               aria-hidden="true"
             ></span>
-            <div class="grid grid-cols-[max-content_max-content] items-baseline gap-x-2 gap-y-0.5 text-xs">
-              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyFirstToken') }}</span>
-              <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
-              <span v-else class="text-gray-400 dark:text-gray-500">-</span>
-              <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
-              <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
-              <OutputRate class="col-span-2" :output-tokens="row.image_count || row.video_count ? null : row.output_tokens" :duration-ms="row.duration_ms" :first-token-ms="row.first_token_ms" />
+            <div data-testid="latency-metrics" class="flex flex-col items-start gap-0.5 text-left text-xs">
+              <div data-testid="latency-first-token" class="flex items-baseline gap-1.5 whitespace-nowrap">
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyFirstToken') }}</span>
+                <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
+                <span v-else class="text-gray-400 dark:text-gray-500">-</span>
+              </div>
+              <div data-testid="latency-duration" class="flex items-baseline gap-1.5 whitespace-nowrap">
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
+                <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
+              </div>
+              <OutputRate :output-tokens="row.image_count || row.video_count ? null : row.output_tokens" :duration-ms="row.duration_ms" :first-token-ms="row.first_token_ms" />
             </div>
           </div>
         </template>

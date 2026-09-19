@@ -26,6 +26,15 @@ const messages: Record<string, string> = {
   'admin.usage.cacheCreationCost': 'Cache Creation Cost',
   'admin.usage.cacheReadCost': 'Cache Read Cost',
   'usage.cacheHitRate': 'Cache hit rate',
+  'usage.latencyFirstToken': 'First token',
+  'usage.latencyDuration': 'Total time',
+  'usage.outputRate': 'Output rate',
+  'usage.outputRateDetails': 'Output rate details',
+  'usage.outputRateAverage': 'Average output rate',
+  'usage.outputRateAverageFormula': 'Output tokens / total duration',
+  'usage.outputRateGeneration': 'Post-first-token rate',
+  'usage.outputRateGenerationFormula': 'Output tokens / generation duration',
+  'usage.outputRateGenerationWarning': 'Generation duration excludes first-token latency.',
   'usage.inputTokenPrice': 'Input price',
   'usage.outputTokenPrice': 'Output price',
   'usage.perMillionTokens': '/ 1M tokens',
@@ -95,6 +104,7 @@ const DataTableStub = {
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
+        <slot name="cell-latency" :row="row" />
         <slot name="cell-request_id" :row="row" />
         <slot name="cell-upstream_request_id" :row="row" />
       </div>
@@ -143,6 +153,34 @@ describe('admin UsageTable tooltip', () => {
       height: 20,
       toJSON: () => ({}),
     } as DOMRect)
+  })
+
+  it('keeps each latency value close to its own label', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-admin-latency-spacing',
+          image_count: 0,
+          output_tokens: 100,
+          first_token_ms: 2_870,
+          duration_ms: 10_150,
+        }],
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    const metrics = wrapper.get('[data-testid="latency-metrics"]')
+    const firstToken = wrapper.get('[data-testid="latency-first-token"]')
+    const duration = wrapper.get('[data-testid="latency-duration"]')
+
+    expect(metrics.classes()).toEqual(expect.arrayContaining(['flex', 'flex-col', 'items-start', 'text-left']))
+    expect(metrics.classes().some((name) => name.startsWith('grid-cols-'))).toBe(false)
+    expect(firstToken.classes()).toContain('gap-1.5')
+    expect(duration.classes()).toContain('gap-1.5')
+    expect(firstToken.text()).toBe('First token2.87s')
+    expect(duration.text()).toBe('Total time10.15s')
   })
 
   it('keeps the cache token details inside the viewport beside a right-edge row', async () => {
