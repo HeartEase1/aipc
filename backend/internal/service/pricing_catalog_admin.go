@@ -264,7 +264,7 @@ func writeFileReplace(path string, body []byte, mode os.FileMode) error {
 	}
 	// Windows cannot replace an existing file with os.Rename. Production Linux
 	// uses the atomic path above; this fallback keeps local development usable.
-	return os.WriteFile(path, body, mode)
+	return os.WriteFile(path, body, mode) //nolint:gosec // G703: every caller builds this server-side path from the configured pricing data directory and fixed file names.
 }
 
 func pricingCatalogHash(body []byte) string {

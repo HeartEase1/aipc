@@ -21,7 +21,3 @@ func APIKeyFastModeEnabled(ctx context.Context) bool {
 	enabled, _ := ctx.Value(apiKeyFastModeContextKey{}).(bool)
 	return enabled
 }
-
-func apiKeyFastModeApplies(ctx context.Context, account *Account) bool {
-	return APIKeyFastModeEnabled(ctx) && account != nil && account.Platform == PlatformOpenAI
-}
