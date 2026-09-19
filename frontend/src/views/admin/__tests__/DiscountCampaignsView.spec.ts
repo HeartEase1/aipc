@@ -1,0 +1,311 @@
+import { flushPromises, mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import DiscountCampaignsView from '../DiscountCampaignsView.vue'
+
+const { list, create, update, remove, listUserExclusions, setUserExclusion, getAllIncludingInactive, stepUpRun, showError, showSuccess } = vi.hoisted(() => ({
+  list: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  remove: vi.fn(),
+  listUserExclusions: vi.fn(),
+  setUserExclusion: vi.fn(),
+  getAllIncludingInactive: vi.fn(),
+  stepUpRun: vi.fn(),
+  showError: vi.fn(),
+  showSuccess: vi.fn()
+}))
+
+vi.mock('@/api/admin', () => ({
+  adminAPI: {
+    discountCampaigns: { list, create, update, remove, listUserExclusions, setUserExclusion },
+    groups: { getAllIncludingInactive }
+  }
+}))
+
+vi.mock('@/stores', () => ({
+  useAppStore: () => ({ showError, showSuccess })
+}))
+
+vi.mock('@/composables/useStepUp', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/composables/useStepUp')>(),
+  useStepUp: () => ({ run: stepUpRun })
+}))
+
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return { ...actual, useI18n: () => ({ t: (key: string) => key }) }
+})
+
+const existingCampaign = {
+  id: 42,
+  name: 'Sunday discount',
+  description: 'Weekend balance discount',
+  group_ids: [11],
+  enabled: true,
+  schedule_type: 'weekly',
+  timezone: 'Asia/Shanghai',
+  weekdays: [0],
+  start_time: '22:00',
+  end_time: '02:00',
+  all_day: false,
+  discount_factor: '0.900000',
+  min_effective_multiplier: '0.5',
+  budget_cap: '100',
+  discount_spent: '12.5',
+  created_at: '2026-08-01T00:00:00Z',
+  updated_at: '2026-08-01T00:00:00Z',
+  status: 'active'
+} as const
+
+function mountView() {
+  return mount(DiscountCampaignsView, {
+    global: {
+      stubs: {
+        AppLayout: { template: '<main><slot /></main>' },
+        Icon: true,
+        BaseDialog: {
+          props: ['show'],
+          template: '<section v-if="show"><slot /><slot name="footer" /></section>'
+        },
+        ConfirmDialog: {
+          props: ['show'],
+          emits: ['confirm', 'cancel'],
+          template: '<div v-if="show"><button data-testid="confirm-delete" @click="$emit(\'confirm\')">confirm</button></div>'
+        },
+        GroupSelector: {
+          props: ['modelValue', 'groups', 'label'],
+          emits: ['update:modelValue'],
+          template: `<div data-testid="group-selector">
+            <button
+              v-for="group in groups"
+              :key="group.id"
+              type="button"
+              :data-group-id="group.id"
+              @click="$emit('update:modelValue', modelValue.includes(group.id) ? modelValue.filter(id => id !== group.id) : [...modelValue, group.id])"
+            >{{ group.name }}</button>
+          </div>`
+        },
+        TotpStepUpDialog: true
+      }
+    }
+  })
+}
+
+function buttonByText(wrapper: ReturnType<typeof mount>, text: string) {
+  const button = wrapper.findAll('button').find((candidate) => candidate.text() === text)
+  if (!button) throw new Error(`button not found: ${text}`)
+  return button
+}
+
+async function openCreateForm(wrapper: ReturnType<typeof mount>) {
+  await flushPromises()
+  await buttonByText(wrapper, 'admin.discountCampaigns.create').trigger('click')
+}
+
+describe('DiscountCampaignsView', () => {
+  beforeEach(() => {
+    list.mockReset().mockResolvedValue([])
+    create.mockReset().mockResolvedValue(existingCampaign)
+    update.mockReset().mockResolvedValue(existingCampaign)
+    remove.mockReset().mockResolvedValue(undefined)
+    listUserExclusions.mockReset().mockResolvedValue([])
+    setUserExclusion.mockReset().mockResolvedValue(undefined)
+    getAllIncludingInactive.mockReset().mockResolvedValue([
+      { id: 11, name: 'OpenAI balance', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1, account_count: 2 },
+      { id: 12, name: 'Gemini balance', platform: 'gemini', subscription_type: 'standard', rate_multiplier: 1, account_count: 1 },
+      { id: 13, name: 'Subscription', platform: 'openai', subscription_type: 'subscription', rate_multiplier: 1, account_count: 1 }
+    ])
+    stepUpRun.mockReset().mockImplementation((callback: () => unknown) => callback())
+    showError.mockReset()
+    showSuccess.mockReset()
+  })
+
+  it('verifies and retries exclusion saving with the same user and scope', async () => {
+    const { useStepUp } = await vi.importActual<typeof import('@/composables/useStepUp')>('@/composables/useStepUp')
+    const controller = useStepUp()
+    stepUpRun.mockImplementation(controller.run)
+    setUserExclusion.mockRejectedValueOnce({ code: 'STEP_UP_REQUIRED' })
+    const wrapper = mountView()
+    await flushPromises()
+    const userInput = wrapper.get('input[inputmode="numeric"]')
+    await userInput.setValue('123')
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.setValue(true)
+    await flushPromises()
+
+    expect(controller.visible.value).toBe(true)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    expect(userInput.attributes('disabled')).toBeDefined()
+    expect(setUserExclusion).toHaveBeenCalledWith(123, 'usage', true)
+    controller.onVerified()
+    await flushPromises()
+
+    expect(setUserExclusion).toHaveBeenCalledTimes(2)
+    expect(setUserExclusion).toHaveBeenLastCalledWith(123, 'usage', true)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('keeps exclusions unchanged and does not toast an error when verification is cancelled', async () => {
+    const { useStepUp } = await vi.importActual<typeof import('@/composables/useStepUp')>('@/composables/useStepUp')
+    const controller = useStepUp()
+    stepUpRun.mockImplementation(controller.run)
+    setUserExclusion.mockRejectedValueOnce({ reason: 'STEP_UP_REQUIRED' })
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('input[inputmode="numeric"]').setValue('123')
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.setValue(true)
+    await flushPromises()
+    controller.onCancel()
+    await flushPromises()
+
+    expect(setUserExclusion).toHaveBeenCalledTimes(1)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false)
+    expect(checkbox.attributes('disabled')).toBeUndefined()
+    expect(showError).not.toHaveBeenCalled()
+  })
+
+  it('restores a checked exclusion when removing it fails', async () => {
+    listUserExclusions.mockResolvedValue([{ user_id: 123, scope: 'usage', enabled: true }])
+    setUserExclusion.mockRejectedValue(new Error('save failed'))
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('input[inputmode="numeric"]').setValue('123')
+    await buttonByText(wrapper, '查询排除设置').trigger('click')
+    await flushPromises()
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.setValue(false)
+    await flushPromises()
+
+    expect(stepUpRun).toHaveBeenCalledTimes(1)
+    expect(setUserExclusion).toHaveBeenCalledWith(123, 'usage', false)
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
+    expect(showError).toHaveBeenCalledWith('save failed')
+  })
+
+  it('opens with a valid one-time schedule by default', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+
+    expect(buttonByText(wrapper, 'admin.discountCampaigns.scheduleTypes.one_time').classes()).toContain('bg-white')
+    expect(wrapper.findAll('input[type="datetime-local"]')).toHaveLength(2)
+    expect(wrapper.findAll('input[type="time"]')).toHaveLength(0)
+  })
+
+  it('converts the paid percentage and submits create through step-up verification', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('input[maxlength="120"]').setValue('Launch discount')
+    await wrapper.get('textarea[maxlength="500"]').setValue('Launch week offer')
+    await wrapper.get('input[type="number"]').setValue('85')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(stepUpRun).toHaveBeenCalledTimes(1)
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Launch discount',
+      description: 'Launch week offer',
+      schedule_type: 'one_time',
+      timezone: 'Asia/Shanghai',
+      discount_factor: '0.850000',
+      group_ids: [],
+      weekdays: [],
+      all_day: false
+    }))
+  })
+
+  it('submits only explicitly selected balance groups', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('input[maxlength="120"]').setValue('Scoped discount')
+    await buttonByText(wrapper, 'admin.discountCampaigns.groupScopes.specific').trigger('click')
+
+    expect(wrapper.findAll('[data-testid="group-selector"] button')).toHaveLength(2)
+    await wrapper.get('[data-group-id="12"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ group_ids: [12] }))
+  })
+
+  it('requires at least one group in specific scope mode', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('input[maxlength="120"]').setValue('Scoped discount')
+    await buttonByText(wrapper, 'admin.discountCampaigns.groupScopes.specific').trigger('click')
+
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('admin.discountCampaigns.errors.groupRequired')
+  })
+
+  it('keeps form switches aligned within their rows', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+
+    const enabledSwitch = wrapper.findAll('button[role="switch"]').at(-1)
+    expect(enabledSwitch?.classes()).toContain('shrink-0')
+    expect(enabledSwitch?.classes()).toContain('block')
+  })
+
+  it('submits selected weekdays and a cross-midnight weekly window', async () => {
+    const wrapper = mountView()
+    await openCreateForm(wrapper)
+    await wrapper.get('input[maxlength="120"]').setValue('Night discount')
+    await buttonByText(wrapper, 'admin.discountCampaigns.scheduleTypes.weekly').trigger('click')
+
+    const weekdayInputs = wrapper.findAll('input[type="checkbox"]')
+    await weekdayInputs[6].setValue(false)
+    await weekdayInputs[0].setValue(true)
+    await weekdayInputs[4].setValue(true)
+    await wrapper.findAll('button[role="switch"]')[0].trigger('click')
+
+    const timeInputs = wrapper.findAll('input[type="time"]')
+    await timeInputs[0].setValue('22:00')
+    await timeInputs[1].setValue('02:00')
+    await wrapper.get('input[type="number"]').setValue('90')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      schedule_type: 'weekly',
+      weekdays: [1, 5],
+      start_time: '22:00',
+      end_time: '02:00',
+      all_day: false,
+      discount_factor: '0.900000'
+    }))
+  })
+
+  it('updates an existing campaign through step-up verification', async () => {
+    list.mockResolvedValue([existingCampaign])
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('button[title="common.edit"]').trigger('click')
+    await wrapper.get('input[maxlength="120"]').setValue('Updated discount')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(stepUpRun).toHaveBeenCalledTimes(1)
+    expect(update).toHaveBeenCalledWith(42, expect.objectContaining({
+      name: 'Updated discount',
+      group_ids: [11],
+      schedule_type: 'weekly',
+      start_time: '22:00',
+      end_time: '02:00'
+    }))
+  })
+
+  it('deletes an existing campaign through step-up verification', async () => {
+    list.mockResolvedValue([existingCampaign])
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('button[title="admin.discountCampaigns.delete"]').trigger('click')
+    await wrapper.get('[data-testid="confirm-delete"]').trigger('click')
+    await flushPromises()
+
+    expect(stepUpRun).toHaveBeenCalledTimes(1)
+    expect(remove).toHaveBeenCalledWith(42)
+  })
+})

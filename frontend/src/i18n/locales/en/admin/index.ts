@@ -8,7 +8,14 @@ import audit from './audit'
 import promptAudit from './promptAudit'
 import plugins from './plugins'
 
+import benefitGrants from './benefitGrants'
+import discountCampaigns from './discountCampaigns'
+import groupModelCompatibility from './groupModelCompatibility'
+
 export default {
+  groupModelCompatibility,
+  ...benefitGrants,
+  ...discountCampaigns,
   ...overview,
   ...channels,
   ...accounts,

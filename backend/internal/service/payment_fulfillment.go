@@ -151,7 +151,24 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 	previousStatus := o.Status
 	now := time.Now()
 	grace := now.Add(-paymentGraceMinutes * time.Minute)
-	c, err := s.entClient.PaymentOrder.Update().Where(
+	client := s.entClient
+	var tx *dbent.Tx
+	if o.OrderType == payment.OrderTypeBalance && s.sqlDB != nil {
+		var err error
+		tx, err = s.entClient.Tx(ctx)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = tx.Rollback() }()
+		client = tx.Client()
+		if err := lockRechargeUser(ctx, client, o.UserID); err != nil {
+			return err
+		}
+		if err := redeemRechargePromotionInTx(ctx, client, o.ID); err != nil {
+			return err
+		}
+	}
+	c, err := client.PaymentOrder.Update().Where(
 		paymentorder.IDEQ(o.ID),
 		paymentorder.Or(
 			paymentorder.StatusEQ(OrderStatusPending),
@@ -166,7 +183,15 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 		return fmt.Errorf("update to PAID: %w", err)
 	}
 	if c == 0 {
+		if tx != nil {
+			_ = tx.Rollback()
+		}
 		return s.alreadyProcessed(ctx, o)
+	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
 	}
 	if previousStatus == OrderStatusCancelled || previousStatus == OrderStatusExpired {
 		slog.Info("order recovered from webhook payment success",
@@ -557,6 +582,10 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 	if s.subscriptionSvc == nil {
 		return errors.New("subscription service is unavailable")
 	}
+	subscriptionAction, err := normalizeSubscriptionAction(o.SubscriptionAction)
+	if err != nil {
+		return fmt.Errorf("invalid persisted subscription action: %w", err)
+	}
 
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
@@ -572,6 +601,7 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 	}
 
 	recoveredFromNote := false
+	var restarted *UserSubscription
 	if !alreadyAssigned {
 		orderNote := paymentSubscriptionOrderNote(o.ID)
 		existing, lookupErr := s.subscriptionSvc.userSubRepo.GetByUserIDAndGroupID(txCtx, o.UserID, groupID)
@@ -580,6 +610,14 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 			recoveredFromNote = true
 		case lookupErr != nil && !errors.Is(lookupErr, ErrSubscriptionNotFound):
 			return fmt.Errorf("check existing subscription assignment: %w", lookupErr)
+		case subscriptionAction == payment.SubscriptionActionRestart:
+			if existing == nil {
+				return errors.New("active subscription no longer exists for immediate reset")
+			}
+			restarted, err = s.subscriptionSvc.restartExistingSubscriptionTerm(txCtx, existing.ID, days, orderNote)
+			if err != nil {
+				return fmt.Errorf("restart subscription: %w", err)
+			}
 		default:
 			if _, _, err := s.subscriptionSvc.assignOrExtendSubscription(txCtx, &AssignSubscriptionInput{
 				UserID:       o.UserID,
@@ -593,9 +631,12 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 		}
 
 		detail, _ := json.Marshal(map[string]any{
-			"groupID":           groupID,
-			"validityDays":      days,
-			"recoveredFromNote": recoveredFromNote,
+			"groupID":            groupID,
+			"validityDays":       days,
+			"subscriptionAction": subscriptionAction,
+			"recoveredFromNote":  recoveredFromNote,
+			"restartedAt":        restartedSubscriptionTime(restarted, true),
+			"newExpiresAt":       restartedSubscriptionTime(restarted, false),
 		})
 		if _, err := txClient.PaymentAuditLog.Create().
 			SetOrderID(strconv.FormatInt(o.ID, 10)).
@@ -649,6 +690,16 @@ func hasPaymentSubscriptionOrderNote(notes string, orderNote string) bool {
 		}
 	}
 	return false
+}
+
+func restartedSubscriptionTime(sub *UserSubscription, startsAt bool) any {
+	if sub == nil {
+		return nil
+	}
+	if startsAt {
+		return sub.StartsAt
+	}
+	return sub.ExpiresAt
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {

@@ -14,6 +14,12 @@ export default {
         payment: 'Payment',
       },
       features: {
+        onlinePlayground: {
+          title: 'Online Playground',
+          description: 'Let signed-in users access the online workspace from the console.',
+          enabled: 'Show Online Playground',
+          enabledHint: 'Turning this off hides the entry and blocks direct access; existing user data is unaffected.',
+        },
         channelMonitor: {
           title: 'Channel Monitor',
           description: 'Choose either V1 active probes or V2 passive usage monitoring. When disabled, both background jobs stop and the user entry is hidden.',
@@ -31,6 +37,9 @@ export default {
           hideThroughput: 'Hide throughput rates from users (RPM / TPM)',
           hideThroughputHint:
             'When on, the user Channel Monitor page and user APIs omit RPM and TPM so fleet volume cannot be reverse-estimated from rates × window. Admins still see full metrics. Error rates, latency, and cache rates remain visible.',
+          detailedAnalysis: 'Show detailed analysis',
+          detailedAnalysisHint:
+            'When enabled, users can expand the matrix, trends, models, error reasons, and user ranking, which issues the corresponding queries. Disabled by default for a concise status-card view.',
           showQuota: 'Show channel usage/balance to users',
           showQuotaHint:
             'When on, quota-mode channel monitors expose the linked account usage windows/balance on the user Channel Status page. Disabled by default; admins always see it.',
@@ -652,6 +661,25 @@ export default {
         contactInfo: 'Contact Info',
         contactInfoPlaceholder: 'e.g., QQ: 123456789',
         contactInfoHint: 'Customer support contact info, displayed on redeem page, profile, etc.',
+        communityGroups: {
+          title: 'Official Communities',
+          description: 'Configure communities signed-in users can open from the top bar. QR images load only when the dialog opens. Up to 12 groups.',
+          add: 'Add Community',
+          empty: 'No communities configured. The Contact Us entry appears after one is added.',
+          unnamed: 'Unnamed community',
+          name: 'Community name',
+          namePlaceholder: 'e.g., Official Community',
+          number: 'Group number',
+          numberPlaceholder: 'e.g., 123456789',
+          joinUrl: 'Join link',
+          joinUrlPlaceholder: 'https://...',
+          qrCode: 'QR code',
+          uploadQrCode: 'Upload QR code',
+          qrCodeHint: 'PNG, JPEG, or WebP. Maximum 300KB per image.',
+          moveUp: 'Move up',
+          moveDown: 'Move down',
+          limitReached: 'You can configure up to 12 communities.'
+        },
         docUrl: 'Documentation URL',
         docUrlPlaceholder: 'https://docs.example.com',
         docUrlHint: 'Link to your documentation site. Leave empty to hide the documentation link.',
@@ -983,6 +1011,19 @@ export default {
         queryModePreagg: 'Preagg (fastest, requires aggregation)',
         metricsInterval: 'Metrics Collection Interval (seconds)',
         metricsIntervalHint: 'How often to collect system/request metrics (60-3600 seconds)'
+      },
+      webAccessRegion: {
+        title: 'WebUI Region Access',
+        description: 'Control browser access by visitor IP region without changing API availability.',
+        blockMainlandChina: 'Block mainland China IPs from the WebUI',
+        blockMainlandChinaHint: 'When enabled, mainland China IPv4 and IPv6 visitors see a region-unavailable page. API calls remain available.',
+        active: 'Enabled',
+        inactive: 'Disabled',
+        lockoutWarning: 'Administrators connecting from mainland China are blocked too. Do not refresh or close this page after saving unless an overseas administration path is ready. The management API remains available for emergency recovery.',
+        dataSourceHint: 'Region matching uses embedded APNIC mainland China IPv4/IPv6 allocations and the system client-IP configuration.',
+        saved: 'WebUI region access settings saved',
+        loadFailed: 'Failed to load WebUI region access settings',
+        saveFailed: 'Failed to save WebUI region access settings'
       },
       adminApiKey: {
         title: 'Admin API Key',

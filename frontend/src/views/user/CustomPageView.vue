@@ -28,7 +28,11 @@
         </div>
 
         <!-- Markdown mode with TOC -->
-        <div v-else-if="isMarkdownMode" class="flex h-full overflow-hidden">
+        <div
+          v-else-if="isMarkdownMode"
+          class="markdown-page-layout relative flex h-full overflow-hidden"
+          :class="{ 'toc-on-right': isBuiltinMarkdownPage }"
+        >
           <!-- TOC Sidebar -->
           <aside
             v-show="tocVisible"
@@ -37,7 +41,19 @@
             <div class="toc-header">
               <span class="toc-title">{{ t('customPage.tableOfContents') }}</span>
               <button class="toc-close-btn" @click="tocVisible = false">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="transition-transform"
+                  :class="{ 'rotate-180': isBuiltinMarkdownPage }"
+                ><path d="M15 18l-6-6 6-6"/></svg>
               </button>
             </div>
             <nav class="toc-nav">
@@ -146,6 +162,18 @@ interface TocItem {
   level: number
 }
 
+interface BuiltinMarkdownPage {
+  id: string
+  slug: string
+  label: string
+  markdownUrl: string
+  assetBaseUrl: string
+}
+
+const props = defineProps<{
+  builtinMarkdownPage?: BuiltinMarkdownPage
+}>()
+
 const { t, locale } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
@@ -218,10 +246,21 @@ useResizeObserver([embedShell, openButton], () => {
   }
 })
 
-const menuItemId = computed(() => route.params.id as string)
+const menuItemId = computed(() => (route.params.id as string | undefined) || props.builtinMarkdownPage?.id || '')
 
 const menuItem = computed(() => {
   const id = menuItemId.value
+  if (props.builtinMarkdownPage?.id === id) {
+    return {
+      id,
+      label: props.builtinMarkdownPage.label,
+      icon_svg: '',
+      url: `md:${props.builtinMarkdownPage.slug}`,
+      page_slug: props.builtinMarkdownPage.slug,
+      visibility: 'user' as const,
+      sort_order: 0,
+    }
+  }
   const publicItems = appStore.cachedPublicSettings?.custom_menu_items ?? []
   const found = publicItems.find((item) => item.id === id) ?? null
   if (found) return found
@@ -240,6 +279,9 @@ const markdownSlug = computed(() => {
 })
 
 const isMarkdownMode = computed(() => !!markdownSlug.value)
+const isBuiltinMarkdownPage = computed(
+  () => props.builtinMarkdownPage?.slug === markdownSlug.value,
+)
 
 const embeddedUrl = computed(() => {
   if (!menuItem.value || isMarkdownMode.value) return ''
@@ -289,13 +331,25 @@ function buildPageImageUrl(slug: string, src: string): string {
   return buildApiUrl(`/pages/${encodeURIComponent(slug)}/images/${encodedPath}${suffix}`)
 }
 
+function buildStaticPageImageUrl(baseUrl: string, src: string): string {
+  const trimmed = src.trim()
+  const [pathPart, suffix = ''] = trimmed.split(/([?#].*)/, 2)
+  const encodedPath = pathPart
+    .split('/')
+    .filter((part) => part && part !== '.')
+    .map((part) => encodeURIComponent(part))
+    .join('/')
+  return `${baseUrl.replace(/\/+$/, '')}/${encodedPath}${suffix}`
+}
+
 async function fetchAndRenderMarkdown(slug: string) {
   loading.value = true
   tocItems.value = []
   activeHeadingId.value = ''
   try {
-    const resp = await fetch(buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
-      headers: authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
+    const builtinPage = props.builtinMarkdownPage?.slug === slug ? props.builtinMarkdownPage : null
+    const resp = await fetch(builtinPage?.markdownUrl ?? buildApiUrl(`/pages/${encodeURIComponent(slug)}`), {
+      headers: !builtinPage && authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {},
     })
     if (!resp.ok) {
       renderedHtml.value = `<p class="text-red-500">${t('common.pageNotFound')}</p>`
@@ -305,7 +359,13 @@ async function fetchAndRenderMarkdown(slug: string) {
 
     raw = raw.replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
-      (match, alt, src) => isRelativeMarkdownAsset(src) ? `![${alt}](${buildPageImageUrl(slug, src)})` : match
+      (match, alt, src) => {
+        if (!isRelativeMarkdownAsset(src)) return match
+        const imageUrl = builtinPage
+          ? buildStaticPageImageUrl(builtinPage.assetBaseUrl, src)
+          : buildPageImageUrl(slug, src)
+        return `![${alt}](${imageUrl})`
+      }
     )
 
     const html = marked.parse(raw) as string
@@ -444,7 +504,7 @@ onUnmounted(() => {
 <style scoped>
 .custom-page-layout {
   @apply flex flex-col;
-  height: calc(100vh - 64px - 4rem);
+  height: var(--console-viewport-available-height, calc(100dvh - 8rem));
 }
 
 .toc-sidebar {
@@ -453,6 +513,17 @@ onUnmounted(() => {
   min-width: 160px;
   max-width: 280px;
   overflow: hidden;
+}
+
+.toc-on-right .toc-sidebar {
+  order: 2;
+  border-right: 0;
+  border-left: 1px solid;
+  @apply border-gray-200 dark:border-dark-600;
+}
+
+.toc-on-right .markdown-page-content {
+  order: 1;
 }
 
 @media (max-width: 640px) {
@@ -465,6 +536,12 @@ onUnmounted(() => {
     max-width: 240px;
     height: 100%;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .toc-on-right .toc-sidebar {
+    left: auto;
+    right: 0;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -503,6 +580,11 @@ onUnmounted(() => {
   @apply bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-500;
   @apply text-gray-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-600;
   @apply shadow-sm transition-colors cursor-pointer;
+}
+
+.toc-on-right .toc-toggle-btn {
+  left: auto;
+  right: 0.5rem;
 }
 
 .custom-embed-shell {

@@ -216,6 +216,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/playground',
+    name: 'OnlinePlayground',
+    component: () => import('@/views/user/OnlinePlaygroundView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      requiresOnlinePlayground: true,
+      title: 'Online Playground',
+      titleKey: 'onlinePlayground.title',
+      descriptionKey: 'onlinePlayground.description'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',
@@ -238,6 +251,39 @@ const routes: RouteRecordRaw[] = [
       title: 'Usage Records',
       titleKey: 'usage.title',
       descriptionKey: 'usage.description'
+    }
+  },
+  {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: () => import('@/views/user/LeaderboardView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Leaderboard',
+      titleKey: 'leaderboard.title',
+      descriptionKey: 'leaderboard.description'
+    }
+  },
+  {
+    path: '/guide',
+    name: 'UsageGuide',
+    component: () => import('@/views/user/CustomPageView.vue'),
+    props: {
+      builtinMarkdownPage: {
+        id: 'usage-guide',
+        slug: 'usage-guide',
+        label: 'Usage Guide',
+        markdownUrl: '/tutorial/usage-guide.md',
+        assetBaseUrl: '/tutorial'
+      }
+    },
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Usage Guide',
+      titleKey: 'usageGuide.title',
+      descriptionKey: 'usageGuide.description'
     }
   },
   {
@@ -586,6 +632,22 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/benefit-grants',
+    name: 'AdminBenefitGrants',
+    component: () => import('@/views/admin/BenefitGrantsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Benefit Grants', titleKey: 'admin.benefitGrants.title' }
+  },
+  {
+    path: '/admin/discount-campaigns',
+    name: 'AdminDiscountCampaigns',
+    component: () => import('@/views/admin/DiscountCampaignsView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Discount Campaigns', titleKey: 'admin.discountCampaigns.title' }
+  },
+  {
+    path: '/benefits',
+    redirect: '/redeem'
+  },
+  {
     path: '/admin/settings',
     name: 'AdminSettings',
     component: () => import('@/views/admin/SettingsView.vue'),
@@ -881,6 +943,35 @@ router.beforeEach(async (to, _from, next) => {
       query: { redirect: to.fullPath } // Save intended destination
     })
     return
+  }
+
+  // The online playground is a WebUI-only feature switch. Refresh the public
+  // settings when entering it so an administrator can disable an already-open
+  // feature without waiting for a full page reload. API gateway routes remain
+  // unaffected by this check.
+  if (to.meta.requiresOnlinePlayground === true) {
+    try {
+      await appStore.fetchPublicSettings(true)
+    } catch (error) {
+      // A transient public-settings failure must not lock existing users out;
+      // the playground itself still requires normal authentication and keys.
+      console.warn('Failed to refresh online playground setting', error)
+    }
+    if (
+      appStore.publicSettingsLoaded &&
+      appStore.cachedPublicSettings?.online_playground_enabled === false
+    ) {
+      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
+  }
+
+  if (to.path === '/guide') {
+    try { await appStore.fetchPublicSettings(true) } catch (error) { console.warn('Failed to refresh usage guide setting', error) }
+    if (appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.usage_guide_enabled === false) {
+      next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+      return
+    }
   }
 
   // Check admin requirement

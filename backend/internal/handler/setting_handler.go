@@ -77,6 +77,8 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		HomeContent:                         settings.HomeContent,
 		CompactHomeEnabled:                  settings.CompactHomeEnabled,
 		HideCcsImportButton:                 settings.HideCcsImportButton,
+		ConsoleUIMode:                       settings.ConsoleUIMode,
+		CommunityGroupsEnabled:              settings.CommunityGroupsEnabled,
 		PurchaseSubscriptionEnabled:         settings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:             settings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                settings.TableDefaultPageSize,
@@ -95,6 +97,7 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,
 		PaymentEnabled:                      settings.PaymentEnabled,
+		PaymentBalanceRechargeMultiplier:    settings.PaymentBalanceRechargeMultiplier,
 		PaymentBalanceDisabled:              settings.PaymentBalanceDisabled,
 		Version:                             h.version,
 		ServerTimezone:                      timezone.Name(),
@@ -111,8 +114,11 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
 
-		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
-		SubscriptionEnabled:      settings.SubscriptionEnabled,
+		AvailableChannelsEnabled:                settings.AvailableChannelsEnabled,
+		ChannelMonitorV2DetailedAnalysisEnabled: settings.ChannelMonitorV2DetailedAnalysisEnabled,
+		OnlinePlaygroundEnabled:                 settings.OnlinePlaygroundEnabled,
+		UsageGuideEnabled:                       settings.UsageGuideEnabled,
+		SubscriptionEnabled:                     settings.SubscriptionEnabled,
 
 		ModelPlazaEnabled:       settings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:   settings.ModelPlazaRequireAuth,
@@ -124,6 +130,19 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
 	})
+}
+
+// GetCommunityGroups returns administrator-configured communities to an
+// authenticated console user. QR images are intentionally excluded from the
+// public settings payload and fetched only when the user opens the dialog.
+// GET /api/v1/community-groups
+func (h *SettingHandler) GetCommunityGroups(c *gin.Context) {
+	groups, err := h.settingService.GetCommunityGroups(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, groups)
 }
 
 // UnsubscribeNotificationEmail handles optional notification email opt-outs.

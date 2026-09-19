@@ -309,3 +309,30 @@ func TestSettingService_GetPublicSettings_PaymentBalanceDisabledStrictTrue(t *te
 		})
 	}
 }
+
+func TestSettingService_GetPublicSettings_RechargeMultiplierMatchesInjection(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		raw  string
+		want float64
+	}{
+		{name: "missing", want: 1},
+		{name: "configured", raw: "1.25", want: 1.25},
+		{name: "invalid", raw: "-2", want: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+				SettingBalanceRechargeMult: tc.raw,
+			}}, &config.Config{})
+			settings, err := svc.GetPublicSettings(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, tc.want, settings.PaymentBalanceRechargeMultiplier)
+
+			raw, err := svc.GetPublicSettingsForInjection(context.Background())
+			require.NoError(t, err)
+			payload, ok := raw.(*PublicSettingsInjectionPayload)
+			require.True(t, ok)
+			require.Equal(t, tc.want, payload.PaymentBalanceRechargeMultiplier)
+		})
+	}
+}

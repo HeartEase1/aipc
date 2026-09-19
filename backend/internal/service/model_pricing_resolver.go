@@ -41,6 +41,7 @@ type ResolvedPricing struct {
 	channelPricing *ChannelModelPricing
 
 	longContextPricingEnabled bool
+	longContextPricingExempt  bool
 }
 
 // ModelPricingResolver 统一模型定价解析器。
@@ -70,6 +71,7 @@ type PricingInput struct {
 // 2. 如果指定了 GroupID，查找渠道定价并覆盖
 func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) *ResolvedPricing {
 	longContextPricingEnabled := input.Group == nil || input.Group.LongContextPricingEnabled
+	longContextPricingExempt := input.Group != nil && input.Group.IsLongContextPricingExempt(input.Model)
 	if groupPricing := matchGroupModelPricing(input.Group, input.Model); groupPricing != nil {
 		// Group token cards only override the first-tier / flat rates.
 		// Long-context ladders come from official presets, gated by the checkbox.
@@ -80,6 +82,7 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 		}
 		resolved := r.resolveConfiguredPricing(groupPricing, input.Model, PricingSourceGroup)
 		resolved.longContextPricingEnabled = longContextPricingEnabled
+		resolved.longContextPricingExempt = longContextPricingExempt
 		return resolved
 	}
 
@@ -98,6 +101,7 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 					channelPricing: chPricing,
 				}
 				resolved.longContextPricingEnabled = longContextPricingEnabled
+				resolved.longContextPricingExempt = longContextPricingExempt
 				r.applyRequestTierOverrides(chPricing, resolved)
 				return resolved
 			}
@@ -114,6 +118,7 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 		SupportsCacheBreakdown: basePricing != nil && basePricing.SupportsCacheBreakdown,
 	}
 	resolved.longContextPricingEnabled = longContextPricingEnabled
+	resolved.longContextPricingExempt = longContextPricingExempt
 
 	// 2. 如果有 GroupID，尝试渠道覆盖
 	if chPricing != nil {
@@ -125,6 +130,26 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 	}
 
 	return resolved
+}
+
+// IsLongContextPricingExempt matches a model name against the administrator's
+// exact exemption list. Matching is case-insensitive and trims whitespace;
+// wildcards are intentionally unsupported to avoid accidentally exempting a
+// newly introduced model.
+func (g *Group) IsLongContextPricingExempt(model string) bool {
+	if g == nil {
+		return false
+	}
+	normalized := strings.ToLower(strings.TrimSpace(normalizeChannelPricingModelName(model)))
+	if normalized == "" {
+		return false
+	}
+	for _, candidate := range g.LongContextPricingExemptModels {
+		if strings.ToLower(strings.TrimSpace(normalizeChannelPricingModelName(candidate))) == normalized {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *ModelPricingResolver) resolveConfiguredPricing(config *ChannelModelPricing, model, source string) *ResolvedPricing {

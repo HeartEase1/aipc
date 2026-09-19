@@ -86,6 +86,10 @@ var usageLogInsertArgTypes = [...]string{
 	"text",        // session_id
 	"boolean",     // native_compaction_v2
 	"timestamptz", // created_at
+	"bigint",      // discount_campaign_id
+	"numeric",     // discount_factor
+	"numeric",     // original_rate_multiplier
+	"numeric",     // discount_amount
 }
 
 const (
@@ -286,14 +290,18 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
-			created_at
+			created_at,
+			discount_campaign_id,
+			discount_factor,
+			original_rate_multiplier,
+			discount_amount
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9,
 			$10, $11,
 			$12, $13, $14, $15,
 			$16, $17, $18, $19,
 			$20, $21, $22, $23, $24, $25,
-			$26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62
+			$26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 		RETURNING id, created_at
@@ -746,12 +754,16 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
-			created_at
+			created_at,
+			discount_campaign_id,
+			discount_factor,
+			original_rate_multiplier,
+			discount_amount
 		) AS (VALUES `)
 
 	// Each batch row prepends the synthetic input_index before the 60
 	// usage-log column values.
-	args := make([]any, 0, len(keys)*61)
+	args := make([]any, 0, len(keys)*(len(usageLogInsertArgTypes)+1))
 	argPos := 1
 	for idx, key := range keys {
 		if idx > 0 {
@@ -841,7 +853,11 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				upstream_request_id,
 				session_id,
 				native_compaction_v2,
-				created_at
+				created_at,
+				discount_campaign_id,
+				discount_factor,
+				original_rate_multiplier,
+				discount_amount
 			)
 			SELECT
 				user_id,
@@ -905,7 +921,11 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				upstream_request_id,
 				session_id,
 				native_compaction_v2,
-				created_at
+				created_at,
+				discount_campaign_id,
+				discount_factor,
+				original_rate_multiplier,
+				discount_amount
 			FROM input
 			ON CONFLICT (request_id, api_key_id) DO NOTHING
 			RETURNING request_id, api_key_id, id, created_at
@@ -1009,7 +1029,11 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
-			created_at
+			created_at,
+			discount_campaign_id,
+			discount_factor,
+			original_rate_multiplier,
+			discount_amount
 		) AS (VALUES `)
 
 	args := make([]any, 0, len(preparedList)*60)
@@ -1099,7 +1123,11 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
-			created_at
+			created_at,
+			discount_campaign_id,
+			discount_factor,
+			original_rate_multiplier,
+			discount_amount
 		)
 		SELECT
 			user_id,
@@ -1163,7 +1191,11 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
-			created_at
+			created_at,
+			discount_campaign_id,
+			discount_factor,
+			original_rate_multiplier,
+			discount_amount
 		FROM input
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 	`)
@@ -1235,14 +1267,18 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			upstream_request_id,
 			session_id,
 			native_compaction_v2,
-			created_at
+			created_at,
+			discount_campaign_id,
+			discount_factor,
+			original_rate_multiplier,
+			discount_amount
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9,
 			$10, $11,
 			$12, $13, $14, $15,
 			$16, $17, $18, $19,
 			$20, $21, $22, $23, $24, $25,
-			$26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62
+			$26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65, $66
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 	`, prepared.args...)
@@ -1367,6 +1403,10 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			sessionID,            // session_id
 			log.NativeCompactionV2,
 			createdAt,
+			nullInt64(log.DiscountCampaignID),
+			log.DiscountFactor,
+			log.OriginalRateMultiplier,
+			log.DiscountAmount,
 		},
 	}
 }

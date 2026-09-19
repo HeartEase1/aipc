@@ -55,16 +55,17 @@ type ResumeTokenClaims struct {
 }
 
 type WeChatPaymentResumeClaims struct {
-	TokenType   string `json:"tk,omitempty"`
-	OpenID      string `json:"openid"`
-	PaymentType string `json:"pt,omitempty"`
-	Amount      string `json:"amt,omitempty"`
-	OrderType   string `json:"ot,omitempty"`
-	PlanID      int64  `json:"pid,omitempty"`
-	RedirectTo  string `json:"rd,omitempty"`
-	Scope       string `json:"scp,omitempty"`
-	IssuedAt    int64  `json:"iat"`
-	ExpiresAt   int64  `json:"exp,omitempty"`
+	TokenType          string `json:"tk,omitempty"`
+	OpenID             string `json:"openid"`
+	PaymentType        string `json:"pt,omitempty"`
+	Amount             string `json:"amt,omitempty"`
+	OrderType          string `json:"ot,omitempty"`
+	PlanID             int64  `json:"pid,omitempty"`
+	SubscriptionAction string `json:"sa,omitempty"`
+	RedirectTo         string `json:"rd,omitempty"`
+	Scope              string `json:"scp,omitempty"`
+	IssuedAt           int64  `json:"iat"`
+	ExpiresAt          int64  `json:"exp,omitempty"`
 }
 
 type PaymentResumeService struct {
@@ -385,6 +386,9 @@ func (s *PaymentResumeService) CreateWeChatPaymentResumeToken(claims WeChatPayme
 	if claims.OrderType == "" {
 		claims.OrderType = payment.OrderTypeBalance
 	}
+	if claims.SubscriptionAction == "" {
+		claims.SubscriptionAction = payment.SubscriptionActionExtend
+	}
 	claims.TokenType = wechatPaymentResumeTokenType
 	return s.createSignedToken(claims)
 }
@@ -415,6 +419,9 @@ func (s *PaymentResumeService) ParseWeChatPaymentResumeToken(token string) (*WeC
 	}
 	if claims.OrderType == "" {
 		claims.OrderType = payment.OrderTypeBalance
+	}
+	if claims.SubscriptionAction == "" {
+		claims.SubscriptionAction = payment.SubscriptionActionExtend
 	}
 	return &claims, nil
 }

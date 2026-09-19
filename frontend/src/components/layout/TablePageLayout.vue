@@ -1,24 +1,24 @@
 <template>
   <div class="table-page-layout" :class="{ 'mobile-mode': isMobile }">
     <!-- 固定区域：操作按钮 -->
-    <div v-if="$slots.actions" class="layout-section-fixed">
+    <div v-if="$slots.actions" class="layout-section-fixed layout-section-actions">
       <slot name="actions" />
     </div>
 
     <!-- 固定区域：搜索和过滤器 -->
-    <div v-if="$slots.filters" class="layout-section-fixed">
+    <div v-if="$slots.filters" class="layout-section-fixed layout-section-filters">
       <slot name="filters" />
     </div>
 
     <!-- 滚动区域：表格 -->
-    <div class="layout-section-scrollable">
+    <div class="layout-section-scrollable layout-section-table">
       <div class="card table-scroll-container">
         <slot name="table" />
       </div>
     </div>
 
     <!-- 固定区域：分页器 -->
-    <div v-if="$slots.pagination" class="layout-section-fixed">
+    <div v-if="$slots.pagination" class="layout-section-fixed layout-section-pagination">
       <slot name="pagination" />
     </div>
   </div>
@@ -47,7 +47,10 @@ onUnmounted(() => {
 /* 桌面端：Flexbox 布局 */
 .table-page-layout {
   @apply flex flex-col gap-6;
-  height: calc(100vh - 64px - 4rem); /* 减去 header + lg:p-8 的上下padding */
+  /* Legacy defaults remain exactly 100vh - 64px - 4rem. ModernAppShell
+     supplies the same contract through tokens when its header/padding differ. */
+  height: calc(100vh - var(--console-header-height, 64px) - var(--console-page-vertical-padding, 4rem));
+  height: calc(100dvh - var(--console-header-height, 64px) - var(--console-page-vertical-padding, 4rem));
 }
 
 .layout-section-fixed {
@@ -104,5 +107,55 @@ onUnmounted(() => {
   @apply flex-none;
   display: table;
   min-width: 100%;
+}
+
+</style>
+
+<style>
+/* The modern variant stays in this component's lazy CSS chunk but is not
+   scoped, so Vue cannot rewrite the ancestor selector. The shell prefix keeps
+   the classic console and public pages unchanged. */
+.modern-console-shell .table-page-layout {
+  display: grid;
+  grid-template-areas:
+    'actions'
+    'filters'
+    'table'
+    'pagination';
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0;
+  height: var(--console-viewport-available-height);
+  min-height: 0;
+}
+
+.modern-console-shell .table-page-layout > * {
+  min-width: 0;
+}
+
+.modern-console-shell .table-page-layout > * + * {
+  margin-block-start: 1.5rem;
+}
+
+.modern-console-shell .layout-section-actions {
+  grid-area: actions;
+}
+
+.modern-console-shell .layout-section-filters {
+  grid-area: filters;
+}
+
+.modern-console-shell .layout-section-table {
+  grid-area: table;
+}
+
+.modern-console-shell .layout-section-pagination {
+  grid-area: pagination;
+}
+
+@media (max-width: 1023px) {
+  .modern-console-shell .table-page-layout.mobile-mode {
+    grid-template-rows: auto auto auto auto;
+    height: auto;
+  }
 }
 </style>

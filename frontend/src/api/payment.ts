@@ -23,7 +23,41 @@ export interface PublicOrderVerifyResult {
   expires_at: string
 }
 
+export interface MembershipSummary {
+  rules?: { window_hours: number; priority: string[]; settlement_currency: string; affiliate_commission_rate: string; tiers: { name: string; threshold_amount: string; discount_percent: string }[]; first_recharge_offers?: { id: number; name: string; discount_percent: string; min_amount?: string | null; max_amount?: string | null; max_discount_amount?: string | null; starts_at?: string | null; ends_at?: string | null }[] }
+  enabled: boolean
+  settlement_currency: string
+  current_amount: string
+  current_tier?: string
+  current_discount_percent: string
+  next_tier?: string
+  next_threshold?: string
+  amount_to_next?: string
+  progress_percent: string
+  first_recharge_eligible: boolean
+  first_recharge_status?: 'eligible' | 'reserved' | 'used' | 'ineligible'
+}
+
+export interface RechargeQuote {
+  original_amount: string
+  discounted_amount: string
+  discount_amount: string
+  fee_amount: string
+  pay_amount: string
+  credited_amount: string
+  currency: string
+  discount_source?: string
+  promotion_id?: number
+}
+
 export const paymentAPI = {
+  getMembership() {
+    return apiClient.get<MembershipSummary>('/user/membership')
+  },
+
+  quote(amount: string, paymentType: string) {
+    return apiClient.post<RechargeQuote>('/payment/quote', { amount, payment_type: paymentType })
+  },
   /** Get payment configuration (enabled types, limits, etc.) */
   getConfig() {
     return apiClient.get<PaymentConfig>('/payment/config')

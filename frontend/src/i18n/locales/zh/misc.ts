@@ -8,6 +8,7 @@ export default {
     daily: '每日',
     weekly: '每周',
     monthly: '每月',
+    used: '已用',
     daysRemaining: '剩余 {days} 天',
     expired: '已过期',
     expiresToday: '今天到期',
@@ -134,7 +135,8 @@ export default {
     resetIn: '{time} 后重置',
     quotaEndsIn: '额度将在 {time} 后结束',
     windowNotActive: '等待首次使用',
-    usageOf: '已用 {used} / {limit}'
+    usageOf: '已用 {used} / {limit}',
+    usedPercentage: '已用 {percentage}%'
   },
 
   // Onboarding Tour
@@ -481,6 +483,28 @@ export default {
     },
     subscribeNow: '立即开通',
     renewNow: '续费',
+    restartNow: '立即重置',
+    restart: {
+      selectedTitle: '立即重置模式',
+      selectedDescription: '支付成功后，当前剩余时间和未使用额度将作废，并立即开始一个完整的新周期。',
+      reviewAndPay: '确认立即重置 {amount}',
+      confirmTitle: '确认立即重置订阅',
+      confirmDescription: '请确认当前权益的作废情况。订单只有在支付成功后才会重置订阅。',
+      forfeitTitle: '当前剩余权益不会结转',
+      forfeitDescription: '剩余有效期及各周期未使用额度将在支付成功时作废，无法恢复。',
+      currentTerm: '当前订阅',
+      remainingTime: '剩余有效期',
+      daysRemaining: '约 {days} 天',
+      used: '已用',
+      remainingForfeit: '剩余 / 作废',
+      newTerm: '重置后的新订阅',
+      newValidity: '完整周期',
+      estimatedExpiry: '预计到期时间',
+      paymentAmount: '付款金额',
+      paymentSafety: '若支付失败、取消或订单超时，当前订阅的有效期和额度均保持不变。实际新周期从支付成功时开始计算。',
+      confirmPayment: '支付 {amount} 并立即重置',
+      unavailable: '当前订阅不满足立即重置条件，请刷新页面后重试。',
+    },
     selectPlan: '选择套餐',
     planFeatures: '功能特性',
     planCard: {

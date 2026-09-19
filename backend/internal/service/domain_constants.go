@@ -391,6 +391,10 @@ const (
 	SettingKeyTablePageSizeOptions        = "table_page_size_options"       // 表格可选每页条数（JSON 数组）
 	SettingKeyCustomMenuItems             = "custom_menu_items"             // 自定义菜单项（JSON 数组）
 	SettingKeyCustomEndpoints             = "custom_endpoints"              // 自定义端点列表（JSON 数组）
+	SettingKeyConsoleUIMode               = "console_ui_mode"               // 登录后控制台外观模式
+	SettingKeyCommunityGroups             = "community_groups"
+	SettingKeyCommunityGroupsEnabled      = "community_groups_enabled"
+	SettingKeyBlockMainlandChinaWebAccess = "block_mainland_china_web_access" // 是否阻止中国大陆 IP 访问 WebUI（不影响 API）
 
 	// 默认配置
 	SettingKeyDefaultConcurrency   = "default_concurrency"    // 新用户默认并发量
@@ -532,9 +536,15 @@ const (
 	SettingKeyGrokDefaultBaseURLMode = "grok_default_base_url_mode"
 
 	// SettingKeyAvailableChannelsEnabled is a DB-backed soft switch for the "Available Channels"
+	// SettingKeyChannelMonitorV2DetailedAnalysisEnabled is a DB-backed soft switch for the "Available Channels"
+	// SettingKeyOnlinePlaygroundEnabled is a DB-backed soft switch for the "Available Channels"
+	// SettingKeyUsageGuideEnabled is a DB-backed soft switch for the "Available Channels"
 	// user-facing aggregate view. When false: user endpoint returns an empty list and the
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
-	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
+	SettingKeyAvailableChannelsEnabled                = "available_channels_enabled"
+	SettingKeyChannelMonitorV2DetailedAnalysisEnabled = "channel_monitor_v2_detailed_analysis_enabled"
+	SettingKeyOnlinePlaygroundEnabled                 = "online_playground_enabled"
+	SettingKeyUsageGuideEnabled                       = "usage_guide_enabled"
 
 	// SettingKeySubscriptionEnabled is a DB-backed soft switch for the user-facing
 	// subscription surface: sidebar entries, purchase-page subscription tab, header

@@ -73,8 +73,12 @@ func RegisterAdminRoutes(
 		// 优惠码管理
 		registerPromoCodeRoutes(admin, h)
 
+		registerMembershipRoutes(admin, h)
+		registerBenefitGrantRoutes(admin, h)
+		registerDiscountCampaignRoutes(admin, h)
+
 		// 系统设置
-		registerSettingsRoutes(admin, h)
+		registerSettingsRoutes(admin, h, stepUpAuth)
 
 		// 数据管理
 		registerDataManagementRoutes(admin, h, stepUpAuth)
@@ -131,6 +135,42 @@ func RegisterAdminRoutes(
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
 	}
+}
+
+func registerMembershipRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	admin.POST("/payment/membership-summaries", h.Admin.Payment.GetMembershipSummaries)
+	tiers := admin.Group("/payment/membership-tiers")
+	tiers.GET("", h.Admin.Payment.ListMembershipTiers)
+	tiers.POST("", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.CreateMembershipTier)
+	tiers.PUT("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateMembershipTier)
+	tiers.DELETE("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteMembershipTier)
+	promotions := admin.Group("/payment/recharge-promotions")
+	promotions.GET("", h.Admin.Payment.ListRechargePromotions)
+	promotions.POST("", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.CreateRechargePromotion)
+	promotions.PUT("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateRechargePromotion)
+	promotions.DELETE("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteRechargePromotion)
+	admin.GET("/payment/balance-marketing", h.Admin.Payment.GetBalanceMarketingConfig)
+	admin.PUT("/payment/balance-marketing", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateBalanceMarketingConfig)
+}
+
+func registerBenefitGrantRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	grants := admin.Group("/benefit-grants")
+	grants.POST("/preview", h.Admin.BenefitGrant.Preview)
+	grants.POST("/:id/execute", h.Admin.BenefitGrant.Execute)
+	grants.GET("", h.Admin.BenefitGrant.List)
+	grants.GET("/:id", h.Admin.BenefitGrant.Get)
+	grants.POST("/:id/retry-failed", h.Admin.BenefitGrant.RetryFailed)
+	grants.GET("/:id/export", h.Admin.BenefitGrant.Export)
+}
+
+func registerDiscountCampaignRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	campaigns := admin.Group("/discount-campaigns")
+	campaigns.GET("", h.Admin.DiscountCampaign.List)
+	campaigns.POST("", h.Admin.DiscountCampaign.Create)
+	campaigns.GET("/user-exclusions", h.Admin.DiscountCampaign.ListUserExclusions)
+	campaigns.PUT("/user-exclusions/:user_id", h.Admin.DiscountCampaign.SetUserExclusion)
+	campaigns.PUT("/:id", h.Admin.DiscountCampaign.Update)
+	campaigns.DELETE("/:id", h.Admin.DiscountCampaign.Delete)
 }
 
 func registerPromptAuditRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
@@ -554,9 +594,13 @@ func registerPromoCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
-func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	adminSettings := admin.Group("/settings")
 	{
+		adminSettings.GET("/pricing-catalog", h.Admin.Channel.GetPricingCatalogStatus)
+		adminSettings.POST("/pricing-catalog/check", gin.HandlerFunc(stepUpAuth), h.Admin.Channel.CheckPricingCatalog)
+		adminSettings.POST("/pricing-catalog/activate-remote", gin.HandlerFunc(stepUpAuth), h.Admin.Channel.ActivateRemotePricingCatalog)
+		adminSettings.POST("/pricing-catalog/activate-bundled", gin.HandlerFunc(stepUpAuth), h.Admin.Channel.ActivateBundledPricingCatalog)
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
 		adminSettings.PUT("", h.Admin.Setting.UpdateSettings)
 		adminSettings.POST("/test-smtp", h.Admin.Setting.TestSMTPConnection)
@@ -570,6 +614,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
 		adminSettings.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
 		adminSettings.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)
+		// WebUI 地区访问限制（不影响 API）
+		adminSettings.GET("/web-access-region", h.Admin.Setting.GetWebAccessRegionSettings)
+		adminSettings.PUT("/web-access-region", h.Admin.Setting.UpdateWebAccessRegionSettings)
 		// 529过载冷却配置
 		adminSettings.GET("/overload-cooldown", h.Admin.Setting.GetOverloadCooldownSettings)
 		adminSettings.PUT("/overload-cooldown", h.Admin.Setting.UpdateOverloadCooldownSettings)

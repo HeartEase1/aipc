@@ -28,6 +28,8 @@ vendor/
 
 # Go 编译缓存
 backend/.gocache/
+.gocache-official/
+.gocache-tmp/
 
 # ===================
 # Node.js / Vue 前端
@@ -155,5 +157,7 @@ output/
 
 # Vitest / Vite cache at repo root
 .vite/
+.playwright-cli/
+frontend/.playwright-cli/
 # 本地闭源插件开发目录及构建产物不进入 Sub2API 仓库
 /plugins/

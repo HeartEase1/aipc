@@ -77,6 +77,33 @@ jobs:
         run: pnpm run build
         working-directory: frontend
 
+      - name: Setup Node.js for playground
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: playground/package-lock.json
+
+      - name: Install playground dependencies
+        run: npm ci
+        working-directory: playground
+
+      - name: Test playground
+        run: npm test
+        working-directory: playground
+
+      # The Vue build clears the shared dist directory; build the hosted app last.
+      - name: Build playground
+        run: npm run build
+        working-directory: playground
+
+      - name: Verify embedded frontend artifact
+        run: |
+          test -f backend/internal/web/dist/index.html
+          test -f backend/internal/web/dist/playground-app/index.html
+          test -f backend/internal/web/dist/playground-app/THIRD_PARTY_NOTICES.txt
+          test -n "$(find backend/internal/web/dist/playground-app/assets -type f -print -quit)"
+
       - name: Upload frontend artifact
         uses: actions/upload-artifact@v7
         with:

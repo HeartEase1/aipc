@@ -43,6 +43,8 @@ type AdminHandlers struct {
 	Affiliate              *admin.AffiliateHandler
 	Compliance             *admin.ComplianceHandler
 	AuditLog               *admin.AuditLogHandler
+	BenefitGrant           *admin.BenefitGrantHandler
+	DiscountCampaign       *admin.DiscountCampaignHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -51,6 +53,7 @@ type Handlers struct {
 	User             *UserHandler
 	APIKey           *APIKeyHandler
 	Usage            *UsageHandler
+	Leaderboard      *LeaderboardHandler
 	Redeem           *RedeemHandler
 	Subscription     *SubscriptionHandler
 	Announcement     *AnnouncementHandler
@@ -68,6 +71,7 @@ type Handlers struct {
 	ModelPlaza       *ModelPlazaHandler
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
+	BenefitGrant     *BenefitGrantHandler
 }
 
 // BuildInfo contains build-time information

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"log/slog"
+	"reflect"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -332,6 +333,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.ContactInfo != after.ContactInfo {
 		changed = append(changed, "contact_info")
 	}
+	if !reflect.DeepEqual(before.CommunityGroups, after.CommunityGroups) {
+		changed = append(changed, "community_groups")
+	}
 	if before.DocURL != after.DocURL {
 		changed = append(changed, "doc_url")
 	}
@@ -343,6 +347,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.HideCcsImportButton != after.HideCcsImportButton {
 		changed = append(changed, "hide_ccs_import_button")
+	}
+	if before.ConsoleUIMode != after.ConsoleUIMode {
+		changed = append(changed, service.SettingKeyConsoleUIMode)
 	}
 	if before.DefaultConcurrency != after.DefaultConcurrency {
 		changed = append(changed, "default_concurrency")
@@ -578,6 +585,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AvailableChannelsEnabled != after.AvailableChannelsEnabled {
 		changed = append(changed, "available_channels_enabled")
+	}
+	if before.ChannelMonitorV2DetailedAnalysisEnabled != after.ChannelMonitorV2DetailedAnalysisEnabled {
+		changed = append(changed, "channel_monitor_v2_detailed_analysis_enabled")
+	}
+	if before.OnlinePlaygroundEnabled != after.OnlinePlaygroundEnabled {
+		changed = append(changed, "online_playground_enabled")
+	}
+	if before.UsageGuideEnabled != after.UsageGuideEnabled {
+		changed = append(changed, "usage_guide_enabled")
 	}
 	if before.SubscriptionEnabled != after.SubscriptionEnabled {
 		changed = append(changed, "subscription_enabled")

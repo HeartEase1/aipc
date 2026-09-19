@@ -14,6 +14,12 @@ export default {
         payment: '支付设置',
       },
       features: {
+        onlinePlayground: {
+          title: '在线工作台',
+          description: '允许已登录用户从控制台进入在线工作台。',
+          enabled: '显示在线工作台',
+          enabledHint: '关闭后隐藏入口并阻止直接访问，不影响已有用户数据。',
+        },
         channelMonitor: {
           title: '渠道监控',
           description: '启用后在 V1 主动探测与 V2 被动用量监控中二选一。关闭后两种模式的后台任务均停止，用户端入口隐藏。',
@@ -31,6 +37,9 @@ export default {
           hideThroughput: '对用户隐藏吞吐速率（RPM / TPM）',
           hideThroughputHint:
             '开启后，用户端渠道监控页面与用户 API 不返回 RPM/TPM，避免用「速率 × 时间窗」反推集群规模。管理员仍可见完整指标；错误率、延迟、缓存率照常展示。',
+          detailedAnalysis: '显示详细分析',
+          detailedAnalysisHint:
+            '开启后用户可展开矩阵、趋势、模型、错误原因和用户排行，并产生对应查询请求。默认关闭，仅显示简洁渠道状态卡。',
           showQuota: '向用户展示渠道用量/余额',
           showQuotaHint:
             '开启后，配额模式的渠道监控会在用户端渠道状态页展示关联账号的用量滚动窗口/余额。默认关闭；管理员始终可见。',
@@ -644,6 +653,25 @@ export default {
         contactInfo: '客服联系方式',
         contactInfoPlaceholder: '例如：QQ: 123456789',
         contactInfoHint: '填写客服联系方式，将展示在兑换页面、个人资料等位置',
+        communityGroups: {
+          title: '官方群聊',
+          description: '配置登录用户可在顶部栏查看的交流群。二维码仅在用户打开弹窗时加载，最多 12 组。',
+          add: '添加群聊',
+          empty: '尚未配置群聊，添加后顶部栏将显示“联系我们”入口。',
+          unnamed: '未命名群聊',
+          name: '群名称',
+          namePlaceholder: '例如：官方交流群',
+          number: '群号',
+          numberPlaceholder: '例如：123456789',
+          joinUrl: '群聊链接',
+          joinUrlPlaceholder: 'https://...',
+          qrCode: '群二维码',
+          uploadQrCode: '上传二维码',
+          qrCodeHint: '支持 PNG、JPEG、WebP，单张最大 300KB。',
+          moveUp: '上移',
+          moveDown: '下移',
+          limitReached: '最多可配置 12 个群聊。'
+        },
         docUrl: '文档链接',
         docUrlHint: '文档网站的链接。留空则隐藏文档链接。',
         docUrlPlaceholder: 'https://docs.example.com',
@@ -978,6 +1006,19 @@ export default {
         queryModePreagg: '预聚合（最快，需预聚合）',
         metricsInterval: '采集频率（秒）',
         metricsIntervalHint: '系统/请求指标采集频率（60-3600 秒）'
+      },
+      webAccessRegion: {
+        title: 'WebUI 地区访问限制',
+        description: '按访问者 IP 所属地区控制网页访问，不改变 API 服务的可用性。',
+        blockMainlandChina: '屏蔽中国大陆 IP 访问 WebUI',
+        blockMainlandChinaHint: '开启后，中国大陆 IPv4 和 IPv6 访问网页时将看到“该地区暂不支持访问”提示；API 调用不受影响。',
+        active: '已启用',
+        inactive: '未启用',
+        lockoutWarning: '中国大陆地区的管理员同样会被拦截。保存后请勿刷新或关闭当前页面，除非你已经准备好境外管理通道；管理 API 不受此限制，可用于紧急关闭。',
+        dataSourceHint: '地区判断使用内置 APNIC 中国大陆 IPv4/IPv6 分配数据，并复用系统的真实客户端 IP 配置。',
+        saved: 'WebUI 地区访问限制已保存',
+        loadFailed: '加载 WebUI 地区访问限制失败',
+        saveFailed: '保存 WebUI 地区访问限制失败'
       },
       adminApiKey: {
         title: '管理员 API Key',

@@ -117,6 +117,7 @@ type APIKeyMutation struct {
 	key                *string
 	name               *string
 	status             *string
+	fast_mode          *bool
 	last_used_at       *time.Time
 	ip_whitelist       *[]string
 	appendip_whitelist []string
@@ -565,6 +566,42 @@ func (m *APIKeyMutation) OldStatus(ctx context.Context) (v string, err error) {
 // ResetStatus resets all changes to the "status" field.
 func (m *APIKeyMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetFastMode sets the "fast_mode" field.
+func (m *APIKeyMutation) SetFastMode(b bool) {
+	m.fast_mode = &b
+}
+
+// FastMode returns the value of the "fast_mode" field in the mutation.
+func (m *APIKeyMutation) FastMode() (r bool, exists bool) {
+	v := m.fast_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFastMode returns the old "fast_mode" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldFastMode(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFastMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFastMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFastMode: %w", err)
+	}
+	return oldValue.FastMode, nil
+}
+
+// ResetFastMode resets all changes to the "fast_mode" field.
+func (m *APIKeyMutation) ResetFastMode() {
+	m.fast_mode = nil
 }
 
 // SetLastUsedAt sets the "last_used_at" field.
@@ -1532,7 +1569,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 24)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1556,6 +1593,9 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, apikey.FieldStatus)
+	}
+	if m.fast_mode != nil {
+		fields = append(fields, apikey.FieldFastMode)
 	}
 	if m.last_used_at != nil {
 		fields = append(fields, apikey.FieldLastUsedAt)
@@ -1626,6 +1666,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.GroupID()
 	case apikey.FieldStatus:
 		return m.Status()
+	case apikey.FieldFastMode:
+		return m.FastMode()
 	case apikey.FieldLastUsedAt:
 		return m.LastUsedAt()
 	case apikey.FieldIPWhitelist:
@@ -1681,6 +1723,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldGroupID(ctx)
 	case apikey.FieldStatus:
 		return m.OldStatus(ctx)
+	case apikey.FieldFastMode:
+		return m.OldFastMode(ctx)
 	case apikey.FieldLastUsedAt:
 		return m.OldLastUsedAt(ctx)
 	case apikey.FieldIPWhitelist:
@@ -1775,6 +1819,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case apikey.FieldFastMode:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFastMode(v)
 		return nil
 	case apikey.FieldLastUsedAt:
 		v, ok := value.(time.Time)
@@ -2109,6 +2160,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case apikey.FieldFastMode:
+		m.ResetFastMode()
 		return nil
 	case apikey.FieldLastUsedAt:
 		m.ResetLastUsedAt()
@@ -22078,127 +22132,129 @@ func (m *ErrorPassthroughRuleMutation) ResetEdge(name string) error {
 // GroupMutation represents an operation that mutates the Group nodes in the graph.
 type GroupMutation struct {
 	config
-	op                                      Op
-	typ                                     string
-	id                                      *int64
-	created_at                              *time.Time
-	updated_at                              *time.Time
-	deleted_at                              *time.Time
-	name                                    *string
-	description                             *string
-	rate_multiplier                         *float64
-	addrate_multiplier                      *float64
-	peak_rate_enabled                       *bool
-	peak_start                              *string
-	peak_end                                *string
-	peak_rate_multiplier                    *float64
-	addpeak_rate_multiplier                 *float64
-	is_exclusive                            *bool
-	status                                  *string
-	duplicate_operation_id                  *string
-	platform                                *string
-	subscription_type                       *string
-	daily_limit_usd                         *float64
-	adddaily_limit_usd                      *float64
-	weekly_limit_usd                        *float64
-	addweekly_limit_usd                     *float64
-	monthly_limit_usd                       *float64
-	addmonthly_limit_usd                    *float64
-	default_validity_days                   *int
-	adddefault_validity_days                *int
-	allow_image_generation                  *bool
-	allow_batch_image_generation            *bool
-	image_rate_independent                  *bool
-	image_rate_multiplier                   *float64
-	addimage_rate_multiplier                *float64
-	image_price_1k                          *float64
-	addimage_price_1k                       *float64
-	image_price_2k                          *float64
-	addimage_price_2k                       *float64
-	image_price_4k                          *float64
-	addimage_price_4k                       *float64
-	batch_image_discount_multiplier         *float64
-	addbatch_image_discount_multiplier      *float64
-	batch_image_hold_multiplier             *float64
-	addbatch_image_hold_multiplier          *float64
-	video_rate_independent                  *bool
-	video_rate_multiplier                   *float64
-	addvideo_rate_multiplier                *float64
-	video_price_480p                        *float64
-	addvideo_price_480p                     *float64
-	video_price_720p                        *float64
-	addvideo_price_720p                     *float64
-	video_price_1080p                       *float64
-	addvideo_price_1080p                    *float64
-	video_model_prices                      *map[string]map[string]float64
-	web_search_price_per_call               *float64
-	addweb_search_price_per_call            *float64
-	search_price_per_1k                     *float64
-	addsearch_price_per_1k                  *float64
-	audio_realtime_price_per_min            *float64
-	addaudio_realtime_price_per_min         *float64
-	audio_tts_price_per_million_chars       *float64
-	addaudio_tts_price_per_million_chars    *float64
-	audio_stt_price_per_hour                *float64
-	addaudio_stt_price_per_hour             *float64
-	long_context_pricing_enabled            *bool
-	model_pricing                           *jsontext.Value
-	appendmodel_pricing                     jsontext.Value
-	claude_code_only                        *bool
-	fallback_group_id                       *int64
-	addfallback_group_id                    *int64
-	fallback_group_id_on_invalid_request    *int64
-	addfallback_group_id_on_invalid_request *int64
-	model_routing                           *map[string][]int64
-	model_routing_enabled                   *bool
-	mcp_xml_inject                          *bool
-	supported_model_scopes                  *[]string
-	appendsupported_model_scopes            []string
-	sort_order                              *int
-	addsort_order                           *int
-	allow_messages_dispatch                 *bool
-	allow_live                              *bool
-	force_openai_fast                       *bool
-	free_openai_fast                        *bool
-	require_oauth_only                      *bool
-	require_privacy_set                     *bool
-	default_mapped_model                    *string
-	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
-	model_allowlist                         *domain.GroupModelAllowlist
-	codex_models_manifest_config            *domain.GroupCodexModelsManifestConfig
-	rpm_limit                               *int
-	addrpm_limit                            *int
-	max_reasoning_effort                    *string
-	max_reasoning_effort_over_limit         *string
-	reasoning_effort_mappings               *[]domain.ReasoningEffortMapping
-	appendreasoning_effort_mappings         []domain.ReasoningEffortMapping
-	profit_control_enabled                  *bool
-	profit_min_margin                       *float64
-	addprofit_min_margin                    *float64
-	profit_safety_buffer                    *float64
-	addprofit_safety_buffer                 *float64
-	clearedFields                           map[string]struct{}
-	api_keys                                map[int64]struct{}
-	removedapi_keys                         map[int64]struct{}
-	clearedapi_keys                         bool
-	redeem_codes                            map[int64]struct{}
-	removedredeem_codes                     map[int64]struct{}
-	clearedredeem_codes                     bool
-	subscriptions                           map[int64]struct{}
-	removedsubscriptions                    map[int64]struct{}
-	clearedsubscriptions                    bool
-	usage_logs                              map[int64]struct{}
-	removedusage_logs                       map[int64]struct{}
-	clearedusage_logs                       bool
-	accounts                                map[int64]struct{}
-	removedaccounts                         map[int64]struct{}
-	clearedaccounts                         bool
-	allowed_users                           map[int64]struct{}
-	removedallowed_users                    map[int64]struct{}
-	clearedallowed_users                    bool
-	done                                    bool
-	oldValue                                func(context.Context) (*Group, error)
-	predicates                              []predicate.Group
+	op                                       Op
+	typ                                      string
+	id                                       *int64
+	created_at                               *time.Time
+	updated_at                               *time.Time
+	deleted_at                               *time.Time
+	name                                     *string
+	description                              *string
+	rate_multiplier                          *float64
+	addrate_multiplier                       *float64
+	peak_rate_enabled                        *bool
+	peak_start                               *string
+	peak_end                                 *string
+	peak_rate_multiplier                     *float64
+	addpeak_rate_multiplier                  *float64
+	is_exclusive                             *bool
+	status                                   *string
+	duplicate_operation_id                   *string
+	platform                                 *string
+	subscription_type                        *string
+	daily_limit_usd                          *float64
+	adddaily_limit_usd                       *float64
+	weekly_limit_usd                         *float64
+	addweekly_limit_usd                      *float64
+	monthly_limit_usd                        *float64
+	addmonthly_limit_usd                     *float64
+	default_validity_days                    *int
+	adddefault_validity_days                 *int
+	allow_image_generation                   *bool
+	allow_batch_image_generation             *bool
+	image_rate_independent                   *bool
+	image_rate_multiplier                    *float64
+	addimage_rate_multiplier                 *float64
+	image_price_1k                           *float64
+	addimage_price_1k                        *float64
+	image_price_2k                           *float64
+	addimage_price_2k                        *float64
+	image_price_4k                           *float64
+	addimage_price_4k                        *float64
+	batch_image_discount_multiplier          *float64
+	addbatch_image_discount_multiplier       *float64
+	batch_image_hold_multiplier              *float64
+	addbatch_image_hold_multiplier           *float64
+	video_rate_independent                   *bool
+	video_rate_multiplier                    *float64
+	addvideo_rate_multiplier                 *float64
+	video_price_480p                         *float64
+	addvideo_price_480p                      *float64
+	video_price_720p                         *float64
+	addvideo_price_720p                      *float64
+	video_price_1080p                        *float64
+	addvideo_price_1080p                     *float64
+	video_model_prices                       *map[string]map[string]float64
+	web_search_price_per_call                *float64
+	addweb_search_price_per_call             *float64
+	search_price_per_1k                      *float64
+	addsearch_price_per_1k                   *float64
+	audio_realtime_price_per_min             *float64
+	addaudio_realtime_price_per_min          *float64
+	audio_tts_price_per_million_chars        *float64
+	addaudio_tts_price_per_million_chars     *float64
+	audio_stt_price_per_hour                 *float64
+	addaudio_stt_price_per_hour              *float64
+	long_context_pricing_enabled             *bool
+	long_context_pricing_exempt_models       *[]string
+	appendlong_context_pricing_exempt_models []string
+	model_pricing                            *jsontext.Value
+	appendmodel_pricing                      jsontext.Value
+	claude_code_only                         *bool
+	fallback_group_id                        *int64
+	addfallback_group_id                     *int64
+	fallback_group_id_on_invalid_request     *int64
+	addfallback_group_id_on_invalid_request  *int64
+	model_routing                            *map[string][]int64
+	model_routing_enabled                    *bool
+	mcp_xml_inject                           *bool
+	supported_model_scopes                   *[]string
+	appendsupported_model_scopes             []string
+	sort_order                               *int
+	addsort_order                            *int
+	allow_messages_dispatch                  *bool
+	allow_live                               *bool
+	force_openai_fast                        *bool
+	free_openai_fast                         *bool
+	require_oauth_only                       *bool
+	require_privacy_set                      *bool
+	default_mapped_model                     *string
+	messages_dispatch_model_config           *domain.OpenAIMessagesDispatchModelConfig
+	model_allowlist                          *domain.GroupModelAllowlist
+	codex_models_manifest_config             *domain.GroupCodexModelsManifestConfig
+	rpm_limit                                *int
+	addrpm_limit                             *int
+	max_reasoning_effort                     *string
+	max_reasoning_effort_over_limit          *string
+	reasoning_effort_mappings                *[]domain.ReasoningEffortMapping
+	appendreasoning_effort_mappings          []domain.ReasoningEffortMapping
+	profit_control_enabled                   *bool
+	profit_min_margin                        *float64
+	addprofit_min_margin                     *float64
+	profit_safety_buffer                     *float64
+	addprofit_safety_buffer                  *float64
+	clearedFields                            map[string]struct{}
+	api_keys                                 map[int64]struct{}
+	removedapi_keys                          map[int64]struct{}
+	clearedapi_keys                          bool
+	redeem_codes                             map[int64]struct{}
+	removedredeem_codes                      map[int64]struct{}
+	clearedredeem_codes                      bool
+	subscriptions                            map[int64]struct{}
+	removedsubscriptions                     map[int64]struct{}
+	clearedsubscriptions                     bool
+	usage_logs                               map[int64]struct{}
+	removedusage_logs                        map[int64]struct{}
+	clearedusage_logs                        bool
+	accounts                                 map[int64]struct{}
+	removedaccounts                          map[int64]struct{}
+	clearedaccounts                          bool
+	allowed_users                            map[int64]struct{}
+	removedallowed_users                     map[int64]struct{}
+	clearedallowed_users                     bool
+	done                                     bool
+	oldValue                                 func(context.Context) (*Group, error)
+	predicates                               []predicate.Group
 }
 
 var _ ent.Mutation = (*GroupMutation)(nil)
@@ -24407,6 +24463,57 @@ func (m *GroupMutation) ResetLongContextPricingEnabled() {
 	m.long_context_pricing_enabled = nil
 }
 
+// SetLongContextPricingExemptModels sets the "long_context_pricing_exempt_models" field.
+func (m *GroupMutation) SetLongContextPricingExemptModels(s []string) {
+	m.long_context_pricing_exempt_models = &s
+	m.appendlong_context_pricing_exempt_models = nil
+}
+
+// LongContextPricingExemptModels returns the value of the "long_context_pricing_exempt_models" field in the mutation.
+func (m *GroupMutation) LongContextPricingExemptModels() (r []string, exists bool) {
+	v := m.long_context_pricing_exempt_models
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLongContextPricingExemptModels returns the old "long_context_pricing_exempt_models" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldLongContextPricingExemptModels(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLongContextPricingExemptModels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLongContextPricingExemptModels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLongContextPricingExemptModels: %w", err)
+	}
+	return oldValue.LongContextPricingExemptModels, nil
+}
+
+// AppendLongContextPricingExemptModels adds s to the "long_context_pricing_exempt_models" field.
+func (m *GroupMutation) AppendLongContextPricingExemptModels(s []string) {
+	m.appendlong_context_pricing_exempt_models = append(m.appendlong_context_pricing_exempt_models, s...)
+}
+
+// AppendedLongContextPricingExemptModels returns the list of values that were appended to the "long_context_pricing_exempt_models" field in this mutation.
+func (m *GroupMutation) AppendedLongContextPricingExemptModels() ([]string, bool) {
+	if len(m.appendlong_context_pricing_exempt_models) == 0 {
+		return nil, false
+	}
+	return m.appendlong_context_pricing_exempt_models, true
+}
+
+// ResetLongContextPricingExemptModels resets all changes to the "long_context_pricing_exempt_models" field.
+func (m *GroupMutation) ResetLongContextPricingExemptModels() {
+	m.long_context_pricing_exempt_models = nil
+	m.appendlong_context_pricing_exempt_models = nil
+}
+
 // SetModelPricing sets the "model_pricing" field.
 func (m *GroupMutation) SetModelPricing(j jsontext.Value) {
 	m.model_pricing = &j
@@ -25921,7 +26028,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 66)
+	fields := make([]string, 0, 67)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26041,6 +26148,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.long_context_pricing_enabled != nil {
 		fields = append(fields, group.FieldLongContextPricingEnabled)
+	}
+	if m.long_context_pricing_exempt_models != nil {
+		fields = append(fields, group.FieldLongContextPricingExemptModels)
 	}
 	if m.model_pricing != nil {
 		fields = append(fields, group.FieldModelPricing)
@@ -26208,6 +26318,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.AudioSttPricePerHour()
 	case group.FieldLongContextPricingEnabled:
 		return m.LongContextPricingEnabled()
+	case group.FieldLongContextPricingExemptModels:
+		return m.LongContextPricingExemptModels()
 	case group.FieldModelPricing:
 		return m.ModelPricing()
 	case group.FieldClaudeCodeOnly:
@@ -26349,6 +26461,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAudioSttPricePerHour(ctx)
 	case group.FieldLongContextPricingEnabled:
 		return m.OldLongContextPricingEnabled(ctx)
+	case group.FieldLongContextPricingExemptModels:
+		return m.OldLongContextPricingExemptModels(ctx)
 	case group.FieldModelPricing:
 		return m.OldModelPricing(ctx)
 	case group.FieldClaudeCodeOnly:
@@ -26689,6 +26803,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetLongContextPricingEnabled(v)
+		return nil
+	case group.FieldLongContextPricingExemptModels:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLongContextPricingExemptModels(v)
 		return nil
 	case group.FieldModelPricing:
 		v, ok := value.(jsontext.Value)
@@ -27502,6 +27623,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldLongContextPricingEnabled:
 		m.ResetLongContextPricingEnabled()
+		return nil
+	case group.FieldLongContextPricingExemptModels:
+		m.ResetLongContextPricingExemptModels()
 		return nil
 	case group.FieldModelPricing:
 		m.ResetModelPricing()
@@ -30111,6 +30235,15 @@ type PaymentOrderMutation struct {
 	addamount                *float64
 	pay_amount               *float64
 	addpay_amount            *float64
+	settlement_currency      *string
+	original_amount          *float64
+	addoriginal_amount       *float64
+	discounted_amount        *float64
+	adddiscounted_amount     *float64
+	discount_amount          *float64
+	adddiscount_amount       *float64
+	discount_source          *string
+	pricing_snapshot         *map[string]interface{}
 	fee_rate                 *float64
 	addfee_rate              *float64
 	recharge_code            *string
@@ -30121,6 +30254,7 @@ type PaymentOrderMutation struct {
 	qr_code                  *string
 	qr_code_img              *string
 	order_type               *string
+	subscription_action      *string
 	plan_id                  *int64
 	addplan_id               *int64
 	subscription_group_id    *int64
@@ -30524,6 +30658,323 @@ func (m *PaymentOrderMutation) ResetPayAmount() {
 	m.addpay_amount = nil
 }
 
+// SetSettlementCurrency sets the "settlement_currency" field.
+func (m *PaymentOrderMutation) SetSettlementCurrency(s string) {
+	m.settlement_currency = &s
+}
+
+// SettlementCurrency returns the value of the "settlement_currency" field in the mutation.
+func (m *PaymentOrderMutation) SettlementCurrency() (r string, exists bool) {
+	v := m.settlement_currency
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSettlementCurrency returns the old "settlement_currency" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldSettlementCurrency(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSettlementCurrency is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSettlementCurrency requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSettlementCurrency: %w", err)
+	}
+	return oldValue.SettlementCurrency, nil
+}
+
+// ResetSettlementCurrency resets all changes to the "settlement_currency" field.
+func (m *PaymentOrderMutation) ResetSettlementCurrency() {
+	m.settlement_currency = nil
+}
+
+// SetOriginalAmount sets the "original_amount" field.
+func (m *PaymentOrderMutation) SetOriginalAmount(f float64) {
+	m.original_amount = &f
+	m.addoriginal_amount = nil
+}
+
+// OriginalAmount returns the value of the "original_amount" field in the mutation.
+func (m *PaymentOrderMutation) OriginalAmount() (r float64, exists bool) {
+	v := m.original_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOriginalAmount returns the old "original_amount" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldOriginalAmount(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOriginalAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOriginalAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOriginalAmount: %w", err)
+	}
+	return oldValue.OriginalAmount, nil
+}
+
+// AddOriginalAmount adds f to the "original_amount" field.
+func (m *PaymentOrderMutation) AddOriginalAmount(f float64) {
+	if m.addoriginal_amount != nil {
+		*m.addoriginal_amount += f
+	} else {
+		m.addoriginal_amount = &f
+	}
+}
+
+// AddedOriginalAmount returns the value that was added to the "original_amount" field in this mutation.
+func (m *PaymentOrderMutation) AddedOriginalAmount() (r float64, exists bool) {
+	v := m.addoriginal_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOriginalAmount clears the value of the "original_amount" field.
+func (m *PaymentOrderMutation) ClearOriginalAmount() {
+	m.original_amount = nil
+	m.addoriginal_amount = nil
+	m.clearedFields[paymentorder.FieldOriginalAmount] = struct{}{}
+}
+
+// OriginalAmountCleared returns if the "original_amount" field was cleared in this mutation.
+func (m *PaymentOrderMutation) OriginalAmountCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldOriginalAmount]
+	return ok
+}
+
+// ResetOriginalAmount resets all changes to the "original_amount" field.
+func (m *PaymentOrderMutation) ResetOriginalAmount() {
+	m.original_amount = nil
+	m.addoriginal_amount = nil
+	delete(m.clearedFields, paymentorder.FieldOriginalAmount)
+}
+
+// SetDiscountedAmount sets the "discounted_amount" field.
+func (m *PaymentOrderMutation) SetDiscountedAmount(f float64) {
+	m.discounted_amount = &f
+	m.adddiscounted_amount = nil
+}
+
+// DiscountedAmount returns the value of the "discounted_amount" field in the mutation.
+func (m *PaymentOrderMutation) DiscountedAmount() (r float64, exists bool) {
+	v := m.discounted_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountedAmount returns the old "discounted_amount" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldDiscountedAmount(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountedAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountedAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountedAmount: %w", err)
+	}
+	return oldValue.DiscountedAmount, nil
+}
+
+// AddDiscountedAmount adds f to the "discounted_amount" field.
+func (m *PaymentOrderMutation) AddDiscountedAmount(f float64) {
+	if m.adddiscounted_amount != nil {
+		*m.adddiscounted_amount += f
+	} else {
+		m.adddiscounted_amount = &f
+	}
+}
+
+// AddedDiscountedAmount returns the value that was added to the "discounted_amount" field in this mutation.
+func (m *PaymentOrderMutation) AddedDiscountedAmount() (r float64, exists bool) {
+	v := m.adddiscounted_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDiscountedAmount clears the value of the "discounted_amount" field.
+func (m *PaymentOrderMutation) ClearDiscountedAmount() {
+	m.discounted_amount = nil
+	m.adddiscounted_amount = nil
+	m.clearedFields[paymentorder.FieldDiscountedAmount] = struct{}{}
+}
+
+// DiscountedAmountCleared returns if the "discounted_amount" field was cleared in this mutation.
+func (m *PaymentOrderMutation) DiscountedAmountCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldDiscountedAmount]
+	return ok
+}
+
+// ResetDiscountedAmount resets all changes to the "discounted_amount" field.
+func (m *PaymentOrderMutation) ResetDiscountedAmount() {
+	m.discounted_amount = nil
+	m.adddiscounted_amount = nil
+	delete(m.clearedFields, paymentorder.FieldDiscountedAmount)
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (m *PaymentOrderMutation) SetDiscountAmount(f float64) {
+	m.discount_amount = &f
+	m.adddiscount_amount = nil
+}
+
+// DiscountAmount returns the value of the "discount_amount" field in the mutation.
+func (m *PaymentOrderMutation) DiscountAmount() (r float64, exists bool) {
+	v := m.discount_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountAmount returns the old "discount_amount" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldDiscountAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountAmount: %w", err)
+	}
+	return oldValue.DiscountAmount, nil
+}
+
+// AddDiscountAmount adds f to the "discount_amount" field.
+func (m *PaymentOrderMutation) AddDiscountAmount(f float64) {
+	if m.adddiscount_amount != nil {
+		*m.adddiscount_amount += f
+	} else {
+		m.adddiscount_amount = &f
+	}
+}
+
+// AddedDiscountAmount returns the value that was added to the "discount_amount" field in this mutation.
+func (m *PaymentOrderMutation) AddedDiscountAmount() (r float64, exists bool) {
+	v := m.adddiscount_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDiscountAmount resets all changes to the "discount_amount" field.
+func (m *PaymentOrderMutation) ResetDiscountAmount() {
+	m.discount_amount = nil
+	m.adddiscount_amount = nil
+}
+
+// SetDiscountSource sets the "discount_source" field.
+func (m *PaymentOrderMutation) SetDiscountSource(s string) {
+	m.discount_source = &s
+}
+
+// DiscountSource returns the value of the "discount_source" field in the mutation.
+func (m *PaymentOrderMutation) DiscountSource() (r string, exists bool) {
+	v := m.discount_source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountSource returns the old "discount_source" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldDiscountSource(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountSource: %w", err)
+	}
+	return oldValue.DiscountSource, nil
+}
+
+// ResetDiscountSource resets all changes to the "discount_source" field.
+func (m *PaymentOrderMutation) ResetDiscountSource() {
+	m.discount_source = nil
+}
+
+// SetPricingSnapshot sets the "pricing_snapshot" field.
+func (m *PaymentOrderMutation) SetPricingSnapshot(value map[string]interface{}) {
+	m.pricing_snapshot = &value
+}
+
+// PricingSnapshot returns the value of the "pricing_snapshot" field in the mutation.
+func (m *PaymentOrderMutation) PricingSnapshot() (r map[string]interface{}, exists bool) {
+	v := m.pricing_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPricingSnapshot returns the old "pricing_snapshot" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldPricingSnapshot(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPricingSnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPricingSnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPricingSnapshot: %w", err)
+	}
+	return oldValue.PricingSnapshot, nil
+}
+
+// ClearPricingSnapshot clears the value of the "pricing_snapshot" field.
+func (m *PaymentOrderMutation) ClearPricingSnapshot() {
+	m.pricing_snapshot = nil
+	m.clearedFields[paymentorder.FieldPricingSnapshot] = struct{}{}
+}
+
+// PricingSnapshotCleared returns if the "pricing_snapshot" field was cleared in this mutation.
+func (m *PaymentOrderMutation) PricingSnapshotCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldPricingSnapshot]
+	return ok
+}
+
+// ResetPricingSnapshot resets all changes to the "pricing_snapshot" field.
+func (m *PaymentOrderMutation) ResetPricingSnapshot() {
+	m.pricing_snapshot = nil
+	delete(m.clearedFields, paymentorder.FieldPricingSnapshot)
+}
+
 // SetFeeRate sets the "fee_rate" field.
 func (m *PaymentOrderMutation) SetFeeRate(f float64) {
 	m.fee_rate = &f
@@ -30905,6 +31356,42 @@ func (m *PaymentOrderMutation) OldOrderType(ctx context.Context) (v string, err 
 // ResetOrderType resets all changes to the "order_type" field.
 func (m *PaymentOrderMutation) ResetOrderType() {
 	m.order_type = nil
+}
+
+// SetSubscriptionAction sets the "subscription_action" field.
+func (m *PaymentOrderMutation) SetSubscriptionAction(s string) {
+	m.subscription_action = &s
+}
+
+// SubscriptionAction returns the value of the "subscription_action" field in the mutation.
+func (m *PaymentOrderMutation) SubscriptionAction() (r string, exists bool) {
+	v := m.subscription_action
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionAction returns the old "subscription_action" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldSubscriptionAction(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionAction is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionAction requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionAction: %w", err)
+	}
+	return oldValue.SubscriptionAction, nil
+}
+
+// ResetSubscriptionAction resets all changes to the "subscription_action" field.
+func (m *PaymentOrderMutation) ResetSubscriptionAction() {
+	m.subscription_action = nil
 }
 
 // SetPlanID sets the "plan_id" field.
@@ -32123,7 +32610,7 @@ func (m *PaymentOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PaymentOrderMutation) Fields() []string {
-	fields := make([]string, 0, 39)
+	fields := make([]string, 0, 46)
 	if m.user != nil {
 		fields = append(fields, paymentorder.FieldUserID)
 	}
@@ -32141,6 +32628,24 @@ func (m *PaymentOrderMutation) Fields() []string {
 	}
 	if m.pay_amount != nil {
 		fields = append(fields, paymentorder.FieldPayAmount)
+	}
+	if m.settlement_currency != nil {
+		fields = append(fields, paymentorder.FieldSettlementCurrency)
+	}
+	if m.original_amount != nil {
+		fields = append(fields, paymentorder.FieldOriginalAmount)
+	}
+	if m.discounted_amount != nil {
+		fields = append(fields, paymentorder.FieldDiscountedAmount)
+	}
+	if m.discount_amount != nil {
+		fields = append(fields, paymentorder.FieldDiscountAmount)
+	}
+	if m.discount_source != nil {
+		fields = append(fields, paymentorder.FieldDiscountSource)
+	}
+	if m.pricing_snapshot != nil {
+		fields = append(fields, paymentorder.FieldPricingSnapshot)
 	}
 	if m.fee_rate != nil {
 		fields = append(fields, paymentorder.FieldFeeRate)
@@ -32168,6 +32673,9 @@ func (m *PaymentOrderMutation) Fields() []string {
 	}
 	if m.order_type != nil {
 		fields = append(fields, paymentorder.FieldOrderType)
+	}
+	if m.subscription_action != nil {
+		fields = append(fields, paymentorder.FieldSubscriptionAction)
 	}
 	if m.plan_id != nil {
 		fields = append(fields, paymentorder.FieldPlanID)
@@ -32261,6 +32769,18 @@ func (m *PaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.Amount()
 	case paymentorder.FieldPayAmount:
 		return m.PayAmount()
+	case paymentorder.FieldSettlementCurrency:
+		return m.SettlementCurrency()
+	case paymentorder.FieldOriginalAmount:
+		return m.OriginalAmount()
+	case paymentorder.FieldDiscountedAmount:
+		return m.DiscountedAmount()
+	case paymentorder.FieldDiscountAmount:
+		return m.DiscountAmount()
+	case paymentorder.FieldDiscountSource:
+		return m.DiscountSource()
+	case paymentorder.FieldPricingSnapshot:
+		return m.PricingSnapshot()
 	case paymentorder.FieldFeeRate:
 		return m.FeeRate()
 	case paymentorder.FieldRechargeCode:
@@ -32279,6 +32799,8 @@ func (m *PaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.QrCodeImg()
 	case paymentorder.FieldOrderType:
 		return m.OrderType()
+	case paymentorder.FieldSubscriptionAction:
+		return m.SubscriptionAction()
 	case paymentorder.FieldPlanID:
 		return m.PlanID()
 	case paymentorder.FieldSubscriptionGroupID:
@@ -32348,6 +32870,18 @@ func (m *PaymentOrderMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldAmount(ctx)
 	case paymentorder.FieldPayAmount:
 		return m.OldPayAmount(ctx)
+	case paymentorder.FieldSettlementCurrency:
+		return m.OldSettlementCurrency(ctx)
+	case paymentorder.FieldOriginalAmount:
+		return m.OldOriginalAmount(ctx)
+	case paymentorder.FieldDiscountedAmount:
+		return m.OldDiscountedAmount(ctx)
+	case paymentorder.FieldDiscountAmount:
+		return m.OldDiscountAmount(ctx)
+	case paymentorder.FieldDiscountSource:
+		return m.OldDiscountSource(ctx)
+	case paymentorder.FieldPricingSnapshot:
+		return m.OldPricingSnapshot(ctx)
 	case paymentorder.FieldFeeRate:
 		return m.OldFeeRate(ctx)
 	case paymentorder.FieldRechargeCode:
@@ -32366,6 +32900,8 @@ func (m *PaymentOrderMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldQrCodeImg(ctx)
 	case paymentorder.FieldOrderType:
 		return m.OldOrderType(ctx)
+	case paymentorder.FieldSubscriptionAction:
+		return m.OldSubscriptionAction(ctx)
 	case paymentorder.FieldPlanID:
 		return m.OldPlanID(ctx)
 	case paymentorder.FieldSubscriptionGroupID:
@@ -32465,6 +33001,48 @@ func (m *PaymentOrderMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetPayAmount(v)
 		return nil
+	case paymentorder.FieldSettlementCurrency:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSettlementCurrency(v)
+		return nil
+	case paymentorder.FieldOriginalAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOriginalAmount(v)
+		return nil
+	case paymentorder.FieldDiscountedAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountedAmount(v)
+		return nil
+	case paymentorder.FieldDiscountAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountAmount(v)
+		return nil
+	case paymentorder.FieldDiscountSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountSource(v)
+		return nil
+	case paymentorder.FieldPricingSnapshot:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPricingSnapshot(v)
+		return nil
 	case paymentorder.FieldFeeRate:
 		v, ok := value.(float64)
 		if !ok {
@@ -32527,6 +33105,13 @@ func (m *PaymentOrderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetOrderType(v)
+		return nil
+	case paymentorder.FieldSubscriptionAction:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionAction(v)
 		return nil
 	case paymentorder.FieldPlanID:
 		v, ok := value.(int64)
@@ -32710,6 +33295,15 @@ func (m *PaymentOrderMutation) AddedFields() []string {
 	if m.addpay_amount != nil {
 		fields = append(fields, paymentorder.FieldPayAmount)
 	}
+	if m.addoriginal_amount != nil {
+		fields = append(fields, paymentorder.FieldOriginalAmount)
+	}
+	if m.adddiscounted_amount != nil {
+		fields = append(fields, paymentorder.FieldDiscountedAmount)
+	}
+	if m.adddiscount_amount != nil {
+		fields = append(fields, paymentorder.FieldDiscountAmount)
+	}
 	if m.addfee_rate != nil {
 		fields = append(fields, paymentorder.FieldFeeRate)
 	}
@@ -32737,6 +33331,12 @@ func (m *PaymentOrderMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedAmount()
 	case paymentorder.FieldPayAmount:
 		return m.AddedPayAmount()
+	case paymentorder.FieldOriginalAmount:
+		return m.AddedOriginalAmount()
+	case paymentorder.FieldDiscountedAmount:
+		return m.AddedDiscountedAmount()
+	case paymentorder.FieldDiscountAmount:
+		return m.AddedDiscountAmount()
 	case paymentorder.FieldFeeRate:
 		return m.AddedFeeRate()
 	case paymentorder.FieldPlanID:
@@ -32769,6 +33369,27 @@ func (m *PaymentOrderMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddPayAmount(v)
+		return nil
+	case paymentorder.FieldOriginalAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOriginalAmount(v)
+		return nil
+	case paymentorder.FieldDiscountedAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountedAmount(v)
+		return nil
+	case paymentorder.FieldDiscountAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountAmount(v)
 		return nil
 	case paymentorder.FieldFeeRate:
 		v, ok := value.(float64)
@@ -32815,6 +33436,15 @@ func (m *PaymentOrderMutation) ClearedFields() []string {
 	var fields []string
 	if m.FieldCleared(paymentorder.FieldUserNotes) {
 		fields = append(fields, paymentorder.FieldUserNotes)
+	}
+	if m.FieldCleared(paymentorder.FieldOriginalAmount) {
+		fields = append(fields, paymentorder.FieldOriginalAmount)
+	}
+	if m.FieldCleared(paymentorder.FieldDiscountedAmount) {
+		fields = append(fields, paymentorder.FieldDiscountedAmount)
+	}
+	if m.FieldCleared(paymentorder.FieldPricingSnapshot) {
+		fields = append(fields, paymentorder.FieldPricingSnapshot)
 	}
 	if m.FieldCleared(paymentorder.FieldPayURL) {
 		fields = append(fields, paymentorder.FieldPayURL)
@@ -32889,6 +33519,15 @@ func (m *PaymentOrderMutation) ClearField(name string) error {
 	switch name {
 	case paymentorder.FieldUserNotes:
 		m.ClearUserNotes()
+		return nil
+	case paymentorder.FieldOriginalAmount:
+		m.ClearOriginalAmount()
+		return nil
+	case paymentorder.FieldDiscountedAmount:
+		m.ClearDiscountedAmount()
+		return nil
+	case paymentorder.FieldPricingSnapshot:
+		m.ClearPricingSnapshot()
 		return nil
 	case paymentorder.FieldPayURL:
 		m.ClearPayURL()
@@ -32973,6 +33612,24 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 	case paymentorder.FieldPayAmount:
 		m.ResetPayAmount()
 		return nil
+	case paymentorder.FieldSettlementCurrency:
+		m.ResetSettlementCurrency()
+		return nil
+	case paymentorder.FieldOriginalAmount:
+		m.ResetOriginalAmount()
+		return nil
+	case paymentorder.FieldDiscountedAmount:
+		m.ResetDiscountedAmount()
+		return nil
+	case paymentorder.FieldDiscountAmount:
+		m.ResetDiscountAmount()
+		return nil
+	case paymentorder.FieldDiscountSource:
+		m.ResetDiscountSource()
+		return nil
+	case paymentorder.FieldPricingSnapshot:
+		m.ResetPricingSnapshot()
+		return nil
 	case paymentorder.FieldFeeRate:
 		m.ResetFeeRate()
 		return nil
@@ -32999,6 +33656,9 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 		return nil
 	case paymentorder.FieldOrderType:
 		m.ResetOrderType()
+		return nil
+	case paymentorder.FieldSubscriptionAction:
+		m.ResetSubscriptionAction()
 		return nil
 	case paymentorder.FieldPlanID:
 		m.ResetPlanID()
@@ -44568,6 +45228,14 @@ type UsageLogMutation struct {
 	rate_multiplier              *float64
 	addrate_multiplier           *float64
 	long_context_billing_applied *bool
+	discount_campaign_id         *int64
+	adddiscount_campaign_id      *int64
+	discount_factor              *float64
+	adddiscount_factor           *float64
+	original_rate_multiplier     *float64
+	addoriginal_rate_multiplier  *float64
+	discount_amount              *float64
+	adddiscount_amount           *float64
 	account_rate_multiplier      *float64
 	addaccount_rate_multiplier   *float64
 	billing_type                 *int8
@@ -46162,6 +46830,272 @@ func (m *UsageLogMutation) ResetLongContextBillingApplied() {
 	m.long_context_billing_applied = nil
 }
 
+// SetDiscountCampaignID sets the "discount_campaign_id" field.
+func (m *UsageLogMutation) SetDiscountCampaignID(i int64) {
+	m.discount_campaign_id = &i
+	m.adddiscount_campaign_id = nil
+}
+
+// DiscountCampaignID returns the value of the "discount_campaign_id" field in the mutation.
+func (m *UsageLogMutation) DiscountCampaignID() (r int64, exists bool) {
+	v := m.discount_campaign_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountCampaignID returns the old "discount_campaign_id" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDiscountCampaignID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountCampaignID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountCampaignID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountCampaignID: %w", err)
+	}
+	return oldValue.DiscountCampaignID, nil
+}
+
+// AddDiscountCampaignID adds i to the "discount_campaign_id" field.
+func (m *UsageLogMutation) AddDiscountCampaignID(i int64) {
+	if m.adddiscount_campaign_id != nil {
+		*m.adddiscount_campaign_id += i
+	} else {
+		m.adddiscount_campaign_id = &i
+	}
+}
+
+// AddedDiscountCampaignID returns the value that was added to the "discount_campaign_id" field in this mutation.
+func (m *UsageLogMutation) AddedDiscountCampaignID() (r int64, exists bool) {
+	v := m.adddiscount_campaign_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDiscountCampaignID clears the value of the "discount_campaign_id" field.
+func (m *UsageLogMutation) ClearDiscountCampaignID() {
+	m.discount_campaign_id = nil
+	m.adddiscount_campaign_id = nil
+	m.clearedFields[usagelog.FieldDiscountCampaignID] = struct{}{}
+}
+
+// DiscountCampaignIDCleared returns if the "discount_campaign_id" field was cleared in this mutation.
+func (m *UsageLogMutation) DiscountCampaignIDCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldDiscountCampaignID]
+	return ok
+}
+
+// ResetDiscountCampaignID resets all changes to the "discount_campaign_id" field.
+func (m *UsageLogMutation) ResetDiscountCampaignID() {
+	m.discount_campaign_id = nil
+	m.adddiscount_campaign_id = nil
+	delete(m.clearedFields, usagelog.FieldDiscountCampaignID)
+}
+
+// SetDiscountFactor sets the "discount_factor" field.
+func (m *UsageLogMutation) SetDiscountFactor(f float64) {
+	m.discount_factor = &f
+	m.adddiscount_factor = nil
+}
+
+// DiscountFactor returns the value of the "discount_factor" field in the mutation.
+func (m *UsageLogMutation) DiscountFactor() (r float64, exists bool) {
+	v := m.discount_factor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountFactor returns the old "discount_factor" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDiscountFactor(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountFactor is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountFactor requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountFactor: %w", err)
+	}
+	return oldValue.DiscountFactor, nil
+}
+
+// AddDiscountFactor adds f to the "discount_factor" field.
+func (m *UsageLogMutation) AddDiscountFactor(f float64) {
+	if m.adddiscount_factor != nil {
+		*m.adddiscount_factor += f
+	} else {
+		m.adddiscount_factor = &f
+	}
+}
+
+// AddedDiscountFactor returns the value that was added to the "discount_factor" field in this mutation.
+func (m *UsageLogMutation) AddedDiscountFactor() (r float64, exists bool) {
+	v := m.adddiscount_factor
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDiscountFactor clears the value of the "discount_factor" field.
+func (m *UsageLogMutation) ClearDiscountFactor() {
+	m.discount_factor = nil
+	m.adddiscount_factor = nil
+	m.clearedFields[usagelog.FieldDiscountFactor] = struct{}{}
+}
+
+// DiscountFactorCleared returns if the "discount_factor" field was cleared in this mutation.
+func (m *UsageLogMutation) DiscountFactorCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldDiscountFactor]
+	return ok
+}
+
+// ResetDiscountFactor resets all changes to the "discount_factor" field.
+func (m *UsageLogMutation) ResetDiscountFactor() {
+	m.discount_factor = nil
+	m.adddiscount_factor = nil
+	delete(m.clearedFields, usagelog.FieldDiscountFactor)
+}
+
+// SetOriginalRateMultiplier sets the "original_rate_multiplier" field.
+func (m *UsageLogMutation) SetOriginalRateMultiplier(f float64) {
+	m.original_rate_multiplier = &f
+	m.addoriginal_rate_multiplier = nil
+}
+
+// OriginalRateMultiplier returns the value of the "original_rate_multiplier" field in the mutation.
+func (m *UsageLogMutation) OriginalRateMultiplier() (r float64, exists bool) {
+	v := m.original_rate_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOriginalRateMultiplier returns the old "original_rate_multiplier" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldOriginalRateMultiplier(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOriginalRateMultiplier is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOriginalRateMultiplier requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOriginalRateMultiplier: %w", err)
+	}
+	return oldValue.OriginalRateMultiplier, nil
+}
+
+// AddOriginalRateMultiplier adds f to the "original_rate_multiplier" field.
+func (m *UsageLogMutation) AddOriginalRateMultiplier(f float64) {
+	if m.addoriginal_rate_multiplier != nil {
+		*m.addoriginal_rate_multiplier += f
+	} else {
+		m.addoriginal_rate_multiplier = &f
+	}
+}
+
+// AddedOriginalRateMultiplier returns the value that was added to the "original_rate_multiplier" field in this mutation.
+func (m *UsageLogMutation) AddedOriginalRateMultiplier() (r float64, exists bool) {
+	v := m.addoriginal_rate_multiplier
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOriginalRateMultiplier clears the value of the "original_rate_multiplier" field.
+func (m *UsageLogMutation) ClearOriginalRateMultiplier() {
+	m.original_rate_multiplier = nil
+	m.addoriginal_rate_multiplier = nil
+	m.clearedFields[usagelog.FieldOriginalRateMultiplier] = struct{}{}
+}
+
+// OriginalRateMultiplierCleared returns if the "original_rate_multiplier" field was cleared in this mutation.
+func (m *UsageLogMutation) OriginalRateMultiplierCleared() bool {
+	_, ok := m.clearedFields[usagelog.FieldOriginalRateMultiplier]
+	return ok
+}
+
+// ResetOriginalRateMultiplier resets all changes to the "original_rate_multiplier" field.
+func (m *UsageLogMutation) ResetOriginalRateMultiplier() {
+	m.original_rate_multiplier = nil
+	m.addoriginal_rate_multiplier = nil
+	delete(m.clearedFields, usagelog.FieldOriginalRateMultiplier)
+}
+
+// SetDiscountAmount sets the "discount_amount" field.
+func (m *UsageLogMutation) SetDiscountAmount(f float64) {
+	m.discount_amount = &f
+	m.adddiscount_amount = nil
+}
+
+// DiscountAmount returns the value of the "discount_amount" field in the mutation.
+func (m *UsageLogMutation) DiscountAmount() (r float64, exists bool) {
+	v := m.discount_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDiscountAmount returns the old "discount_amount" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldDiscountAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDiscountAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDiscountAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDiscountAmount: %w", err)
+	}
+	return oldValue.DiscountAmount, nil
+}
+
+// AddDiscountAmount adds f to the "discount_amount" field.
+func (m *UsageLogMutation) AddDiscountAmount(f float64) {
+	if m.adddiscount_amount != nil {
+		*m.adddiscount_amount += f
+	} else {
+		m.adddiscount_amount = &f
+	}
+}
+
+// AddedDiscountAmount returns the value that was added to the "discount_amount" field in this mutation.
+func (m *UsageLogMutation) AddedDiscountAmount() (r float64, exists bool) {
+	v := m.adddiscount_amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDiscountAmount resets all changes to the "discount_amount" field.
+func (m *UsageLogMutation) ResetDiscountAmount() {
+	m.discount_amount = nil
+	m.adddiscount_amount = nil
+}
+
 // SetAccountRateMultiplier sets the "account_rate_multiplier" field.
 func (m *UsageLogMutation) SetAccountRateMultiplier(f float64) {
 	m.account_rate_multiplier = &f
@@ -47279,7 +48213,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 47)
+	fields := make([]string, 0, 51)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -47366,6 +48300,18 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.long_context_billing_applied != nil {
 		fields = append(fields, usagelog.FieldLongContextBillingApplied)
+	}
+	if m.discount_campaign_id != nil {
+		fields = append(fields, usagelog.FieldDiscountCampaignID)
+	}
+	if m.discount_factor != nil {
+		fields = append(fields, usagelog.FieldDiscountFactor)
+	}
+	if m.original_rate_multiplier != nil {
+		fields = append(fields, usagelog.FieldOriginalRateMultiplier)
+	}
+	if m.discount_amount != nil {
+		fields = append(fields, usagelog.FieldDiscountAmount)
 	}
 	if m.account_rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
@@ -47487,6 +48433,14 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.RateMultiplier()
 	case usagelog.FieldLongContextBillingApplied:
 		return m.LongContextBillingApplied()
+	case usagelog.FieldDiscountCampaignID:
+		return m.DiscountCampaignID()
+	case usagelog.FieldDiscountFactor:
+		return m.DiscountFactor()
+	case usagelog.FieldOriginalRateMultiplier:
+		return m.OriginalRateMultiplier()
+	case usagelog.FieldDiscountAmount:
+		return m.DiscountAmount()
 	case usagelog.FieldAccountRateMultiplier:
 		return m.AccountRateMultiplier()
 	case usagelog.FieldBillingType:
@@ -47590,6 +48544,14 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldRateMultiplier(ctx)
 	case usagelog.FieldLongContextBillingApplied:
 		return m.OldLongContextBillingApplied(ctx)
+	case usagelog.FieldDiscountCampaignID:
+		return m.OldDiscountCampaignID(ctx)
+	case usagelog.FieldDiscountFactor:
+		return m.OldDiscountFactor(ctx)
+	case usagelog.FieldOriginalRateMultiplier:
+		return m.OldOriginalRateMultiplier(ctx)
+	case usagelog.FieldDiscountAmount:
+		return m.OldDiscountAmount(ctx)
 	case usagelog.FieldAccountRateMultiplier:
 		return m.OldAccountRateMultiplier(ctx)
 	case usagelog.FieldBillingType:
@@ -47838,6 +48800,34 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetLongContextBillingApplied(v)
 		return nil
+	case usagelog.FieldDiscountCampaignID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountCampaignID(v)
+		return nil
+	case usagelog.FieldDiscountFactor:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountFactor(v)
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOriginalRateMultiplier(v)
+		return nil
+	case usagelog.FieldDiscountAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDiscountAmount(v)
+		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -48014,6 +49004,18 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addrate_multiplier != nil {
 		fields = append(fields, usagelog.FieldRateMultiplier)
 	}
+	if m.adddiscount_campaign_id != nil {
+		fields = append(fields, usagelog.FieldDiscountCampaignID)
+	}
+	if m.adddiscount_factor != nil {
+		fields = append(fields, usagelog.FieldDiscountFactor)
+	}
+	if m.addoriginal_rate_multiplier != nil {
+		fields = append(fields, usagelog.FieldOriginalRateMultiplier)
+	}
+	if m.adddiscount_amount != nil {
+		fields = append(fields, usagelog.FieldDiscountAmount)
+	}
 	if m.addaccount_rate_multiplier != nil {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -48071,6 +49073,14 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedActualCost()
 	case usagelog.FieldRateMultiplier:
 		return m.AddedRateMultiplier()
+	case usagelog.FieldDiscountCampaignID:
+		return m.AddedDiscountCampaignID()
+	case usagelog.FieldDiscountFactor:
+		return m.AddedDiscountFactor()
+	case usagelog.FieldOriginalRateMultiplier:
+		return m.AddedOriginalRateMultiplier()
+	case usagelog.FieldDiscountAmount:
+		return m.AddedDiscountAmount()
 	case usagelog.FieldAccountRateMultiplier:
 		return m.AddedAccountRateMultiplier()
 	case usagelog.FieldBillingType:
@@ -48192,6 +49202,34 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddRateMultiplier(v)
 		return nil
+	case usagelog.FieldDiscountCampaignID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountCampaignID(v)
+		return nil
+	case usagelog.FieldDiscountFactor:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountFactor(v)
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOriginalRateMultiplier(v)
+		return nil
+	case usagelog.FieldDiscountAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDiscountAmount(v)
+		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		v, ok := value.(float64)
 		if !ok {
@@ -48279,6 +49317,15 @@ func (m *UsageLogMutation) ClearedFields() []string {
 	if m.FieldCleared(usagelog.FieldSubscriptionID) {
 		fields = append(fields, usagelog.FieldSubscriptionID)
 	}
+	if m.FieldCleared(usagelog.FieldDiscountCampaignID) {
+		fields = append(fields, usagelog.FieldDiscountCampaignID)
+	}
+	if m.FieldCleared(usagelog.FieldDiscountFactor) {
+		fields = append(fields, usagelog.FieldDiscountFactor)
+	}
+	if m.FieldCleared(usagelog.FieldOriginalRateMultiplier) {
+		fields = append(fields, usagelog.FieldOriginalRateMultiplier)
+	}
 	if m.FieldCleared(usagelog.FieldAccountRateMultiplier) {
 		fields = append(fields, usagelog.FieldAccountRateMultiplier)
 	}
@@ -48358,6 +49405,15 @@ func (m *UsageLogMutation) ClearField(name string) error {
 		return nil
 	case usagelog.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case usagelog.FieldDiscountCampaignID:
+		m.ClearDiscountCampaignID()
+		return nil
+	case usagelog.FieldDiscountFactor:
+		m.ClearDiscountFactor()
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		m.ClearOriginalRateMultiplier()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ClearAccountRateMultiplier()
@@ -48489,6 +49545,18 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldLongContextBillingApplied:
 		m.ResetLongContextBillingApplied()
+		return nil
+	case usagelog.FieldDiscountCampaignID:
+		m.ResetDiscountCampaignID()
+		return nil
+	case usagelog.FieldDiscountFactor:
+		m.ResetDiscountFactor()
+		return nil
+	case usagelog.FieldOriginalRateMultiplier:
+		m.ResetOriginalRateMultiplier()
+		return nil
+	case usagelog.FieldDiscountAmount:
+		m.ResetDiscountAmount()
 		return nil
 	case usagelog.FieldAccountRateMultiplier:
 		m.ResetAccountRateMultiplier()

@@ -30,7 +30,8 @@ var (
 const (
 	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
-	githubRepo     = "Wei-Shaw/sub2api"
+	// Updates and rollbacks must stay on the AIPC release channel.
+	githubRepo = "HeartEase1/aipc"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"

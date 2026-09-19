@@ -26,6 +26,9 @@
         <!-- Announcement Bell -->
         <AnnouncementBell v-if="user" />
 
+        <!-- Official communities (content is fetched only when opened) -->
+        <CommunityGroupsButton v-if="user && communityGroupsEnabled" />
+
         <!-- Docs Link -->
         <a
           v-if="docUrl"
@@ -122,7 +125,7 @@
                 {{ displayName }}
               </div>
               <div class="text-xs text-gray-500 dark:text-dark-400">
-                {{ t('admin.users.roles.' + user.role) }}
+                {{ user.role === 'user' && user.membership_tier ? `${user.membership_tier} ` : '' }}{{ t('admin.users.roles.' + user.role) }}
               </div>
             </div>
             <Icon name="chevronDown" size="sm" class="hidden text-gray-400 md:block" />
@@ -165,7 +168,7 @@
 
                 <a
                   v-if="authStore.isAdmin"
-                  href="https://github.com/Wei-Shaw/sub2api"
+                  href="https://github.com/HeartEase1/aipc"
                   target="_blank"
                   rel="noopener noreferrer"
                   @click="closeDropdown"
@@ -256,6 +259,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
+import CommunityGroupsButton from '@/components/common/CommunityGroupsButton.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -276,6 +280,7 @@ const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
+const communityGroupsEnabled = computed(() => appStore.cachedPublicSettings?.community_groups_enabled === true)
 const docUrl = computed(() => sanitizeUrl(appStore.docUrl))
 const modelPlazaEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.modelPlaza))
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')

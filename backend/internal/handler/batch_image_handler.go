@@ -149,12 +149,12 @@ func (h *BatchImageHandler) Models(c *gin.Context) {
 // filterBatchImageModelsByAllowlist 按分组模型白名单过滤批量生图模型列表。
 // 白名单未开启时原样返回。
 func filterBatchImageModelsByAllowlist(models []service.BatchImagePublicModel, allowlist service.GroupModelAllowlist) []service.BatchImagePublicModel {
-	if !allowlist.Enabled {
+	if !allowlist.Enabled && len(allowlist.BlockedModels) == 0 {
 		return models
 	}
 	filtered := make([]service.BatchImagePublicModel, 0, len(models))
 	for _, model := range models {
-		if allowlist.Allows(model.ID) {
+		if allowlist.AllowsForListing(model.ID) {
 			filtered = append(filtered, model)
 		}
 	}

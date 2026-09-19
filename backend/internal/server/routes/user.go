@@ -26,9 +26,13 @@ func RegisterUserRoutes(
 	authenticated.Use(gin.HandlerFunc(auditLog))
 	{
 		// 用户接口
+		authenticated.GET("/leaderboard", panelRateLimiter.Heavy(), h.Leaderboard.Get)
+		authenticated.GET("/community-groups", h.Setting.GetCommunityGroups)
 		user := authenticated.Group("/user")
 		{
 			user.GET("/profile", h.User.GetProfile)
+			user.PUT("/leaderboard-participation", h.Leaderboard.UpdateParticipation)
+			user.GET("/membership", h.Payment.GetMembership)
 			user.PUT("/password", h.User.ChangePassword)
 			user.PUT("", h.User.UpdateProfile)
 			user.GET("/aff", h.User.GetAffiliate)
@@ -117,6 +121,11 @@ func RegisterUserRoutes(
 		{
 			announcements.GET("", h.Announcement.List)
 			announcements.POST("/:id/read", h.Announcement.MarkRead)
+		}
+		benefits := authenticated.Group("/benefit-grants")
+		{
+			benefits.GET("", h.BenefitGrant.List)
+			benefits.POST("/:id/read", h.BenefitGrant.MarkRead)
 		}
 
 		// 卡密兑换

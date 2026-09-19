@@ -37,10 +37,14 @@ export interface MonitorMetric {
   success_requests: number
   error_requests: number
   request_count: number
+  /** Privacy-safe traffic presence; optional for compatibility with older servers. */
+  has_traffic?: boolean
   token_count: number
   rpm: number
   tpm: number
   error_rate: number
+  /** True successful requests / all requests. Optional for older servers. */
+  success_rate?: number
   cache_rate: number
   cache_rate_numerator: number
   cache_rate_denominator: number

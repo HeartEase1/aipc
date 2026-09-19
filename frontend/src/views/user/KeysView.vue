@@ -169,6 +169,10 @@
                   :subscription-type="row.group.subscription_type"
                   :rate-multiplier="row.group.rate_multiplier"
                   :user-rate-multiplier="userGroupRates[row.group.id]"
+                  :effective-rate-multiplier="availableGroupByID.get(row.group.id)?.effective_rate_multiplier"
+                  :discount-factor="availableGroupByID.get(row.group.id)?.discount_factor"
+                  :discount-campaign-name="availableGroupByID.get(row.group.id)?.discount_campaign_name"
+                  :discount-ends-at="availableGroupByID.get(row.group.id)?.discount_ends_at"
                   :peak-rate-enabled="row.group.peak_rate_enabled"
                   :peak-start="row.group.peak_start"
                   :peak-end="row.group.peak_end"
@@ -555,6 +559,10 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :effective-rate-multiplier="(option as unknown as GroupOption).effectiveRate"
+                :discount-factor="(option as unknown as GroupOption).discountFactor"
+                :discount-campaign-name="(option as unknown as GroupOption).discountCampaignName"
+                :discount-ends-at="(option as unknown as GroupOption).discountEndsAt"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
                 :peak-end="(option as unknown as GroupOption).peakEnd"
@@ -569,6 +577,10 @@
                 :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                :effective-rate-multiplier="(option as unknown as GroupOption).effectiveRate"
+                :discount-factor="(option as unknown as GroupOption).discountFactor"
+                :discount-campaign-name="(option as unknown as GroupOption).discountCampaignName"
+                :discount-ends-at="(option as unknown as GroupOption).discountEndsAt"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
                 :peak-end="(option as unknown as GroupOption).peakEnd"
@@ -578,6 +590,21 @@
               />
             </template>
           </Select>
+        </div>
+
+        <div class="flex items-start justify-between gap-4 rounded-lg border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+          <div class="min-w-0">
+            <label class="input-label mb-0">{{ t('keys.fastMode') }}</label>
+            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+              {{ t('keys.fastModeHint') }}
+            </p>
+          </div>
+          <Toggle
+            v-model="formData.fast_mode"
+            class="mt-0.5 shrink-0"
+            data-testid="api-key-fast-mode"
+            :aria-label="t('keys.fastMode')"
+          />
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1176,6 +1203,10 @@
               :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
               :user-rate-multiplier="option.userRate"
+              :effective-rate-multiplier="option.effectiveRate"
+              :discount-factor="option.discountFactor"
+              :discount-campaign-name="option.discountCampaignName"
+              :discount-ends-at="option.discountEndsAt"
               :peak-rate-enabled="option.peakRateEnabled"
               :peak-start="option.peakStart"
               :peak-end="option.peakEnd"
@@ -1216,6 +1247,7 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 	import EmptyState from '@/components/common/EmptyState.vue'
 	import Select from '@/components/common/Select.vue'
+	import Toggle from '@/components/common/Toggle.vue'
 	import SearchInput from '@/components/common/SearchInput.vue'
 	import Icon from '@/components/icons/Icon.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
@@ -1248,6 +1280,10 @@ interface GroupOption {
   description: string | null
   rate: number
   userRate: number | null
+  effectiveRate?: number
+  discountFactor?: number
+  discountCampaignName?: string
+  discountEndsAt?: string | null
   peakRateEnabled: boolean
   peakStart: string
   peakEnd: string
@@ -1431,6 +1467,7 @@ const formData = ref({
   name: '',
   group_id: null as number | null,
   status: 'active' as 'active' | 'inactive',
+  fast_mode: false,
   use_custom_key: false,
   custom_key: '',
   enable_ip_restriction: false,
@@ -1509,6 +1546,7 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
 }
 
 // Convert groups to Select options format with rate multiplier and subscription type
+const availableGroupByID = computed(() => new Map(groups.value.map(group => [group.id, group])))
 const groupOptions = computed(() =>
   groups.value.map((group) => ({
     value: group.id,
@@ -1516,6 +1554,10 @@ const groupOptions = computed(() =>
     description: group.description,
     rate: group.rate_multiplier,
     userRate: userGroupRates.value[group.id] ?? null,
+    effectiveRate: group.effective_rate_multiplier,
+    discountFactor: group.discount_factor,
+    discountCampaignName: group.discount_campaign_name,
+    discountEndsAt: group.discount_ends_at,
     peakRateEnabled: group.peak_rate_enabled,
     peakStart: group.peak_start,
     peakEnd: group.peak_end,
@@ -1699,6 +1741,7 @@ const editKey = (key: ApiKey) => {
     name: key.name,
     group_id: key.group_id,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
+    fast_mode: key.fast_mode === true,
     use_custom_key: false,
     custom_key: '',
     enable_ip_restriction: hasIPRestriction,
@@ -1855,6 +1898,7 @@ const handleSubmit = async () => {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
         group_id: formData.value.group_id,
+        fast_mode: formData.value.fast_mode,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
@@ -1878,7 +1922,8 @@ const handleSubmit = async () => {
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        formData.value.fast_mode
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1925,6 +1970,7 @@ const closeModals = () => {
     name: '',
     group_id: null,
     status: 'active',
+    fast_mode: false,
     use_custom_key: false,
     custom_key: '',
     enable_ip_restriction: false,

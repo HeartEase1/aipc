@@ -158,6 +158,8 @@ type SystemSettings struct {
 	HomeContent                 string
 	CompactHomeEnabled          bool
 	HideCcsImportButton         bool
+	ConsoleUIMode               string
+	CommunityGroups             []CommunityGroup
 	PurchaseSubscriptionEnabled bool
 	PurchaseSubscriptionURL     string
 	TableDefaultPageSize        int
@@ -210,7 +212,10 @@ type SystemSettings struct {
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature (user-facing aggregate view)
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled                bool `json:"available_channels_enabled"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	OnlinePlaygroundEnabled                 bool `json:"online_playground_enabled"`
+	UsageGuideEnabled                       bool `json:"usage_guide_enabled"`
 
 	// Subscription feature switch: gates the whole user-facing subscription surface
 	// (sidebar entries, purchase-page subscription tab, header progress badge,
@@ -356,6 +361,8 @@ type PublicSettings struct {
 	HomeContent                         string
 	CompactHomeEnabled                  bool
 	HideCcsImportButton                 bool
+	ConsoleUIMode                       string
+	CommunityGroupsEnabled              bool
 
 	PurchaseSubscriptionEnabled bool
 	PurchaseSubscriptionURL     string
@@ -364,20 +371,21 @@ type PublicSettings struct {
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
 
-	LinuxDoOAuthEnabled      bool
-	DingTalkOAuthEnabled     bool
-	WeChatOAuthEnabled       bool
-	WeChatOAuthOpenEnabled   bool
-	WeChatOAuthMPEnabled     bool
-	WeChatOAuthMobileEnabled bool
-	BackendModeEnabled       bool
-	PaymentEnabled           bool
-	PaymentBalanceDisabled   bool
-	OIDCOAuthEnabled         bool
-	OIDCOAuthProviderName    string
-	GitHubOAuthEnabled       bool
-	GoogleOAuthEnabled       bool
-	Version                  string
+	LinuxDoOAuthEnabled              bool
+	DingTalkOAuthEnabled             bool
+	WeChatOAuthEnabled               bool
+	WeChatOAuthOpenEnabled           bool
+	WeChatOAuthMPEnabled             bool
+	WeChatOAuthMobileEnabled         bool
+	BackendModeEnabled               bool
+	PaymentEnabled                   bool
+	PaymentBalanceRechargeMultiplier float64
+	PaymentBalanceDisabled           bool
+	OIDCOAuthEnabled                 bool
+	OIDCOAuthProviderName            string
+	GitHubOAuthEnabled               bool
+	GoogleOAuthEnabled               bool
+	Version                          string
 
 	BalanceLowNotifyEnabled     bool
 	AccountQuotaNotifyEnabled   bool
@@ -398,7 +406,10 @@ type PublicSettings struct {
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature (user-facing aggregate view)
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled                bool `json:"available_channels_enabled"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	OnlinePlaygroundEnabled                 bool `json:"online_playground_enabled"`
+	UsageGuideEnabled                       bool `json:"usage_guide_enabled"`
 
 	// Subscription feature switch (see SystemSettings.SubscriptionEnabled)
 	SubscriptionEnabled bool `json:"subscription_enabled"`

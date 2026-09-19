@@ -24,6 +24,8 @@ const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
+const quote = vi.hoisted(() => vi.fn())
+const getMembership = vi.hoisted(() => vi.fn())
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 const translate = vi.hoisted(() => vi.fn((key: string) => key))
 // Public settings live in a reactive holder so tests can flip feature flags after mount
@@ -99,12 +101,23 @@ vi.mock('@/stores', async () => {
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
     getCheckoutInfo,
+    quote,
+    getMembership,
   },
 }))
 
 vi.mock('@/utils/device', () => ({
   isMobileDevice: () => true,
 }))
+
+beforeEach(() => {
+  quote.mockReset().mockResolvedValue({ data: {
+    original_amount: '100.00', discounted_amount: '99.00', discount_amount: '1.00',
+    fee_amount: '0.00', pay_amount: '99.00', credited_amount: '100.00',
+    currency: 'CNY', discount_source: 'membership',
+  } })
+  getMembership.mockReset().mockResolvedValue({ data: { current_tier: '' } })
+})
 
 function checkoutInfoFixture(overrides: Partial<CheckoutInfoResponse> = {}) {
   const wxpayMethod: MethodLimit = {
@@ -376,6 +389,7 @@ describe('PaymentView subscription plan grid', () => {
 
 describe('PaymentView recharge rate preview', () => {
   it('uses the selected payment method currency in both locale templates', async () => {
+    vi.useFakeTimers()
     translate.mockClear()
     routeState.path = '/purchase'
     routeState.query = {}
@@ -401,6 +415,8 @@ describe('PaymentView recharge rate preview', () => {
     await flushPromises()
     wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 10)
     await flushPromises()
+    await vi.advanceTimersByTimeAsync(250)
+    await flushPromises()
 
     expect(translate).toHaveBeenCalledWith('payment.rechargeRatePreview', {
       currency: 'USD',
@@ -408,6 +424,91 @@ describe('PaymentView recharge rate preview', () => {
     })
     expect(en.payment.rechargeRatePreview).toBe('Current rate: 1 {currency} = {usd} USD')
     expect(zh.payment.rechargeRatePreview).toBe('当前倍率：1 {currency} = {usd} USD')
+    wrapper.unmount()
+    vi.useRealTimers()
+  })
+})
+
+describe('PaymentView authoritative recharge quotes', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    routeState.path = '/purchase'
+    routeState.query = {}
+    createOrder.mockReset()
+    showError.mockReset()
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
+    window.localStorage.clear()
+  })
+
+  afterEach(() => vi.useRealTimers())
+
+  async function mountRecharge() {
+    const wrapper = shallowMount(PaymentView, { global: { stubs: {
+      AppLayout: { template: '<div><slot /></div>' }, Teleport: true, Transition: false,
+    } } })
+    await flushPromises()
+    return wrapper
+  }
+
+  function submitButton(wrapper: Awaited<ReturnType<typeof mountRecharge>>) {
+    return wrapper.findAll('button').find(button => button.text().startsWith('payment.createOrder'))!
+  }
+
+  it('waits for a server quote and sends the face value separately from the accepted price', async () => {
+    const wrapper = await mountRecharge()
+    try {
+      wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
+      await flushPromises()
+      expect(submitButton(wrapper).attributes('disabled')).toBeDefined()
+      await vi.advanceTimersByTimeAsync(250)
+      await flushPromises()
+      expect(quote).toHaveBeenCalledWith('100', 'wxpay')
+      expect(submitButton(wrapper).text()).toContain('99.00')
+      expect(submitButton(wrapper).attributes('disabled')).toBeUndefined()
+      createOrder.mockRejectedValue({ reason: 'PAYMENT_GATEWAY_ERROR' })
+      await submitButton(wrapper).trigger('click')
+      await flushPromises()
+      expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 100, expected_pay_amount: '99.00', order_type: 'balance' }))
+    } finally { wrapper.unmount() }
+  })
+
+  it('does not submit when the authoritative quote fails', async () => {
+    quote.mockRejectedValue(new Error('quote unavailable'))
+    const wrapper = await mountRecharge()
+    try {
+      wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(250)
+      await flushPromises()
+      expect(wrapper.get('[role="alert"]').text()).toBe('balanceMarketing.quoteError')
+      expect(submitButton(wrapper).attributes('disabled')).toBeDefined()
+      expect(createOrder).not.toHaveBeenCalled()
+    } finally { wrapper.unmount() }
+  })
+
+  it('ignores an old price-change refresh after the user enters another amount', async () => {
+    const wrapper = await mountRecharge()
+    try {
+      wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 100)
+      await flushPromises()
+      await vi.advanceTimersByTimeAsync(250)
+      await flushPromises()
+      let finishOld!: (value: unknown) => void
+      quote.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve }))
+      createOrder.mockRejectedValue({ reason: 'RECHARGE_QUOTE_CHANGED' })
+      await submitButton(wrapper).trigger('click')
+      await flushPromises()
+      wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 200)
+      await flushPromises()
+      quote.mockResolvedValue({ data: { pay_amount: '198.00', credited_amount: '200.00', discount_amount: '2.00', fee_amount: '0', discount_source: 'membership' } })
+      await vi.advanceTimersByTimeAsync(250)
+      await flushPromises()
+      finishOld({ data: { pay_amount: '100.00', credited_amount: '100.00', discount_amount: '0', fee_amount: '0' } })
+      await flushPromises()
+      expect(submitButton(wrapper).text()).toContain('198.00')
+      expect(createOrder).toHaveBeenCalledTimes(1)
+      expect(showError).toHaveBeenCalledWith('balanceMarketing.quoteChanged')
+    } finally { wrapper.unmount() }
   })
 })
 

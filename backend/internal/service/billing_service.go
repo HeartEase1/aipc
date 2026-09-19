@@ -1401,6 +1401,9 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 		if input.LongContextBillingEnabled != nil {
 			applyLongContextBilling = *input.LongContextBillingEnabled
 		}
+		if input.Group.IsLongContextPricingExempt(input.Model) {
+			applyLongContextBilling = false
+		}
 		breakdown, err := s.calculateCostInternalWithPolicy(
 			input.Model,
 			input.Tokens,
@@ -1455,6 +1458,9 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	contextTierPricingEnabled := resolved.longContextPricingEnabled
 	if input.LongContextBillingEnabled != nil && *input.LongContextBillingEnabled {
 		contextTierPricingEnabled = true
+	}
+	if resolved.longContextPricingExempt || input.Group.IsLongContextPricingExempt(input.Model) {
+		contextTierPricingEnabled = false
 	}
 
 	pricingContext := totalContext

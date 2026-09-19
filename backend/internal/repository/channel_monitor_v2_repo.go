@@ -480,19 +480,27 @@ func (r *channelMonitorV2Repository) GetMatrix(ctx context.Context, filter servi
 		result.Items = append(result.Items, row)
 	}
 	sort.Slice(result.Items, func(i, j int) bool {
-		a, b := result.Items[i], result.Items[j]
-		if a.Platform != b.Platform {
-			return a.Platform < b.Platform
-		}
-		if a.GroupName != b.GroupName {
-			return a.GroupName < b.GroupName
-		}
-		if a.GroupID != nil && b.GroupID != nil && *a.GroupID != *b.GroupID {
-			return *a.GroupID < *b.GroupID
-		}
-		return a.Model < b.Model
+		return channelMonitorV2MatrixRowLess(result.Items[i], result.Items[j])
 	})
 	return result, nil
+}
+
+func channelMonitorV2MatrixRowLess(a, b service.ChannelMonitorV2MatrixRow) bool {
+	// Sort before public redaction so active, high-volume dimensions stay first
+	// without exposing the operator's absolute request counts.
+	if a.Metrics.RequestCount != b.Metrics.RequestCount {
+		return a.Metrics.RequestCount > b.Metrics.RequestCount
+	}
+	if a.Platform != b.Platform {
+		return a.Platform < b.Platform
+	}
+	if a.GroupName != b.GroupName {
+		return a.GroupName < b.GroupName
+	}
+	if a.GroupID != nil && b.GroupID != nil && *a.GroupID != *b.GroupID {
+		return *a.GroupID < *b.GroupID
+	}
+	return a.Model < b.Model
 }
 
 func channelMonitorV2MatrixDimensionKey(groupBy service.ChannelMonitorV2GroupBy, cfg service.ChannelMonitorV2Config, platform string, groupID int64, model string) channelMonitorV2MatrixKey {
@@ -1347,7 +1355,7 @@ func (a *metricAccumulator) metric(minutes float64, admin bool) service.ChannelM
 	if minutes <= 0 {
 		minutes = 1
 	}
-	m := service.ChannelMonitorV2Metric{SuccessRequests: a.success, ErrorRequests: a.errors, RequestCount: requests, InputTokens: a.input, OutputTokens: a.output, CacheCreationTokens: a.cacheCreation, CacheReadTokens: a.cacheRead, TokenCount: tokens, RPM: float64(requests) / minutes, TPM: float64(tokens) / minutes, CacheRateNumerator: a.cacheRead, CacheRateDenominator: denom, TTFT: latencyMetric(a.ttftSum, a.ttftCount, a.hist["ttft"]), Duration: latencyMetric(a.durationSum, a.durationCount, a.hist["duration"])}
+	m := service.ChannelMonitorV2Metric{SuccessRequests: a.success, ErrorRequests: a.errors, RequestCount: requests, HasTraffic: requests > 0, InputTokens: a.input, OutputTokens: a.output, CacheCreationTokens: a.cacheCreation, CacheReadTokens: a.cacheRead, TokenCount: tokens, RPM: float64(requests) / minutes, TPM: float64(tokens) / minutes, CacheRateNumerator: a.cacheRead, CacheRateDenominator: denom, TTFT: latencyMetric(a.ttftSum, a.ttftCount, a.hist["ttft"]), Duration: latencyMetric(a.durationSum, a.durationCount, a.hist["duration"])}
 	if requests > 0 {
 		m.ErrorRate = float64(a.errors) / float64(requests)
 		m.SuccessRate = float64(a.success) / float64(requests)

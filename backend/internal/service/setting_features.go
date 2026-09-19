@@ -24,6 +24,21 @@ func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
 	return value == "true"
 }
 
+// IsOnlinePlaygroundEnabled is the lightweight feature-policy view consumed
+// by the embedded frontend server. A missing setting stays enabled for
+// backward compatibility; storage failures are returned so the server keeps
+// its last known policy.
+func (s *SettingService) IsOnlinePlaygroundEnabled(ctx context.Context) (bool, error) {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyOnlinePlaygroundEnabled)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return true, nil
+		}
+		return false, fmt.Errorf("get online playground setting: %w", err)
+	}
+	return !isFalseSettingValue(value), nil
+}
+
 // IsEmailVerifyEnabled 检查是否开启邮件验证
 func (s *SettingService) IsEmailVerifyEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyEmailVerifyEnabled)
@@ -291,7 +306,7 @@ func parseAuditLogRetentionDays(value string) int {
 func (s *SettingService) GetSiteName(ctx context.Context) string {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
 	if err != nil || value == "" {
-		return "Sub2API"
+		return "AIPC"
 	}
 	return value
 }

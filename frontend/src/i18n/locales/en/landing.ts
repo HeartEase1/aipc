@@ -14,6 +14,17 @@ export default {
     login: 'Login',
     getStarted: 'Get Started',
     goToDashboard: 'Go to Dashboard',
+    heroBadge: 'AI Gateway · Stable · Fast',
+    advantagesTitle: 'Why Choose Us?',
+    advantagesSubtitle: 'One-stop AI API access with clear usage and pricing',
+    nodes: {
+      us: 'Global Node · United States',
+      hk: 'Asia Node · Hong Kong',
+      sg: 'Global Node · Singapore'
+    },
+    globeUnavailable: '3D globe is unavailable on this device',
+    interactiveGlobe: 'Interactive node globe with rotation and zoom',
+    resetGlobeView: 'Reset globe view',
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
@@ -55,7 +66,9 @@ export default {
       multiAccount: 'Always Reliable',
       multiAccountDesc: 'Smart routing across multiple upstream accounts with automatic failover. Say goodbye to errors.',
       balanceQuota: 'Pay What You Use',
-      balanceQuotaDesc: 'Usage-based billing with quota limits. Full visibility into team consumption.'
+      balanceQuotaDesc: 'Usage-based billing with quota limits. Full visibility into team consumption.',
+      rechargeRate: 'Recharge Rate',
+      rechargeRateDesc: 'A ¥1 balance recharge corresponds to ${amount} in platform credits before any checkout discounts or fees; review the order for the final amount.'
     },
     // Comparison section
     comparison: {

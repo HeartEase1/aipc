@@ -46,7 +46,17 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.Float("amount").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
 		field.Float("pay_amount").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.String("settlement_currency").MaxLen(8).Default("CNY"),
+		field.Float("original_amount").Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("discounted_amount").Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Float("discount_amount").Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.String("discount_source").MaxLen(32).Default(""),
+		field.JSON("pricing_snapshot", map[string]any{}).Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.Float("fee_rate").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0),
@@ -78,6 +88,9 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.String("order_type").
 			MaxLen(20).
 			Default("balance"),
+		field.String("subscription_action").
+			MaxLen(20).
+			Default("extend"),
 		field.Int64("plan_id").
 			Optional().
 			Nillable(),
@@ -195,5 +208,9 @@ func (PaymentOrder) Indexes() []ent.Index {
 		index.Fields("paid_at"),
 		index.Fields("payment_type", "paid_at"),
 		index.Fields("order_type"),
+		index.Fields("user_id", "subscription_group_id").
+			StorageKey("idx_payment_orders_active_restart_unique").
+			Unique().
+			Annotations(entsql.IndexWhere("subscription_action = 'restart' AND status IN ('PENDING', 'PAID', 'RECHARGING')")),
 	}
 }

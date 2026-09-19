@@ -1,6 +1,8 @@
 export interface ModelAllowlistConfig {
   enabled: boolean
   models: string[]
+  blocked_models?: string[]
+  legacy_list_only?: boolean
 }
 
 export interface ModelAllowlistItem {
@@ -10,6 +12,8 @@ export interface ModelAllowlistItem {
 
 export interface ModelAllowlistState {
   enabled: boolean
+  blockedModels: string[]
+  legacyListOnly: boolean
   savedModels: string[]
   items: ModelAllowlistItem[]
 }
@@ -21,6 +25,8 @@ export const createModelAllowlistState = (
   config?: Partial<ModelAllowlistConfig> | null,
 ): ModelAllowlistState => ({
   enabled: config?.enabled ?? false,
+  blockedModels: normalizeModels(config?.blocked_models ?? []),
+  legacyListOnly: config?.legacy_list_only ?? false,
   savedModels: normalizeModels(config?.models ?? []),
   items: [],
 })
@@ -132,6 +138,8 @@ export const buildModelAllowlistConfig = (
   state: ModelAllowlistState,
 ): ModelAllowlistConfig => ({
   enabled: state.enabled,
+  ...(state.blockedModels.length ? { blocked_models: [...state.blockedModels] } : {}),
+  ...(state.legacyListOnly ? { legacy_list_only: true } : {}),
   models: state.items.length > 0
     ? state.items.filter(item => item.selected).map(item => item.id)
     : [...state.savedModels],

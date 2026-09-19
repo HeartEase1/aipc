@@ -119,6 +119,12 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Plugin Management',
   }),
+  onlinePlayground: defineFlag({
+    key: 'online_playground_enabled',
+    mode: 'opt-out',
+    label: 'Online Playground',
+  }),
+  usageGuide: defineFlag({ key: 'usage_guide_enabled', mode: 'opt-out', label: 'Usage Guide' }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',
@@ -205,6 +211,12 @@ export function getChannelMonitorRefreshIntervalSeconds(): number {
 export function isChannelMonitorThroughputHidden(): boolean {
   const appStore = useAppStore()
   return Boolean(appStore.cachedPublicSettings?.channel_monitor_hide_throughput)
+}
+
+/** Detailed V2 analysis is opt-in; missing/false keeps the concise status view. */
+export function isChannelMonitorV2DetailedAnalysisEnabled(): boolean {
+  const appStore = useAppStore()
+  return appStore.cachedPublicSettings?.channel_monitor_v2_detailed_analysis_enabled === true
 }
 
 /**

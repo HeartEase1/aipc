@@ -46,6 +46,20 @@ type channelMonitorV2RetentionRule struct {
 	bucketSeconds int // 0 = fact table (no bucket_seconds column)
 }
 
+var channelMonitorV2MinuteFactTables = [...]string{
+	"channel_monitor_v2_latency_histograms_1m",
+	"channel_monitor_v2_error_metrics_1m",
+	"channel_monitor_v2_user_metrics_1m",
+	"channel_monitor_v2_metrics_1m",
+}
+
+var channelMonitorV2FixedRollupTables = [...]string{
+	"channel_monitor_v2_latency_histograms_rollup",
+	"channel_monitor_v2_error_metrics_rollup",
+	"channel_monitor_v2_user_metrics_rollup",
+	"channel_monitor_v2_metrics_rollup",
+}
+
 // channelMonitorV2RetentionRules is ordered coarse→fine for predictable prune plans.
 var channelMonitorV2RetentionRules = []channelMonitorV2RetentionRule{
 	{table: "channel_monitor_v2_user_metrics_1m", retention: channelMonitorV2RetentionUser1m},
@@ -118,17 +132,11 @@ func (r *channelMonitorV2Repository) RecomputeRange(ctx context.Context, start, 
 		}
 	}()
 
-	// Idempotent window rewrite: drop existing facts/rollups in [start,end) then re-insert.
-	for _, table := range []string{
-		"channel_monitor_v2_latency_histograms_rollup",
-		"channel_monitor_v2_error_metrics_rollup",
-		"channel_monitor_v2_user_metrics_rollup",
-		"channel_monitor_v2_metrics_rollup",
-		"channel_monitor_v2_latency_histograms_1m",
-		"channel_monitor_v2_error_metrics_1m",
-		"channel_monitor_v2_user_metrics_1m",
-		"channel_monitor_v2_metrics_1m",
-	} {
+	// Idempotently rewrite minute facts in the exact source window. Fixed rollups
+	// own their aligned delete/rebuild bounds in recomputeFixedRollups. Deleting
+	// them here can remove a 12h/1d boundary row immediately before the coarse
+	// same-bucket fast path intentionally skips rebuilding it.
+	for _, table := range channelMonitorV2MinuteFactTables {
 		if _, err = tx.ExecContext(ctx, fmt.Sprintf("DELETE FROM %s WHERE bucket_start >= $1 AND bucket_start < $2", table), start, end); err != nil {
 			return err
 		}
@@ -361,12 +369,7 @@ func (r *channelMonitorV2Repository) recomputeFixedRollups(ctx context.Context, 
 			continue
 		}
 		interval := fmt.Sprintf("%d seconds", seconds)
-		for _, table := range []string{
-			"channel_monitor_v2_latency_histograms_rollup",
-			"channel_monitor_v2_error_metrics_rollup",
-			"channel_monitor_v2_user_metrics_rollup",
-			"channel_monitor_v2_metrics_rollup",
-		} {
+		for _, table := range channelMonitorV2FixedRollupTables {
 			if _, err := tx.ExecContext(ctx, fmt.Sprintf(channelMonitorV2FixedRollupDeleteSQL, table), interval, seconds, start, end); err != nil {
 				return err
 			}

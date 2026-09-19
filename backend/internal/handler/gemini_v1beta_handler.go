@@ -53,7 +53,7 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		}
 		filtered := make([]gemini.Model, 0, len(models))
 		for _, model := range models {
-			if apiKey.Group.ModelAllowlist.Allows(model.Name) {
+			if apiKey.Group.ModelAllowlist.AllowsForListing(model.Name) {
 				filtered = append(filtered, model)
 			}
 		}
@@ -66,7 +66,7 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 			agModels := antigravity.DefaultGeminiModels()
 			filtered := make([]antigravity.GeminiModel, 0, len(agModels))
 			for _, model := range agModels {
-				if apiKey.Group.ModelAllowlist.Allows(model.Name) {
+				if apiKey.Group.ModelAllowlist.AllowsForListing(model.Name) {
 					filtered = append(filtered, model)
 				}
 			}
@@ -137,7 +137,7 @@ func filterUpstreamGeminiModelsBody(body []byte, allowlist service.GroupModelAll
 		if err := json.Unmarshal(raw, &model); err != nil {
 			return nil, false, false
 		}
-		if allowlist.Allows(model.Name) {
+		if allowlist.AllowsForListing(model.Name) {
 			kept = append(kept, raw)
 		}
 	}

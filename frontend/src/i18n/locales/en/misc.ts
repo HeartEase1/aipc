@@ -8,6 +8,7 @@ export default {
     daily: 'Daily',
     weekly: 'Weekly',
     monthly: 'Monthly',
+    used: 'Used',
     daysRemaining: '{days} days left',
     expired: 'Expired',
     expiresToday: 'Expires today',
@@ -137,7 +138,8 @@ export default {
     resetIn: 'Resets in {time}',
     quotaEndsIn: 'Quota ends in {time}',
     windowNotActive: 'Awaiting first use',
-    usageOf: '{used} of {limit}'
+    usageOf: '{used} of {limit}',
+    usedPercentage: 'Used {percentage}%'
   },
 
   // Onboarding Tour
@@ -457,6 +459,28 @@ export default {
     },
     subscribeNow: 'Subscribe Now',
     renewNow: 'Renew',
+    restartNow: 'Reset Now',
+    restart: {
+      selectedTitle: 'Immediate reset selected',
+      selectedDescription: 'After payment succeeds, the current remaining time and unused quota will be forfeited and a full new term will begin immediately.',
+      reviewAndPay: 'Review reset {amount}',
+      confirmTitle: 'Confirm immediate subscription reset',
+      confirmDescription: 'Review the benefits that will be forfeited. Your subscription changes only after payment succeeds.',
+      forfeitTitle: 'Current unused benefits will not carry over',
+      forfeitDescription: 'The remaining term and unused quota in every active limit will be forfeited after successful payment and cannot be restored.',
+      currentTerm: 'Current subscription',
+      remainingTime: 'Time remaining',
+      daysRemaining: 'About {days} days',
+      used: 'Used',
+      remainingForfeit: 'Remaining / forfeited',
+      newTerm: 'New subscription after reset',
+      newValidity: 'Full term',
+      estimatedExpiry: 'Estimated expiry',
+      paymentAmount: 'Payment amount',
+      paymentSafety: 'If payment fails, is cancelled, or times out, the current term and quota remain unchanged. The new term starts at the actual payment completion time.',
+      confirmPayment: 'Pay {amount} and reset now',
+      unavailable: 'This subscription is not currently eligible for an immediate reset. Refresh the page and try again.',
+    },
     selectPlan: 'Select Plan',
     planFeatures: 'Features',
     planCard: {

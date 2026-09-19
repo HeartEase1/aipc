@@ -6,7 +6,12 @@ import batchImage from './batchImage'
 import admin from './admin'
 import misc from './misc'
 
+import benefits from './benefits'
+import { zh as balanceMarketing } from '../balanceMarketing'
+
 export default {
+  ...benefits,
+  balanceMarketing,
   ...landing,
   ...common,
   ...dashboard,

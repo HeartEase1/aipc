@@ -36,11 +36,15 @@ import riskControlAPI from './riskControl'
 import adminComplianceAPI from './compliance'
 import auditAPI from './audit'
 import pluginsAPI from './plugins'
+import benefitGrantsAPI from './benefitGrants'
+import discountCampaignsAPI from './discountCampaigns'
 
 /**
  * Unified admin API object for convenient access
  */
 export const adminAPI = {
+  benefitGrants: benefitGrantsAPI,
+  discountCampaigns: discountCampaignsAPI,
   dashboard: dashboardAPI,
   users: usersAPI,
   groups: groupsAPI,

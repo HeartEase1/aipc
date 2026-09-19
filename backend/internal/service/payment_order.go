@@ -23,9 +23,24 @@ import (
 // --- Order Creation ---
 
 func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
+	for attempt := 0; attempt < 4; attempt++ {
+		resp, err := s.createOrderAttempt(ctx, req, attempt == 3)
+		if !errors.Is(err, errRechargeQuoteChanged) {
+			return resp, err
+		}
+	}
+	return nil, infraerrors.Conflict("RECHARGE_QUOTE_CHANGED", "recharge configuration changed; please retry")
+}
+
+func (s *PaymentService) createOrderAttempt(ctx context.Context, req CreateOrderRequest, skipPromotions bool) (*CreateOrderResponse, error) {
 	if req.OrderType == "" {
 		req.OrderType = payment.OrderTypeBalance
 	}
+	subscriptionAction, err := normalizeSubscriptionAction(req.SubscriptionAction)
+	if err != nil {
+		return nil, err
+	}
+	req.SubscriptionAction = subscriptionAction
 	if normalized := NormalizeVisibleMethod(req.PaymentType); normalized != "" {
 		req.PaymentType = normalized
 	}
@@ -73,6 +88,19 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err != nil {
 		return nil, err
 	}
+	var rechargeQuote *RechargeQuote
+	if req.OrderType == payment.OrderTypeBalance && s.sqlDB != nil {
+		quote, quoteErr := s.quoteRechargeForConfig(ctx, req.UserID, decimal.NewFromFloat(limitAmount), methodCurrency, cfg, skipPromotions)
+		if quoteErr != nil {
+			return nil, fmt.Errorf("quote recharge: %w", quoteErr)
+		}
+		rechargeQuote = &quote
+		payAmountStr = quote.PayAmount
+		payAmount, err = strconv.ParseFloat(quote.PayAmount, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
 	sel, err := s.selectCreateOrderInstance(ctx, req, cfg, payAmount)
 	if err != nil {
 		return nil, err
@@ -85,6 +113,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
+		if rechargeQuote != nil {
+			return nil, infraerrors.Conflict("PAYMENT_CURRENCY_CHANGED", "payment currency changed; please refresh")
+		}
 		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
 		if err != nil {
 			return nil, err
@@ -93,28 +124,46 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err := validateSelectedCreateOrderAmountCurrency(payAmountStr, sel); err != nil {
 		return nil, err
 	}
+	if req.OrderType == payment.OrderTypeBalance && req.ExpectedPayAmount != "" {
+		if len(req.ExpectedPayAmount) > 32 || strings.ContainsAny(req.ExpectedPayAmount, "eE") {
+			return nil, infraerrors.BadRequest("INVALID_AMOUNT", "invalid expected amount")
+		}
+		expected, parseErr := decimal.NewFromString(req.ExpectedPayAmount)
+		actual, actualErr := decimal.NewFromString(payAmountStr)
+		if parseErr != nil || actualErr != nil || !expected.Equal(actual) {
+			return nil, infraerrors.Conflict("RECHARGE_QUOTE_CHANGED", "quote changed; review the new price before payment")
+		}
+	}
 	oauthResp, err := s.maybeBuildWeChatOAuthRequiredResponseForSelection(ctx, req, limitAmount, payAmount, feeRate, sel)
 	if err != nil {
 		return nil, err
 	}
 	if oauthResp != nil {
+		oauthResp.Pricing = rechargeQuote
 		return oauthResp, nil
 	}
-	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel)
+	order, err := s.createOrderInTx(ctx, req, user, plan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, rechargeQuote)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, sel)
 	if err != nil {
-		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
-			SetStatus(OrderStatusFailed).
-			Save(ctx)
+		// A transport error cannot prove that the provider did not create a payable order.
+		// Keep promotion reservations until reconciliation confirms closure.
+		if rechargeQuote == nil || rechargeQuote.PromotionID == 0 {
+			_, _ = s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(order.ID), paymentorder.StatusEQ(OrderStatusPending)).
+				SetStatus(OrderStatusFailed).Save(ctx)
+		}
 		return nil, err
 	}
+	resp.Pricing = rechargeQuote
 	return resp, nil
 }
 
 func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig) (*dbent.SubscriptionPlan, error) {
+	if req.OrderType != payment.OrderTypeSubscription && req.SubscriptionAction != payment.SubscriptionActionExtend {
+		return nil, infraerrors.BadRequest("INVALID_SUBSCRIPTION_ACTION", "subscription action is only valid for subscription orders")
+	}
 	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
 		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
 	}
@@ -146,20 +195,64 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	if !group.IsSubscriptionType() {
 		return nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
 	}
+	if req.SubscriptionAction == payment.SubscriptionActionRestart {
+		if !group.HasDailyLimit() && !group.HasWeeklyLimit() && !group.HasMonthlyLimit() {
+			return nil, infraerrors.BadRequest("SUBSCRIPTION_RESTART_UNAVAILABLE", "immediate reset requires a quota-limited subscription")
+		}
+		if s.subscriptionSvc == nil || s.subscriptionSvc.userSubRepo == nil {
+			return nil, infraerrors.ServiceUnavailable("SUBSCRIPTION_SERVICE_UNAVAILABLE", "subscription service is unavailable")
+		}
+		if _, err := s.subscriptionSvc.userSubRepo.GetActiveByUserIDAndGroupID(ctx, req.UserID, plan.GroupID); err != nil {
+			if errors.Is(err, ErrSubscriptionNotFound) {
+				return nil, infraerrors.Conflict("SUBSCRIPTION_RESTART_UNAVAILABLE", "an active subscription is required for immediate reset")
+			}
+			return nil, fmt.Errorf("check active subscription for immediate reset: %w", err)
+		}
+	}
 	return plan, nil
 }
 
-func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, error) {
+func normalizeSubscriptionAction(action string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "", payment.SubscriptionActionExtend:
+		return payment.SubscriptionActionExtend, nil
+	case payment.SubscriptionActionRestart:
+		return payment.SubscriptionActionRestart, nil
+	default:
+		return "", infraerrors.BadRequest("INVALID_SUBSCRIPTION_ACTION", "subscription action must be extend or restart")
+	}
+}
+
+func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection, rechargeQuotes ...*RechargeQuote) (*dbent.PaymentOrder, error) {
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	if req.OrderType == payment.OrderTypeBalance && s.sqlDB != nil {
+		if err := lockRechargeUser(ctx, tx.Client(), req.UserID); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}
 	if err := s.checkDailyLimit(ctx, tx, req.UserID, limitAmount, cfg.DailyLimit); err != nil {
 		return nil, err
+	}
+	if req.SubscriptionAction == payment.SubscriptionActionRestart && plan != nil {
+		exists, err := tx.PaymentOrder.Query().Where(
+			paymentorder.UserIDEQ(req.UserID),
+			paymentorder.SubscriptionGroupIDEQ(plan.GroupID),
+			paymentorder.SubscriptionActionEQ(payment.SubscriptionActionRestart),
+			paymentorder.StatusIn(OrderStatusPending, OrderStatusPaid, OrderStatusRecharging),
+		).Exist(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("check pending immediate reset order: %w", err)
+		}
+		if exists {
+			return nil, infraerrors.Conflict("SUBSCRIPTION_RESTART_ORDER_PENDING", "an immediate reset order is already being processed")
+		}
 	}
 	tm := cfg.OrderTimeoutMin
 	if tm <= 0 {
@@ -190,10 +283,35 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		SetPaymentType(req.PaymentType).
 		SetPaymentTradeNo("").
 		SetOrderType(req.OrderType).
+		SetSubscriptionAction(req.SubscriptionAction).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(exp).
 		SetClientIP(req.ClientIP).
 		SetSrcHost(req.SrcHost)
+	currency := payment.DefaultPaymentCurrency
+	if sel != nil {
+		currency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
+	}
+	b.SetSettlementCurrency(currency)
+	if req.OrderType == payment.OrderTypeBalance {
+		b.SetOriginalAmount(limitAmount).SetDiscountedAmount(limitAmount)
+		if len(rechargeQuotes) > 0 && rechargeQuotes[0] != nil {
+			quote := rechargeQuotes[0]
+			original, originalErr := strconv.ParseFloat(quote.OriginalAmount, 64)
+			discounted, discountedErr := strconv.ParseFloat(quote.DiscountedAmount, 64)
+			discount, discountErr := strconv.ParseFloat(quote.DiscountAmount, 64)
+			if originalErr != nil || discountedErr != nil || discountErr != nil || quote.Currency != currency {
+				return nil, errors.New("invalid recharge pricing snapshot")
+			}
+			b.SetOriginalAmount(original).SetDiscountedAmount(discounted).SetDiscountAmount(discount).
+				SetDiscountSource(quote.DiscountSource).SetPricingSnapshot(map[string]any{
+				"original_amount": quote.OriginalAmount, "discounted_amount": quote.DiscountedAmount,
+				"discount_amount": quote.DiscountAmount, "fee_amount": quote.FeeAmount,
+				"pay_amount": quote.PayAmount, "credited_amount": quote.CreditedAmount,
+				"currency": quote.Currency, "source": quote.DiscountSource, "promotion_id": quote.PromotionID,
+			})
+		}
+	}
 	if req.SrcURL != "" {
 		b.SetSrcURL(req.SrcURL)
 	}
@@ -211,12 +329,20 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	order, err := b.Save(ctx)
 	if err != nil {
+		if req.SubscriptionAction == payment.SubscriptionActionRestart && dbent.IsConstraintError(err) {
+			return nil, infraerrors.Conflict("SUBSCRIPTION_RESTART_ORDER_PENDING", "an immediate reset order is already being processed")
+		}
 		return nil, fmt.Errorf("create order: %w", err)
 	}
 	code := fmt.Sprintf("PAY-%d-%d", order.ID, time.Now().UnixNano()%100000)
 	order, err = tx.PaymentOrder.UpdateOneID(order.ID).SetRechargeCode(code).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("set recharge code: %w", err)
+	}
+	if len(rechargeQuotes) > 0 && rechargeQuotes[0] != nil {
+		if err := reserveRechargePromotionInTx(ctx, tx.Client(), req.UserID, order.ID, rechargeQuotes[0]); err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit order transaction: %w", err)
@@ -261,6 +387,7 @@ func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req Creat
 
 	snapshot := map[string]any{}
 	snapshot["schema_version"] = 2
+	snapshot["currency"] = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 
 	instanceID := strings.TrimSpace(sel.InstanceID)
 	if instanceID != "" {
@@ -769,6 +896,9 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	}
+	if req.SubscriptionAction == payment.SubscriptionActionRestart {
+		q.Set("subscription_action", req.SubscriptionAction)
 	}
 	if scope = strings.TrimSpace(scope); scope != "" {
 		q.Set("scope", scope)

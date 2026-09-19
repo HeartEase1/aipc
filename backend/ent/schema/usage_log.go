@@ -114,6 +114,13 @@ func (UsageLog) Fields() []ent.Field {
 		field.Bool("long_context_billing_applied").
 			Default(false).
 			Comment("Whether long-context pricing changed token prices for this request"),
+		field.Int64("discount_campaign_id").Optional().Nillable(),
+		field.Float("discount_factor").Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(8,6)"}),
+		field.Float("original_rate_multiplier").Optional().Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(10,6)"}),
+		field.Float("discount_amount").Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 
 		// account_rate_multiplier: 账号计费倍率快照（NULL 表示按 1.0 处理）
 		field.Float("account_rate_multiplier").

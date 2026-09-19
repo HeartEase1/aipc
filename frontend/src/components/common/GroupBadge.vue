@@ -11,7 +11,11 @@
     <span class="truncate">{{ name }}</span>
     <!-- Right side label -->
     <span v-if="showLabel" :class="labelClass">
-      <template v-if="hasCustomRate">
+      <template v-if="hasDiscount">
+        <span class="mr-0.5 line-through opacity-50">{{ sourceRate }}x</span>
+        <span class="font-bold">{{ effectiveRateMultiplier }}x</span>
+      </template>
+      <template v-else-if="hasCustomRate">
         <!-- 原倍率删除线 + 专属倍率高亮 -->
         <span class="line-through opacity-50 mr-0.5">{{ rateMultiplier }}x</span>
         <span class="font-bold">{{ userRateMultiplier }}x</span>
@@ -19,6 +23,9 @@
       <template v-else>
         {{ labelText }}
       </template>
+    </span>
+    <span v-if="hasDiscount && showDiscountPercent" class="rounded bg-emerald-600/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300" :title="discountTitle">
+      -{{ discountPercent }}%
     </span>
     <span v-if="hasPeakRate" :class="peakRateClass" :title="peakRateTitle">
       {{ peakRateText }}
@@ -40,6 +47,11 @@ interface Props {
   subscriptionType?: SubscriptionType
   rateMultiplier?: number
   userRateMultiplier?: number | null // 用户专属倍率
+  effectiveRateMultiplier?: number | null
+  discountFactor?: number | null
+  discountCampaignName?: string
+  discountEndsAt?: string | null
+  showDiscountPercent?: boolean
   peakRateEnabled?: boolean
   peakStart?: string
   peakEnd?: string
@@ -59,6 +71,11 @@ const props = withDefaults(defineProps<Props>(), {
   showRate: true,
   daysRemaining: null,
   userRateMultiplier: null,
+  effectiveRateMultiplier: null,
+  discountFactor: null,
+  discountCampaignName: '',
+  discountEndsAt: null,
+  showDiscountPercent: true,
   peakRateEnabled: false,
   alwaysShowRate: false
 })
@@ -66,6 +83,19 @@ const props = withDefaults(defineProps<Props>(), {
 const { t } = useI18n()
 
 const isSubscription = computed(() => props.subscriptionType === 'subscription')
+const sourceRate = computed(() => props.userRateMultiplier ?? props.rateMultiplier)
+const hasDiscount = computed(() =>
+  props.showRate && !isSubscription.value &&
+  props.discountFactor != null && props.discountFactor > 0 && props.discountFactor < 1 &&
+  props.effectiveRateMultiplier != null && sourceRate.value != null &&
+  props.effectiveRateMultiplier < sourceRate.value
+)
+const discountPercent = computed(() => Math.round((1 - (props.discountFactor ?? 1)) * 100))
+const discountTitle = computed(() => {
+  const parts = [props.discountCampaignName].filter(Boolean)
+  if (props.discountEndsAt) parts.push(new Date(props.discountEndsAt).toLocaleString())
+  return parts.join(' · ')
+})
 
 // 是否有专属倍率（且与默认倍率不同）
 const hasCustomRate = computed(() => {

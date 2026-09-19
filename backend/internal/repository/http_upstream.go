@@ -305,6 +305,19 @@ func (s *httpUpstreamService) httpClientForUpstreamRequest(client *http.Client, 
 		return client
 	}
 	ctx := req.Context()
+	// Image and other untrusted public downloads must pin the validated DNS
+	// address for the actual round trip. Host validation alone is vulnerable to
+	// DNS rebinding between validation and connection. Clone the client so the
+	// cached transport remains unchanged for normal gateway requests.
+	if service.HTTPUpstreamPublicHostsOnly(ctx) {
+		clone := *client
+		base := client.Transport
+		if base == nil {
+			base = http.DefaultTransport
+		}
+		clone.Transport = &publicHostTransport{base: base}
+		client = &clone
+	}
 	switch {
 	case service.HTTPUpstreamRedirectsDisabled(ctx):
 		clone := *client

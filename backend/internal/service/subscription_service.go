@@ -354,6 +354,50 @@ func (s *SubscriptionService) updateExistingSubscriptionTerm(
 	})
 }
 
+func (s *SubscriptionService) restartExistingSubscriptionTerm(
+	ctx context.Context,
+	subscriptionID int64,
+	validityDays int,
+	notes string,
+) (*UserSubscription, error) {
+	if validityDays <= 0 {
+		validityDays = 30
+	}
+	if validityDays > MaxValidityDays {
+		validityDays = MaxValidityDays
+	}
+
+	var restarted *UserSubscription
+	err := s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
+		existingSub, err := s.userSubRepo.GetByIDForUpdate(txCtx, subscriptionID)
+		if err != nil {
+			return fmt.Errorf("lock subscription for immediate reset: %w", err)
+		}
+		if existingSub.Status == SubscriptionStatusSuspended {
+			return ErrSubscriptionSuspended
+		}
+
+		now := time.Now()
+		if s.now != nil {
+			now = s.now()
+		}
+		newExpiresAt := now.AddDate(0, 0, validityDays)
+		if newExpiresAt.After(MaxExpiresAt) {
+			newExpiresAt = MaxExpiresAt
+		}
+
+		restarted = renewedSubscriptionTerm(existingSub, notes, now, newExpiresAt)
+		if err := s.userSubRepo.Update(txCtx, restarted); err != nil {
+			return fmt.Errorf("restart subscription term: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return restarted, nil
+}
+
 func (s *SubscriptionService) withSubscriptionUpdateTx(ctx context.Context, fn func(context.Context) error) error {
 	if dbent.TxFromContext(ctx) != nil {
 		return fn(ctx)

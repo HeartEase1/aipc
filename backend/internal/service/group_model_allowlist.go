@@ -14,18 +14,20 @@ import (
 // GroupModelAllowlist 是 service 层的分组模型白名单（与 domain.GroupModelAllowlist
 // 字段一致，ent 持久化用 domain 类型，边界处显式转换）。
 type GroupModelAllowlist struct {
-	Enabled bool     `json:"enabled"`
-	Models  []string `json:"models,omitempty"`
+	Enabled        bool     `json:"enabled"`
+	Models         []string `json:"models,omitempty"`
+	BlockedModels  []string `json:"blocked_models,omitempty"`
+	LegacyListOnly bool     `json:"legacy_list_only,omitempty"`
 }
 
 // DomainGroupModelAllowlist 把 service 白名单转换为 ent 持久化使用的 domain 类型。
 func DomainGroupModelAllowlist(cfg GroupModelAllowlist) domain.GroupModelAllowlist {
-	return domain.GroupModelAllowlist{Enabled: cfg.Enabled, Models: cfg.Models}
+	return domain.GroupModelAllowlist{Enabled: cfg.Enabled, Models: cfg.Models, BlockedModels: cfg.BlockedModels, LegacyListOnly: cfg.LegacyListOnly}
 }
 
 // GroupModelAllowlistFromDomain 把 ent 读出的 domain 白名单转换为 service 类型。
 func GroupModelAllowlistFromDomain(cfg domain.GroupModelAllowlist) GroupModelAllowlist {
-	return GroupModelAllowlist{Enabled: cfg.Enabled, Models: cfg.Models}
+	return GroupModelAllowlist{Enabled: cfg.Enabled, Models: cfg.Models, BlockedModels: cfg.BlockedModels, LegacyListOnly: cfg.LegacyListOnly}
 }
 
 // supplementUnmappedOpenAIModels ensures a partial mapping catalog does not
@@ -48,9 +50,21 @@ func supplementUnmappedOpenAIModels(accounts []Account, models []string) []strin
 // 条目 TrimSpace、按小写去重保序；`*` 只允许出现在条目末尾；
 // enabled=true 且列表为空视为配置错误，返回 400 而不是运行时静默放行/拒绝。
 func normalizeGroupModelAllowlist(cfg GroupModelAllowlist) (GroupModelAllowlist, error) {
-	out := GroupModelAllowlist{Enabled: cfg.Enabled}
+	out := GroupModelAllowlist{Enabled: cfg.Enabled, LegacyListOnly: cfg.LegacyListOnly}
+	seenBlocked := make(map[string]struct{}, len(cfg.BlockedModels))
+	for _, model := range cfg.BlockedModels {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		if _, exists := seenBlocked[model]; exists {
+			continue
+		}
+		seenBlocked[model] = struct{}{}
+		out.BlockedModels = append(out.BlockedModels, model)
+	}
 	if len(cfg.Models) == 0 {
-		if out.Enabled {
+		if out.Enabled && !out.LegacyListOnly {
 			return out, infraerrors.New(http.StatusBadRequest, "INVALID_MODEL_ALLOWLIST", "model allowlist cannot be enabled with an empty model list")
 		}
 		return out, nil
@@ -63,7 +77,7 @@ func normalizeGroupModelAllowlist(cfg GroupModelAllowlist) (GroupModelAllowlist,
 		if model == "" {
 			continue
 		}
-		if strings.Contains(strings.TrimSuffix(model, "*"), "*") {
+		if !out.LegacyListOnly && strings.Contains(strings.TrimSuffix(model, "*"), "*") {
 			return out, infraerrors.New(http.StatusBadRequest, "INVALID_MODEL_ALLOWLIST", `wildcard "*" is only allowed at the end of an allowlist entry`)
 		}
 		key := strings.ToLower(model)
@@ -74,7 +88,7 @@ func normalizeGroupModelAllowlist(cfg GroupModelAllowlist) (GroupModelAllowlist,
 		out.Models = append(out.Models, model)
 	}
 	if len(out.Models) == 0 {
-		if out.Enabled {
+		if out.Enabled && !out.LegacyListOnly {
 			return out, infraerrors.New(http.StatusBadRequest, "INVALID_MODEL_ALLOWLIST", "model allowlist cannot be enabled with an empty model list")
 		}
 		out.Models = nil
@@ -82,10 +96,10 @@ func normalizeGroupModelAllowlist(cfg GroupModelAllowlist) (GroupModelAllowlist,
 	return out, nil
 }
 
-// ModelAllowlistEnabled 报告该分组是否启用了模型白名单。
-// 开启后所有携带模型的网关请求与模型列表接口都受白名单约束。
+// ModelAllowlistEnabled reports whether model policy needs evaluation. Denials
+// remain active when selection is disabled; legacy selection only filters lists.
 func (g *Group) ModelAllowlistEnabled() bool {
-	return g != nil && g.ModelAllowlist.Enabled
+	return g != nil && (g.ModelAllowlist.Enabled || len(g.ModelAllowlist.BlockedModels) > 0)
 }
 
 // Allows 判断客户端请求的模型是否命中白名单。
@@ -93,6 +107,50 @@ func (g *Group) ModelAllowlistEnabled() bool {
 // 候选形式覆盖代码中已有的模型名等价规则（Gemini models/ 前缀、
 // Antigravity/Claude -thinking 宽容规则、OpenAI 推理后缀），不做模糊匹配。
 func (a GroupModelAllowlist) Allows(model string) bool {
+	if a.IsBlocked(model) {
+		return false
+	}
+	if a.LegacyListOnly {
+		return true
+	}
+	return a.allowsSelection(model)
+}
+
+// IsBlocked retains AIPC's exact, case-sensitive matching and trailing-prefix
+// wildcard semantics. Denials take precedence over either listing mode.
+func (a GroupModelAllowlist) IsBlocked(model string) bool {
+	model = strings.TrimPrefix(strings.TrimSpace(model), "models/")
+	if model == "" {
+		return false
+	}
+	for _, rule := range a.BlockedModels {
+		rule = strings.TrimPrefix(strings.TrimSpace(rule), "models/")
+		if rule == "" {
+			continue
+		}
+		if strings.HasSuffix(rule, "*") {
+			prefix := strings.TrimSuffix(rule, "*")
+			if prefix != "" && strings.HasPrefix(model, prefix) {
+				return true
+			}
+		} else if rule == model {
+			return true
+		}
+	}
+	return false
+}
+
+func (a GroupModelAllowlist) AllowsForListing(model string) bool {
+	if a.IsBlocked(model) {
+		return false
+	}
+	if a.LegacyListOnly && len(a.Models) == 0 {
+		return true
+	}
+	return a.allowsSelection(model)
+}
+
+func (a GroupModelAllowlist) allowsSelection(model string) bool {
 	if !a.Enabled {
 		return true
 	}
@@ -152,7 +210,21 @@ func groupModelAllowlistCandidates(model string) []string {
 // 精确条目沿用既有规则：只有出现在 source（账号映射键 ∪ 平台默认列表）的模式
 // 集合中才输出；通配条目展开为 source 中所有匹配项并保持 source 顺序；全局去重。
 func (a GroupModelAllowlist) FilterForListing(source []string) []string {
-	if !a.Enabled {
+	listed := a.filterSelectionForListing(source)
+	if len(a.BlockedModels) == 0 {
+		return listed
+	}
+	filtered := make([]string, 0, len(listed))
+	for _, model := range listed {
+		if !a.IsBlocked(model) {
+			filtered = append(filtered, model)
+		}
+	}
+	return filtered
+}
+
+func (a GroupModelAllowlist) filterSelectionForListing(source []string) []string {
+	if !a.Enabled || (a.LegacyListOnly && len(a.Models) == 0) {
 		return source
 	}
 	if len(a.Models) == 0 {

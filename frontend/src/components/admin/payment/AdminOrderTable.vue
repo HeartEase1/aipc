@@ -74,6 +74,10 @@
           {{ t('payment.status.' + value.toLowerCase(), value) }}
         </span>
       </template>
+      <template #cell-discount_source="{ row }">
+        <PaymentOfferBadge :order="row" />
+        <span v-if="!row.discount_source" class="text-xs text-gray-400">{{ t('balanceMarketing.sources.none') }}</span>
+      </template>
 
       <template #cell-order_type="{ value }">
         <span class="text-sm text-gray-700 dark:text-gray-300">
@@ -142,6 +146,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import PaymentOfferBadge from '@/components/payment/PaymentOfferBadge.vue'
 import { statusBadgeClass, canRefund, formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
@@ -193,6 +198,7 @@ const columns = computed<Column[]>(() => [
   { key: 'id', label: t('payment.orders.orderId') },
   { key: 'user_id', label: t('payment.orders.userId') },
   { key: 'pay_amount', label: t('payment.orders.payAmount') },
+  { key: 'discount_source', label: t('balanceMarketing.source') },
   { key: 'payment_type', label: t('payment.orders.paymentMethod') },
   { key: 'status', label: t('payment.orders.status') },
   { key: 'order_type', label: t('payment.orders.orderType') },

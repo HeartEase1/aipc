@@ -81,6 +81,7 @@ func SetupRouter(
 			// Register combined callback: invalidate HTML cache + refresh frame origins
 			settingService.SetOnUpdateCallback(func() {
 				frontendServer.InvalidateCache()
+				frontendServer.RefreshAccessPolicy()
 				refreshFrameOrigins()
 			})
 			r.Use(frontendServer.Middleware())

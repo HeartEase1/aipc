@@ -745,6 +745,22 @@ describe("admin SettingsView payment visible method controls", () => {
     wrapper.unmount();
   });
 
+  it("keeps a missing console mode on the legacy save path instead of reloading", async () => {
+    updateSettings.mockResolvedValue({ ...baseSettingsResponse });
+    const wrapper = mountView();
+    try {
+      await flushPromises();
+      await wrapper.find("form").trigger("submit.prevent");
+      await flushPromises();
+      expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({ console_ui_mode: "legacy" }));
+      expect(fetchPublicSettings).toHaveBeenCalledWith(true);
+      expect(adminSettingsFetch).toHaveBeenCalledWith(true);
+      expect(showSuccess).toHaveBeenCalled();
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   it("submits the compact home page toggle", async () => {
     const wrapper = mountView();
     await flushPromises();

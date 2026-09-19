@@ -14,6 +14,34 @@ export interface RemainingDurationParts {
   minutes: number
 }
 
+export function hasFiniteQuotaLimit(limit: number | null | undefined): limit is number {
+  return typeof limit === 'number' && Number.isFinite(limit) && limit > 0
+}
+
+export function getQuotaUsagePercentage(
+  used: number | null | undefined,
+  limit: number | null | undefined
+): number | null {
+  if (!hasFiniteQuotaLimit(limit)) return null
+
+  const normalizedUsed = typeof used === 'number' && Number.isFinite(used)
+    ? Math.max(used, 0)
+    : 0
+
+  return Math.min((normalizedUsed / limit) * 100, 100)
+}
+
+export function formatQuotaUsagePercentage(
+  used: number | null | undefined,
+  limit: number | null | undefined
+): string | null {
+  const percentage = getQuotaUsagePercentage(used, limit)
+  if (percentage === null) return null
+
+  const rounded = Math.round(percentage * 10) / 10
+  return Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)
+}
+
 export function isOneTimeDailyQuota(
   subscription: Pick<UserSubscription, 'starts_at' | 'expires_at'>
 ): boolean {

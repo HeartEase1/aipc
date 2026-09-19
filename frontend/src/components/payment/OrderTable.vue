@@ -29,6 +29,10 @@
     <template #cell-status="{ value }">
       <OrderStatusBadge :status="value" />
     </template>
+    <template #cell-discount_source="{ row }">
+      <PaymentOfferBadge :order="row" />
+      <span v-if="!row.discount_source" class="text-xs text-gray-400">{{ t('balanceMarketing.sources.none') }}</span>
+    </template>
     <template #cell-created_at="{ value }">
       <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatDate(value) }}</span>
     </template>
@@ -45,6 +49,7 @@ import type { PaymentOrder } from '@/types/payment'
 import type { Column } from '@/components/common/types'
 import DataTable from '@/components/common/DataTable.vue'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
+import PaymentOfferBadge from '@/components/payment/PaymentOfferBadge.vue'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
@@ -73,6 +78,7 @@ const columns = computed((): Column[] => {
   }
   cols.push(
     { key: 'pay_amount', label: t('payment.orders.payAmount') },
+    { key: 'discount_source', label: t('balanceMarketing.source') },
     { key: 'payment_type', label: t('payment.orders.paymentMethod') },
     { key: 'status', label: t('payment.orders.status') },
     { key: 'created_at', label: t('payment.orders.createdAt') },

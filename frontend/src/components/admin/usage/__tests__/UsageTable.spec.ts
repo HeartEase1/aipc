@@ -25,6 +25,7 @@ const messages: Record<string, string> = {
   'admin.usage.outputCost': 'Output Cost',
   'admin.usage.cacheCreationCost': 'Cache Creation Cost',
   'admin.usage.cacheReadCost': 'Cache Read Cost',
+  'usage.cacheHitRate': 'Cache hit rate',
   'usage.inputTokenPrice': 'Input price',
   'usage.outputTokenPrice': 'Output price',
   'usage.perMillionTokens': '/ 1M tokens',
@@ -141,6 +142,68 @@ describe('admin UsageTable tooltip', () => {
       height: 20,
       toJSON: () => ({}),
     } as DOMRect)
+  })
+
+  it('keeps the cache token details inside the viewport beside a right-edge row', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.dataset.testid === 'usage-token-tooltip') {
+        return { left: 0, right: 220, top: 0, bottom: 140, width: 220, height: 140 } as DOMRect
+      }
+      return { left: 900, right: 980, top: 20, bottom: 40, width: 80, height: 20 } as DOMRect
+    })
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, billing_mode: 'token', image_count: 0, cache_read_tokens: 100 }],
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    await wrapper.find('.group.relative').trigger('mouseenter')
+    await nextTick()
+
+    const tooltip = wrapper.get('[data-testid="usage-token-tooltip"]')
+    expect(tooltip.attributes('style')).toContain('left: 672px')
+    expect(tooltip.attributes('style')).toContain('top: 8px')
+    wrapper.unmount()
+  })
+
+  it('shows the per-request cache hit rate beside cache-read tokens', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{
+          ...baseImageRow,
+          request_id: 'req-admin-cache-hit-rate',
+          billing_mode: 'token',
+          image_count: 0,
+          input_tokens: 200,
+          output_tokens: 50,
+          cache_creation_tokens: 100,
+          cache_read_tokens: 700,
+        }],
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    const rate = wrapper.get('[data-testid="cache-hit-rate"]')
+    expect(rate.text()).toBe('77.8%')
+    expect(rate.attributes('title')).toBe('Cache hit rate')
+    expect(rate.attributes('aria-label')).toBe('Cache hit rate 77.8%')
+    wrapper.unmount()
+  })
+
+  it('does not show a per-request cache hit rate without cache reads', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, billing_mode: 'token', image_count: 0, input_tokens: 200, cache_creation_tokens: 100 }],
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.find('[data-testid="cache-hit-rate"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('marks only usage rows that actually applied long-context billing', () => {

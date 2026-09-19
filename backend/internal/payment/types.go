@@ -43,6 +43,13 @@ const (
 	OrderTypeSubscription = "subscription"
 )
 
+// Subscription actions distinguish a regular renewal from replacing the
+// current subscription term after payment succeeds.
+const (
+	SubscriptionActionExtend  = "extend"
+	SubscriptionActionRestart = "restart"
+)
+
 // Entity statuses shared across users, groups, etc.
 const (
 	EntityStatusActive = "active"

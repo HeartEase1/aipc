@@ -195,12 +195,18 @@ type LiteLLMRawEntry struct {
 
 // PricingService 动态价格服务
 type PricingService struct {
-	cfg          *config.Config
-	remoteClient PricingRemoteClient
-	mu           sync.RWMutex
-	pricingData  map[string]*LiteLLMModelPricing
-	lastUpdated  time.Time
-	localHash    string
+	catalogMu           sync.Mutex
+	manualCatalog       bool
+	activeSource        string
+	candidateHash       string
+	candidateUpdatedAt  time.Time
+	candidateModelCount int
+	cfg                 *config.Config
+	remoteClient        PricingRemoteClient
+	mu                  sync.RWMutex
+	pricingData         map[string]*LiteLLMModelPricing
+	lastUpdated         time.Time
+	localHash           string
 	// fallback/override 文件在最近一次成功重建时的内容指纹，定时器据此判断是否
 	// 需要从本地目录缓存重建叠加层。
 	customFilesHash string
@@ -228,12 +234,11 @@ func (s *PricingService) Initialize() error {
 		logger.LegacyPrintf("service.pricing", "[Pricing] Failed to create data directory: %v", err)
 	}
 
-	// 首次加载价格数据
-	if err := s.checkAndUpdatePricing(); err != nil {
-		logger.LegacyPrintf("service.pricing", "[Pricing] Initial load failed, using fallback: %v", err)
-		if err := s.useFallbackPricing(); err != nil {
-			return fmt.Errorf("failed to load pricing data: %w", err)
-		}
+	// AIPC administrators explicitly choose the active catalog. Official parsing,
+	// fallback layers and model pricing policies remain unchanged.
+	s.manualCatalog = true
+	if err := s.loadSelectedPricingCatalog(); err != nil {
+		return fmt.Errorf("failed to load selected pricing catalog: %w", err)
 	}
 
 	// 启动定时更新
@@ -256,7 +261,7 @@ func (s *PricingService) startUpdateScheduler() {
 	if s == nil || s.cfg == nil {
 		return
 	}
-	remoteEnabled := strings.TrimSpace(s.cfg.Pricing.RemoteURL) != ""
+	remoteEnabled := !s.manualCatalog && strings.TrimSpace(s.cfg.Pricing.RemoteURL) != ""
 	watchCustom := s.hasCustomPricingFiles()
 	if !remoteEnabled {
 		logger.LegacyPrintf("service.pricing", "%s", "[Pricing] Remote sync disabled: pricing remote URL is empty")
@@ -465,6 +470,9 @@ func (s *PricingService) reloadIfCustomFilesChanged() {
 // reloadCustomPricingLayers 读取本地目录缓存并重新叠加 fallback/override，只替换内存数据
 // 与叠加层指纹。
 func (s *PricingService) reloadCustomPricingLayers() error {
+	if s.manualCatalog {
+		return s.reloadSelectedPricingLayers()
+	}
 	pricingFile := s.getPricingFilePath()
 	// 定价层文件可能在读取期间被替换。只有构建前后指纹一致时才提交，
 	// 否则丢弃这次混合快照并重试，避免短暂应用不匹配的 fallback/override。
@@ -1597,6 +1605,10 @@ func (s *PricingService) GetStatus() map[string]any {
 
 // ForceUpdate 强制更新
 func (s *PricingService) ForceUpdate() error {
+	if s.manualCatalog {
+		_, err := s.CheckRemoteCatalog()
+		return err
+	}
 	return s.downloadPricingData()
 }
 

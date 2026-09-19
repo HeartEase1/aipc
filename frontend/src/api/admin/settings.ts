@@ -5,6 +5,7 @@
 
 import { apiClient } from "../client";
 import type {
+  CommunityGroup,
   CustomEndpoint,
   CustomMenuItem,
   LoginAgreementDocument,
@@ -398,6 +399,8 @@ export function deriveWeChatConnectStoredMode(
  * System settings interface
  */
 export interface SystemSettings {
+  console_ui_mode: 'legacy' | 'modern';
+  community_groups: CommunityGroup[];
   // Registration settings
   registration_enabled: boolean;
   email_verify_enabled: boolean;
@@ -728,6 +731,9 @@ export interface SystemSettings {
 
   // Available Channels feature switch
   available_channels_enabled: boolean;
+  channel_monitor_v2_detailed_analysis_enabled: boolean;
+  online_playground_enabled: boolean;
+  usage_guide_enabled: boolean;
 
   // Subscription feature switch (user sidebar "My Subscriptions" entry)
   subscription_enabled: boolean;
@@ -749,6 +755,8 @@ export interface SystemSettings {
 }
 
 export interface UpdateSettingsRequest {
+  console_ui_mode?: 'legacy' | 'modern';
+  community_groups?: CommunityGroup[];
   registration_enabled?: boolean;
   email_verify_enabled?: boolean;
   registration_email_suffix_whitelist?: string[];
@@ -1033,6 +1041,9 @@ export interface UpdateSettingsRequest {
 
   // Available Channels feature switch
   available_channels_enabled?: boolean;
+  channel_monitor_v2_detailed_analysis_enabled?: boolean;
+  online_playground_enabled?: boolean;
+  usage_guide_enabled?: boolean;
 
   // Subscription feature switch
   subscription_enabled?: boolean;
@@ -1269,6 +1280,30 @@ export async function regenerateAdminApiKey(): Promise<{ key: string }> {
 export async function deleteAdminApiKey(): Promise<{ message: string }> {
   const { data } = await apiClient.delete<{ message: string }>(
     "/admin/settings/admin-api-key",
+  );
+  return data;
+}
+
+// ==================== WebUI Region Access Settings ====================
+
+/** Browser-facing region access policy. */
+export interface WebAccessRegionSettings {
+  block_mainland_china: boolean;
+}
+
+export async function getWebAccessRegionSettings(): Promise<WebAccessRegionSettings> {
+  const { data } = await apiClient.get<WebAccessRegionSettings>(
+    "/admin/settings/web-access-region",
+  );
+  return data;
+}
+
+export async function updateWebAccessRegionSettings(
+  settings: WebAccessRegionSettings,
+): Promise<WebAccessRegionSettings> {
+  const { data } = await apiClient.put<WebAccessRegionSettings>(
+    "/admin/settings/web-access-region",
+    settings,
   );
   return data;
 }
@@ -1566,6 +1601,81 @@ export async function resetWebSearchUsage(payload: {
   );
 }
 
+export type PricingCatalogSource = "bundled" | "remote";
+
+export interface PricingCatalogStatus {
+  active_source: PricingCatalogSource;
+  active_hash: string;
+  active_updated_at: string;
+  active_model_count: number;
+  candidate_available: boolean;
+  candidate_hash?: string;
+  candidate_updated_at?: string;
+  candidate_model_count?: number;
+}
+
+export interface PricingCatalogChange {
+  model: string;
+  field: string;
+  current?: number;
+  candidate?: number;
+  change_percent?: number;
+  direction: "increase" | "decrease" | "changed";
+}
+
+export interface PricingCatalogPreview {
+  status: PricingCatalogStatus;
+  added_models: number;
+  added_model_names: string[];
+  added_models_truncated: boolean;
+  removed_models: number;
+  removed_model_names: string[];
+  removed_models_truncated: boolean;
+  changed_models: number;
+  price_changes: PricingCatalogChange[];
+  truncated: boolean;
+}
+
+export async function getPricingCatalogStatus(): Promise<PricingCatalogStatus> {
+  const { data } = await apiClient.get<PricingCatalogStatus>(
+    "/admin/settings/pricing-catalog",
+  );
+  return data;
+}
+
+export async function checkPricingCatalog(): Promise<PricingCatalogPreview> {
+  const { data } = await apiClient.post<PricingCatalogPreview>(
+    "/admin/settings/pricing-catalog/check",
+  );
+  return {
+    ...data,
+    added_model_names: Array.isArray(data.added_model_names)
+      ? data.added_model_names
+      : [],
+    removed_model_names: Array.isArray(data.removed_model_names)
+      ? data.removed_model_names
+      : [],
+    price_changes: Array.isArray(data.price_changes) ? data.price_changes : [],
+  };
+}
+
+export async function activateRemotePricingCatalog(
+  candidateHash: string,
+): Promise<PricingCatalogStatus> {
+  const { data } = await apiClient.post<PricingCatalogStatus>(
+    "/admin/settings/pricing-catalog/activate-remote",
+    { candidate_hash: candidateHash },
+  );
+  return data;
+}
+
+export async function activateBundledPricingCatalog(): Promise<PricingCatalogStatus> {
+  const { data } = await apiClient.post<PricingCatalogStatus>(
+    "/admin/settings/pricing-catalog/activate-bundled",
+  );
+  return data;
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -1579,6 +1689,8 @@ export const settingsAPI = {
   getAdminApiKey,
   regenerateAdminApiKey,
   deleteAdminApiKey,
+  getWebAccessRegionSettings,
+  updateWebAccessRegionSettings,
   getOverloadCooldownSettings,
   updateOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
@@ -1595,6 +1707,10 @@ export const settingsAPI = {
   updateWebSearchEmulationConfig,
   testWebSearchEmulation,
   resetWebSearchUsage,
+  getPricingCatalogStatus,
+  checkPricingCatalog,
+  activateRemotePricingCatalog,
+  activateBundledPricingCatalog,
 };
 
 export default settingsAPI;

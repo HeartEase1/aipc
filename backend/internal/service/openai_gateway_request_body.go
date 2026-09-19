@@ -1778,6 +1778,11 @@ func openAIGroupForcesFast(ctx context.Context, account *Account) bool {
 	if ctx == nil || account == nil || account.Platform != PlatformOpenAI {
 		return false
 	}
+	// AIPC's per-key preference shares the official force-priority path.
+	// The global Fast/Flex policy still filters or blocks the resulting tier.
+	if APIKeyFastModeEnabled(ctx) {
+		return true
+	}
 	group, _ := ctx.Value(ctxkey.Group).(*Group)
 	return IsGroupContextValid(group) && groupSupportsOpenAIFast(group.Platform) && group.ForceOpenAIFast
 }

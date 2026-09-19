@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   addCustomModelAllowlistItem,
-  createModelAllowlistState,
   type ModelAllowlistAddError,
 } from "../groupModelAllowlist";
 
@@ -18,6 +17,15 @@ import {
 } from "../groupModelAllowlist";
 
 describe("groupModelAllowlist", () => {
+  it("preserves AIPC denial and listing-only rules through editing", () => {
+    const config = { enabled: true, models: ["gpt-6"], blocked_models: ["gpt-image-*"], legacy_list_only: true };
+    const state = hydrateModelAllowlistState(config, ["gpt-6", "other"]);
+    expect(buildModelAllowlistConfig(state)).toEqual(config);
+    state.enabled = false;
+    expect(buildModelAllowlistConfig(state).blocked_models).toEqual(["gpt-image-*"]);
+    state.legacyListOnly = false;
+    expect(buildModelAllowlistConfig(state).legacy_list_only).toBeUndefined();
+  });
   it("selects all default candidates for a new disabled config", () => {
     const state = createModelAllowlistState();
 

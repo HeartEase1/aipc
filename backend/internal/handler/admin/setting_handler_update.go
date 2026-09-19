@@ -153,21 +153,23 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName                    string                `json:"site_name"`
-	SiteLogo                    string                `json:"site_logo"`
-	SiteSubtitle                string                `json:"site_subtitle"`
-	APIBaseURL                  string                `json:"api_base_url"`
-	ContactInfo                 string                `json:"contact_info"`
-	DocURL                      string                `json:"doc_url"`
-	HomeContent                 string                `json:"home_content"`
-	CompactHomeEnabled          bool                  `json:"compact_home_enabled"`
-	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled *bool                 `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     *string               `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int                   `json:"table_default_page_size"`
-	TablePageSizeOptions        []int                 `json:"table_page_size_options"`
-	CustomMenuItems             *[]dto.CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             *[]dto.CustomEndpoint `json:"custom_endpoints"`
+	SiteName                    string                    `json:"site_name"`
+	SiteLogo                    string                    `json:"site_logo"`
+	SiteSubtitle                string                    `json:"site_subtitle"`
+	APIBaseURL                  string                    `json:"api_base_url"`
+	ContactInfo                 string                    `json:"contact_info"`
+	DocURL                      string                    `json:"doc_url"`
+	HomeContent                 string                    `json:"home_content"`
+	CompactHomeEnabled          bool                      `json:"compact_home_enabled"`
+	HideCcsImportButton         bool                      `json:"hide_ccs_import_button"`
+	ConsoleUIMode               *string                   `json:"console_ui_mode"`
+	CommunityGroups             *[]service.CommunityGroup `json:"community_groups"`
+	PurchaseSubscriptionEnabled *bool                     `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     *string                   `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                       `json:"table_default_page_size"`
+	TablePageSizeOptions        []int                     `json:"table_page_size_options"`
+	CustomMenuItems             *[]dto.CustomMenuItem     `json:"custom_menu_items"`
+	CustomEndpoints             *[]dto.CustomEndpoint     `json:"custom_endpoints"`
 
 	// 默认配置
 	DefaultConcurrency                        int                               `json:"default_concurrency"`
@@ -342,7 +344,10 @@ type UpdateSettingsRequest struct {
 	GrokDefaultBaseURLMode         *string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature switch (user-facing)
-	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled                *bool `json:"available_channels_enabled"`
+	ChannelMonitorV2DetailedAnalysisEnabled *bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	OnlinePlaygroundEnabled                 *bool `json:"online_playground_enabled"`
+	UsageGuideEnabled                       *bool `json:"usage_guide_enabled"`
 
 	// Subscription feature switch (user-facing subscription surface; see SettingKeySubscriptionEnabled)
 	SubscriptionEnabled *bool `json:"subscription_enabled"`
@@ -508,8 +513,27 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
-	// 两个安全开关的请求字段为指针：省略字段=保持现值，避免旧客户端/脚本
-	// 用不含新字段的全量 payload 保存设置时把安全开关静默重置。
+	// Optional UI mode preserves the stored value for older settings clients.
+	consoleUIMode := previousSettings.ConsoleUIMode
+	communityGroups := previousSettings.CommunityGroups
+	if req.CommunityGroups != nil {
+		var err error
+		communityGroups, err = service.NormalizeCommunityGroups(*req.CommunityGroups)
+		if err != nil {
+			response.BadRequest(c, "Invalid community groups: "+err.Error())
+			return
+		}
+	}
+	if req.ConsoleUIMode != nil {
+		var valid bool
+		consoleUIMode, valid = service.ParseConsoleUIMode(*req.ConsoleUIMode)
+		if !valid {
+			response.BadRequest(c, "console_ui_mode must be modern or legacy")
+			return
+		}
+	}
+
+	// 省略安全开关字段时保留现值，避免旧客户端保存时静默重置。
 	sessionBindingEnabled := previousSettings.SessionBindingEnabled
 	if req.SessionBindingEnabled != nil {
 		sessionBindingEnabled = *req.SessionBindingEnabled
@@ -1626,6 +1650,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		HomeContent:                            req.HomeContent,
 		CompactHomeEnabled:                     req.CompactHomeEnabled,
 		HideCcsImportButton:                    req.HideCcsImportButton,
+		ConsoleUIMode:                          consoleUIMode,
+		CommunityGroups:                        communityGroups,
 		PurchaseSubscriptionEnabled:            purchaseEnabled,
 		PurchaseSubscriptionURL:                purchaseURL,
 		TableDefaultPageSize:                   req.TableDefaultPageSize,
@@ -1939,6 +1965,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				return *req.AvailableChannelsEnabled
 			}
 			return previousSettings.AvailableChannelsEnabled
+		}(),
+		ChannelMonitorV2DetailedAnalysisEnabled: func() bool {
+			if req.ChannelMonitorV2DetailedAnalysisEnabled != nil {
+				return *req.ChannelMonitorV2DetailedAnalysisEnabled
+			}
+			return previousSettings.ChannelMonitorV2DetailedAnalysisEnabled
+		}(),
+		OnlinePlaygroundEnabled: func() bool {
+			if req.OnlinePlaygroundEnabled != nil {
+				return *req.OnlinePlaygroundEnabled
+			}
+			return previousSettings.OnlinePlaygroundEnabled
+		}(),
+		UsageGuideEnabled: func() bool {
+			if req.UsageGuideEnabled != nil {
+				return *req.UsageGuideEnabled
+			}
+			return previousSettings.UsageGuideEnabled
 		}(),
 		SubscriptionEnabled: func() bool {
 			if req.SubscriptionEnabled != nil {
@@ -2266,6 +2310,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		HomeContent:                                            updatedSettings.HomeContent,
 		CompactHomeEnabled:                                     updatedSettings.CompactHomeEnabled,
 		HideCcsImportButton:                                    updatedSettings.HideCcsImportButton,
+		ConsoleUIMode:                                          updatedSettings.ConsoleUIMode,
+		CommunityGroups:                                        updatedSettings.CommunityGroups,
 		PurchaseSubscriptionEnabled:                            updatedSettings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:                                updatedSettings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                                   updatedSettings.TableDefaultPageSize,
@@ -2388,8 +2434,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:         updatedSettings.GrokDefaultBaseURLMode,
 
-		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
-		SubscriptionEnabled:      updatedSettings.SubscriptionEnabled,
+		AvailableChannelsEnabled:                updatedSettings.AvailableChannelsEnabled,
+		ChannelMonitorV2DetailedAnalysisEnabled: updatedSettings.ChannelMonitorV2DetailedAnalysisEnabled,
+		OnlinePlaygroundEnabled:                 updatedSettings.OnlinePlaygroundEnabled,
+		UsageGuideEnabled:                       updatedSettings.UsageGuideEnabled,
+		SubscriptionEnabled:                     updatedSettings.SubscriptionEnabled,
 
 		ModelPlazaEnabled:       updatedSettings.ModelPlazaEnabled,
 		ModelPlazaRequireAuth:   updatedSettings.ModelPlazaRequireAuth,

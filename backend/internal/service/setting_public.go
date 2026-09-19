@@ -189,6 +189,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyHomeContent,
 		SettingKeyCompactHomeEnabled,
 		SettingKeyHideCcsImportButton,
+		SettingKeyConsoleUIMode,
+		SettingKeyCommunityGroupsEnabled,
 		SettingKeyPurchaseSubscriptionEnabled,
 		SettingKeyPurchaseSubscriptionURL,
 		SettingKeyTableDefaultPageSize,
@@ -215,6 +217,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWeChatConnectFrontendRedirectURL,
 		SettingKeyBackendModeEnabled,
 		SettingPaymentEnabled,
+		SettingBalanceRechargeMult,
 		SettingBalancePayDisabled,
 		SettingKeyOIDCConnectEnabled,
 		SettingKeyOIDCConnectProviderName,
@@ -235,6 +238,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyChannelMonitorHideUserRanking,
 		SettingKeyAvailableChannelsEnabled,
+		SettingKeyChannelMonitorV2DetailedAnalysisEnabled,
+		SettingKeyOnlinePlaygroundEnabled,
+		SettingKeyUsageGuideEnabled,
 		SettingKeySubscriptionEnabled,
 		SettingKeyModelPlazaEnabled,
 		SettingKeyModelPlazaRequireAuth,
@@ -324,7 +330,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AliyunCaptchaSceneID:                settings[SettingKeyAliyunCaptchaSceneID],
 		AliyunCaptchaPrefix:                 settings[SettingKeyAliyunCaptchaPrefix],
 		AliyunCaptchaRegion:                 normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
-		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
+		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, "AIPC"),
 		SiteLogo:                            settings[SettingKeySiteLogo],
 		SiteSubtitle:                        s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:                          settings[SettingKeyAPIBaseURL],
@@ -333,6 +339,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		HomeContent:                         settings[SettingKeyHomeContent],
 		CompactHomeEnabled:                  settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:                 settings[SettingKeyHideCcsImportButton] == "true",
+		ConsoleUIMode:                       NormalizeConsoleUIMode(settings[SettingKeyConsoleUIMode]),
+		CommunityGroupsEnabled:              settings[SettingKeyCommunityGroupsEnabled] == "true",
 		PurchaseSubscriptionEnabled:         settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
 		PurchaseSubscriptionURL:             strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
 		TableDefaultPageSize:                tableDefaultPageSize,
@@ -347,6 +355,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMobileEnabled:            weChatMobileEnabled,
 		BackendModeEnabled:                  settings[SettingKeyBackendModeEnabled] == "true",
 		PaymentEnabled:                      settings[SettingPaymentEnabled] == "true",
+		PaymentBalanceRechargeMultiplier:    normalizeBalanceRechargeMultiplier(pcParseFloat(settings[SettingBalanceRechargeMult], defaultBalanceRechargeMultiplier)),
 		PaymentBalanceDisabled:              settings[SettingBalancePayDisabled] == "true",
 		OIDCOAuthEnabled:                    oidcEnabled,
 		OIDCOAuthProviderName:               oidcProviderName,
@@ -364,7 +373,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorShowQuota:              settings[SettingKeyChannelMonitorShowQuota] == "true",
 		ChannelMonitorHideUserRanking:        isTrueSettingValue(settings[SettingKeyChannelMonitorHideUserRanking]),
 
-		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
+		AvailableChannelsEnabled:                settings[SettingKeyAvailableChannelsEnabled] == "true",
+		ChannelMonitorV2DetailedAnalysisEnabled: settings[SettingKeyChannelMonitorV2DetailedAnalysisEnabled] == "true",
+		OnlinePlaygroundEnabled:                 !isFalseSettingValue(settings[SettingKeyOnlinePlaygroundEnabled]),
+		UsageGuideEnabled:                       !isFalseSettingValue(settings[SettingKeyUsageGuideEnabled]),
 
 		SubscriptionEnabled: !isFalseSettingValue(settings[SettingKeySubscriptionEnabled]),
 
@@ -592,6 +604,8 @@ type PublicSettingsInjectionPayload struct {
 	HomeContent                         string                   `json:"home_content"`
 	CompactHomeEnabled                  bool                     `json:"compact_home_enabled"`
 	HideCcsImportButton                 bool                     `json:"hide_ccs_import_button"`
+	ConsoleUIMode                       string                   `json:"console_ui_mode"`
+	CommunityGroupsEnabled              bool                     `json:"community_groups_enabled"`
 	PurchaseSubscriptionEnabled         bool                     `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL             string                   `json:"purchase_subscription_url"`
 	TableDefaultPageSize                int                      `json:"table_default_page_size"`
@@ -610,6 +624,7 @@ type PublicSettingsInjectionPayload struct {
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                      bool                     `json:"payment_enabled"`
+	PaymentBalanceRechargeMultiplier    float64                  `json:"payment_balance_recharge_multiplier"`
 	PaymentBalanceDisabled              bool                     `json:"payment_balance_disabled"`
 	Version                             string                   `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用
@@ -633,16 +648,19 @@ type PublicSettingsInjectionPayload struct {
 	// monitors; fail-closed (absent/false = hidden). Admin UI always shows it.
 	// ChannelMonitorHideUserRanking hides the user ranking tab and /users payload
 	// from non-admin channel-monitor v2 viewers; default false (visible).
-	ChannelMonitorHideUserRanking bool `json:"channel_monitor_hide_user_ranking"`
-	ChannelMonitorShowQuota       bool `json:"channel_monitor_show_quota"`
-	AvailableChannelsEnabled      bool `json:"available_channels_enabled"`
-	SubscriptionEnabled           bool `json:"subscription_enabled"`
-	ModelPlazaEnabled             bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth         bool `json:"model_plaza_require_auth"`
-	PluginManagementEnabled       bool `json:"plugin_management_enabled"`
-	AffiliateEnabled              bool `json:"affiliate_enabled"`
-	RiskControlEnabled            bool `json:"risk_control_enabled"`
-	AllowUserViewErrorRequests    bool `json:"allow_user_view_error_requests"`
+	ChannelMonitorHideUserRanking           bool `json:"channel_monitor_hide_user_ranking"`
+	ChannelMonitorShowQuota                 bool `json:"channel_monitor_show_quota"`
+	AvailableChannelsEnabled                bool `json:"available_channels_enabled"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	OnlinePlaygroundEnabled                 bool `json:"online_playground_enabled"`
+	UsageGuideEnabled                       bool `json:"usage_guide_enabled"`
+	SubscriptionEnabled                     bool `json:"subscription_enabled"`
+	ModelPlazaEnabled                       bool `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth                   bool `json:"model_plaza_require_auth"`
+	PluginManagementEnabled                 bool `json:"plugin_management_enabled"`
+	AffiliateEnabled                        bool `json:"affiliate_enabled"`
+	RiskControlEnabled                      bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests              bool `json:"allow_user_view_error_requests"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -686,6 +704,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		HomeContent:                         settings.HomeContent,
 		CompactHomeEnabled:                  settings.CompactHomeEnabled,
 		HideCcsImportButton:                 settings.HideCcsImportButton,
+		ConsoleUIMode:                       NormalizeConsoleUIMode(settings.ConsoleUIMode),
+		CommunityGroupsEnabled:              settings.CommunityGroupsEnabled,
 		PurchaseSubscriptionEnabled:         settings.PurchaseSubscriptionEnabled,
 		PurchaseSubscriptionURL:             settings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                settings.TableDefaultPageSize,
@@ -704,6 +724,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,
 		PaymentEnabled:                      settings.PaymentEnabled,
+		PaymentBalanceRechargeMultiplier:    settings.PaymentBalanceRechargeMultiplier,
 		PaymentBalanceDisabled:              settings.PaymentBalanceDisabled,
 		Version:                             s.version,
 		ServerTimezone:                      timezone.Name(),
@@ -713,20 +734,23 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		BalanceLowNotifyThreshold:           settings.BalanceLowNotifyThreshold,
 		BalanceLowNotifyRechargeURL:         settings.BalanceLowNotifyRechargeURL,
 
-		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
-		ChannelMonitorMode:                   settings.ChannelMonitorMode,
-		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
-		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
-		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
-		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
-		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
-		SubscriptionEnabled:                  settings.SubscriptionEnabled,
-		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
-		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
-		PluginManagementEnabled:              settings.PluginManagementEnabled,
-		AffiliateEnabled:                     settings.AffiliateEnabled,
-		RiskControlEnabled:                   settings.RiskControlEnabled,
-		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,
+		ChannelMonitorEnabled:                   settings.ChannelMonitorEnabled,
+		ChannelMonitorMode:                      settings.ChannelMonitorMode,
+		ChannelMonitorDefaultIntervalSeconds:    settings.ChannelMonitorDefaultIntervalSeconds,
+		ChannelMonitorHideThroughput:            settings.ChannelMonitorHideThroughput,
+		ChannelMonitorShowQuota:                 settings.ChannelMonitorShowQuota,
+		ChannelMonitorHideUserRanking:           settings.ChannelMonitorHideUserRanking,
+		AvailableChannelsEnabled:                settings.AvailableChannelsEnabled,
+		ChannelMonitorV2DetailedAnalysisEnabled: settings.ChannelMonitorV2DetailedAnalysisEnabled,
+		OnlinePlaygroundEnabled:                 settings.OnlinePlaygroundEnabled,
+		UsageGuideEnabled:                       settings.UsageGuideEnabled,
+		SubscriptionEnabled:                     settings.SubscriptionEnabled,
+		ModelPlazaEnabled:                       settings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:                   settings.ModelPlazaRequireAuth,
+		PluginManagementEnabled:                 settings.PluginManagementEnabled,
+		AffiliateEnabled:                        settings.AffiliateEnabled,
+		RiskControlEnabled:                      settings.RiskControlEnabled,
+		AllowUserViewErrorRequests:              settings.AllowUserViewErrorRequests,
 	}, nil
 }
 

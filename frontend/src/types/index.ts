@@ -64,6 +64,7 @@ export interface UserProfileSourceContext {
 }
 
 export interface User {
+  membership_tier?: string
   id: number
   username: string
   email: string
@@ -102,6 +103,7 @@ export interface User {
 }
 
 export interface AdminUser extends User {
+  total_recharged?: number
   // 管理员备注（普通用户接口不返回）
   notes: string
   last_used_at?: string | null
@@ -208,6 +210,13 @@ export interface LoginAgreementDocument {
   content_md: string
 }
 
+export interface CommunityGroup {
+  name: string
+  group_number: string
+  qr_code_image: string
+  join_url: string
+}
+
 export interface PublicSettings {
   registration_enabled: boolean
   email_verify_enabled: boolean
@@ -241,7 +250,10 @@ export interface PublicSettings {
   home_content: string
   compact_home_enabled: boolean
   hide_ccs_import_button: boolean
+  console_ui_mode?: 'legacy' | 'modern' | string
+  community_groups_enabled: boolean
   payment_enabled: boolean
+  payment_balance_recharge_multiplier: number
   risk_control_enabled: boolean
   table_default_page_size: number
   table_page_size_options: number[]
@@ -277,6 +289,9 @@ export interface PublicSettings {
   /** When true, user monitor hides the user ranking tab and /users payload. */
   channel_monitor_hide_user_ranking?: boolean
   available_channels_enabled: boolean
+  channel_monitor_v2_detailed_analysis_enabled: boolean
+  online_playground_enabled: boolean
+  usage_guide_enabled: boolean
   /** When false, the whole user-facing subscription surface is hidden. Default true. */
   subscription_enabled: boolean
   /** Mirrors payment config BALANCE_PAYMENT_DISABLED; true = balance top-up closed (subscription-only site). */
@@ -566,6 +581,11 @@ export interface Group {
   description: string | null
   platform: GroupPlatform
   rate_multiplier: number
+  effective_rate_multiplier?: number
+  discount_factor?: number
+  discount_campaign_name?: string
+  discount_campaign_description?: string
+  discount_ends_at?: string | null
   rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
   max_reasoning_effort?: string // Anthropic/OpenAI reasoning ceiling; empty means unlimited
   max_reasoning_effort_over_limit?: string // downgrade (default) or deny when over the ceiling
@@ -577,6 +597,7 @@ export interface Group {
   weekly_limit_usd: number | null
   monthly_limit_usd: number | null
   long_context_pricing_enabled: boolean
+  long_context_pricing_exempt_models?: string[]
   // 图片生成计费配置
   allow_image_generation: boolean
   allow_batch_image_generation: boolean
@@ -660,6 +681,8 @@ export interface AdminGroup extends Group {
 export interface ModelAllowlist {
   enabled: boolean
   models: string[]
+  blocked_models?: string[]
+  legacy_list_only?: boolean
 }
 
 // 固定账号获取 Codex Model Manifest 配置（仅 openai 分组）
@@ -733,6 +756,7 @@ export interface ApiKey {
   name: string
   group_id: number | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
+  fast_mode: boolean
   ip_whitelist: string[]
   ip_blacklist: string[]
   last_used_at: string | null
@@ -761,6 +785,7 @@ export interface ApiKey {
 export interface CreateApiKeyRequest {
   name: string
   group_id?: number | null
+  fast_mode?: boolean
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -775,6 +800,7 @@ export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
   status?: 'active' | 'inactive'
+  fast_mode?: boolean
   ip_whitelist?: string[]
   ip_blacklist?: string[]
   quota?: number // Quota limit in USD (null = no change, 0 = unlimited)
@@ -797,6 +823,7 @@ export interface CreateGroupRequest {
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
   long_context_pricing_enabled?: boolean
+  long_context_pricing_exempt_models?: string[]
   force_openai_fast?: boolean
   free_openai_fast?: boolean
   model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
@@ -852,6 +879,7 @@ export interface CreateGroupRequest {
 }
 
 export interface UpdateGroupRequest {
+  long_context_pricing_exempt_models?: string[]
   name?: string
   description?: string | null
   platform?: GroupPlatform

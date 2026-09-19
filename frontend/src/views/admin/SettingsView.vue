@@ -44,9 +44,110 @@
           </nav>
         </div>
 
-        <!-- Tab: Security — Admin API Key -->
-        <div v-show="activeTab === 'security'" class="space-y-6">
-          <!-- Admin API Key Settings -->
+          <!-- Tab: Security — Admin API Key -->
+          <div v-show="activeTab === 'security'" class="space-y-6">
+            <!-- WebUI Region Access -->
+            <div class="card" data-testid="web-access-region-card">
+              <div
+                class="flex items-start gap-3 border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+              >
+                <span
+                  class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-200"
+                >
+                  <Icon name="globe" size="md" />
+                </span>
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ t("admin.settings.webAccessRegion.title") }}
+                  </h2>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.webAccessRegion.description") }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-5 p-6">
+                <div
+                  v-if="webAccessRegionLoading"
+                  class="flex items-center gap-2 text-gray-500"
+                >
+                  <div
+                    class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"
+                  ></div>
+                  {{ t("common.loading") }}
+                </div>
+
+                <template v-else>
+                  <div class="flex items-center justify-between gap-6">
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <label class="font-medium text-gray-900 dark:text-white">
+                          {{ t("admin.settings.webAccessRegion.blockMainlandChina") }}
+                        </label>
+                        <span
+                          :class="[
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            webAccessRegionForm.block_mainland_china
+                              ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                              : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300',
+                          ]"
+                        >
+                          {{
+                            webAccessRegionForm.block_mainland_china
+                              ? t("admin.settings.webAccessRegion.active")
+                              : t("admin.settings.webAccessRegion.inactive")
+                          }}
+                        </span>
+                      </div>
+                      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {{ t("admin.settings.webAccessRegion.blockMainlandChinaHint") }}
+                      </p>
+                    </div>
+                    <Toggle
+                      v-model="webAccessRegionForm.block_mainland_china"
+                      data-testid="web-access-region-toggle"
+                    />
+                  </div>
+
+                  <div
+                    v-if="webAccessRegionForm.block_mainland_china"
+                    class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/70 dark:bg-red-950/30"
+                  >
+                    <Icon
+                      name="exclamationTriangle"
+                      size="md"
+                      class="mt-0.5 flex-shrink-0 text-red-600 dark:text-red-400"
+                    />
+                    <p class="text-sm leading-6 text-red-800 dark:text-red-200">
+                      {{ t("admin.settings.webAccessRegion.lockoutWarning") }}
+                    </p>
+                  </div>
+
+                  <div
+                    class="flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-dark-700"
+                  >
+                    <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.webAccessRegion.dataSourceHint") }}
+                    </p>
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm flex-shrink-0"
+                      data-testid="web-access-region-save"
+                      :disabled="webAccessRegionSaving"
+                      @click="saveWebAccessRegionSettings"
+                    >
+                      {{
+                        webAccessRegionSaving
+                          ? t("common.saving")
+                          : t("common.save")
+                      }}
+                    </button>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Admin API Key Settings -->
           <div class="card">
             <div
               class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
@@ -203,6 +304,320 @@
 
         <!-- Tab: Gateway -->
         <div v-show="activeTab === 'gateway'" class="space-y-6">
+          <!-- Administrator-managed pricing catalog -->
+          <div class="card" data-testid="pricing-catalog-card">
+            <div class="flex flex-col gap-4 border-b border-gray-100 px-6 py-4 dark:border-dark-700 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex min-w-0 items-start gap-3">
+                <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/40 dark:text-primary-300">
+                  <Icon name="database" size="md" />
+                </span>
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ localText("模型价格目录", "Model pricing catalog") }}
+                  </h2>
+                  <p class="mt-1 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+                    {{ localText(
+                      "价格表不会自动联网更新。检查更新只保存候选表，核对差异并通过 2FA 确认后才影响后续请求计费。",
+                      "Pricing never updates in the background. Checking only saves a candidate; live billing changes only after you review it and confirm with 2FA.",
+                    ) }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex flex-shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  :disabled="pricingCatalogChecking || pricingCatalogOperating"
+                  @click="checkRemotePricingCatalog"
+                >
+                  <Icon name="refresh" size="sm" :class="pricingCatalogChecking && 'animate-spin'" />
+                  {{ pricingCatalogChecking
+                    ? localText("正在下载并校验...", "Downloading and checking...")
+                    : localText("下载并比较远端价格", "Download and compare") }}
+                </button>
+                <span class="text-center text-[11px] text-gray-500 dark:text-gray-400 sm:text-right">
+                  {{ localText("只生成候选，不会切换计费", "Creates a candidate only; billing is unchanged") }}
+                </span>
+              </div>
+            </div>
+
+            <div class="space-y-5 p-6">
+              <div v-if="pricingCatalogLoading" class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-primary-600"></span>
+                {{ localText("正在读取生效状态...", "Loading active catalog...") }}
+              </div>
+
+              <template v-else-if="pricingCatalogStatus">
+                <div :class="[
+                  'flex flex-col gap-4 rounded-xl border-2 p-4 sm:flex-row sm:items-center sm:justify-between',
+                  pricingCatalogStatus.active_source === 'remote'
+                    ? 'border-primary-200 bg-primary-50/70 dark:border-primary-800/70 dark:bg-primary-950/20'
+                    : 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-800/70 dark:bg-emerald-950/20',
+                ]">
+                  <div class="flex min-w-0 items-start gap-3">
+                    <span :class="[
+                      'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
+                      pricingCatalogStatus.active_source === 'remote'
+                        ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-300'
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+                    ]">
+                      <Icon name="checkCircle" size="md" />
+                    </span>
+                    <div class="min-w-0">
+                      <p class="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+                        {{ localText("当前正在用于计费", "Currently used for billing") }}
+                      </p>
+                      <h3 class="mt-1 text-base font-semibold text-gray-950 dark:text-white">
+                        {{ pricingCatalogStatus.active_source === "remote"
+                          ? localText("已由管理员确认的远端价格快照", "Administrator-approved remote snapshot")
+                          : localText("当前版本随附的内置价格表", "Pricing catalog bundled with this release") }}
+                      </h3>
+                      <p class="mt-1 text-xs leading-5 text-gray-600 dark:text-gray-300">
+                        {{ localText(
+                          "所有新请求正在查询这份价格表；检查远端价格不会改变此状态。",
+                          "All new requests currently use this catalog; checking the remote catalog does not change this state.",
+                        ) }}
+                      </p>
+                    </div>
+                  </div>
+                  <span :class="[
+                    'inline-flex w-fit flex-shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold',
+                    pricingCatalogStatus.active_source === 'remote'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-emerald-600 text-white',
+                  ]">
+                    <span class="h-1.5 w-1.5 rounded-full bg-white"></span>
+                    {{ localText("正在生效", "Active") }}
+                  </span>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("生效来源", "Active source") }}</p>
+                    <p class="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ pricingCatalogStatus.active_source === "remote"
+                        ? localText("远端审核快照", "Approved remote snapshot")
+                        : localText("本版本内置表", "Bundled release catalog") }}
+                    </p>
+                  </div>
+                  <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("可计费模型", "Billable models") }}</p>
+                    <p class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{{ pricingCatalogStatus.active_model_count }}</p>
+                  </div>
+                  <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ localText("当前表加载时间", "Active catalog loaded at") }}</p>
+                    <p class="mt-2 text-sm font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogDate(pricingCatalogStatus.active_updated_at) }}</p>
+                    <code class="mt-1 block truncate text-[11px] text-gray-500 dark:text-gray-400" :title="pricingCatalogStatus.active_hash">
+                      SHA256 {{ shortPricingHash(pricingCatalogStatus.active_hash) }}
+                    </code>
+                  </div>
+                </div>
+
+                <div v-if="pricingCatalogStatus.candidate_available" class="rounded-lg border border-dashed border-gray-300 bg-gray-50/70 p-4 dark:border-dark-500 dark:bg-dark-800/40">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ localText("已保存的远端候选表", "Saved remote candidate") }}</p>
+                        <span :class="[
+                          'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                          pricingCandidateIsActive
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+                        ]">
+                          {{ pricingCandidateIsActive
+                            ? localText("与当前生效表一致", "Matches active catalog")
+                            : localText("尚未启用", "Not active") }}
+                        </span>
+                      </div>
+                      <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        {{ pricingCandidateIsActive
+                          ? localText("这份候选快照就是当前正在使用的远端价格表。", "This candidate snapshot is the remote catalog currently in use.")
+                          : localText("候选表不会自动参与计费；需重新比较差异并通过 2FA 确认后才可启用。", "The candidate does not affect billing until you compare it and explicitly approve it with 2FA.") }}
+                      </p>
+                    </div>
+                    <div class="grid flex-shrink-0 grid-cols-2 gap-x-5 gap-y-1 text-xs sm:text-right">
+                      <span class="text-gray-500 dark:text-gray-400">{{ localText("模型数", "Models") }}</span>
+                      <span class="font-medium text-gray-900 dark:text-white">{{ pricingCatalogStatus.candidate_model_count ?? "-" }}</span>
+                      <span class="text-gray-500 dark:text-gray-400">{{ localText("检查时间", "Checked at") }}</span>
+                      <span class="font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogDate(pricingCatalogStatus.candidate_updated_at) }}</span>
+                    </div>
+                  </div>
+                  <code class="mt-2 block truncate text-[11px] text-gray-500 dark:text-gray-400" :title="pricingCatalogStatus.candidate_hash">
+                    {{ localText("候选 SHA256", "Candidate SHA256") }} {{ shortPricingHash(pricingCatalogStatus.candidate_hash) }}
+                  </code>
+                </div>
+                <div v-else class="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400">
+                  {{ localText("当前没有远端候选表。点击“下载并比较远端价格”只会生成候选，不会改变计费。", "No remote candidate is saved. Downloading and comparing creates one without changing billing.") }}
+                </div>
+
+                <div class="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900/60 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">{{ localText("只有确认切换才会改变后续请求计费", "Only an explicit switch changes subsequent request charges") }}</p>
+                    <p class="mt-1 text-xs text-amber-800/80 dark:text-amber-300/80">
+                      {{ localText("检查、下载或校验失败均不会切换；历史用量、余额和已完成扣费不会重算。", "Checking, downloading, or validation failures never switch catalogs; historical usage, balances, and completed charges are not recalculated.") }}
+                    </p>
+                  </div>
+                  <button
+                    v-if="pricingCatalogStatus.active_source === 'remote'"
+                    type="button"
+                    class="btn btn-secondary btn-sm flex-shrink-0"
+                    :disabled="pricingCatalogOperating"
+                    @click="activateBundledPricingCatalog"
+                  >
+                    {{ localText("改用本版本内置价格", "Activate bundled pricing") }}
+                  </button>
+                </div>
+              </template>
+
+              <div v-if="pricingCatalogPreview" class="space-y-4 rounded-lg border border-primary-200 bg-primary-50/40 p-4 dark:border-primary-900/60 dark:bg-primary-950/10">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ localText("候选价格差异", "Candidate price differences") }}</h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("候选表已通过 SHA256 和结构校验，但数值仍需人工确认。", "The candidate passed SHA-256 and structural validation, but price values still require review.") }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm flex-shrink-0"
+                    :disabled="pricingCatalogOperating || pricingCandidateIsActive"
+                    @click="activateRemotePricingCatalog"
+                  >
+                    {{ pricingCandidateIsActive
+                      ? localText("当前已在使用", "Already active")
+                      : pricingCatalogOperating
+                        ? localText("正在切换...", "Switching...")
+                        : localText("确认并启用候选表", "Approve and activate") }}
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("新增模型", "Added") }}</p>
+                    <p class="mt-1 font-semibold text-emerald-600">+{{ pricingCatalogPreview.added_models }}</p>
+                  </div>
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("价格变更模型", "Changed") }}</p>
+                    <p class="mt-1 font-semibold text-amber-600">{{ pricingCatalogPreview.changed_models }}</p>
+                  </div>
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("目录移除", "Removed") }}</p>
+                    <p class="mt-1 font-semibold text-red-600">-{{ pricingCatalogPreview.removed_models }}</p>
+                  </div>
+                  <div class="rounded-md bg-white p-3 shadow-sm dark:bg-dark-800">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ localText("字段变化", "Field changes") }}</p>
+                    <p class="mt-1 font-semibold text-gray-900 dark:text-white">{{ pricingCatalogChanges.length }}{{ pricingCatalogPreview.truncated ? "+" : "" }}</p>
+                  </div>
+                </div>
+
+                <div
+                  v-if="pricingCatalogPreview.added_models || pricingCatalogPreview.removed_models"
+                  class="grid gap-3 lg:grid-cols-2"
+                >
+                  <section
+                    v-if="pricingCatalogPreview.added_models"
+                    class="overflow-hidden rounded-lg border border-emerald-200 bg-white dark:border-emerald-900/60 dark:bg-dark-800"
+                  >
+                    <div class="flex items-center justify-between border-b border-emerald-100 bg-emerald-50/70 px-3 py-2.5 dark:border-emerald-900/50 dark:bg-emerald-950/20">
+                      <h4 class="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                        {{ localText("新增模型明细", "Added model details") }}
+                      </h4>
+                      <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                        +{{ pricingCatalogPreview.added_models }}
+                      </span>
+                    </div>
+                    <div v-if="pricingCatalogAddedModels.length" class="max-h-48 divide-y divide-gray-100 overflow-auto dark:divide-dark-700">
+                      <div v-for="model in pricingCatalogAddedModels" :key="model" class="flex min-w-0 items-center gap-2 px-3 py-2 text-xs">
+                        <span class="font-semibold text-emerald-600 dark:text-emerald-400">+</span>
+                        <code class="min-w-0 break-all text-gray-800 dark:text-gray-100">{{ model }}</code>
+                      </div>
+                    </div>
+                    <p v-else class="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("当前响应未包含模型名称，请重新执行检查。", "Model names were not included; run the check again.") }}
+                    </p>
+                    <p v-if="pricingCatalogPreview.added_models_truncated" class="border-t border-emerald-100 px-3 py-2 text-xs text-amber-700 dark:border-emerald-900/50 dark:text-amber-300">
+                      {{ localText(`共 ${pricingCatalogPreview.added_models} 个，仅显示按名称排序后的前 300 个。`, `Showing the first 300 of ${pricingCatalogPreview.added_models}, sorted by name.`) }}
+                    </p>
+                  </section>
+
+                  <section
+                    v-if="pricingCatalogPreview.removed_models"
+                    class="overflow-hidden rounded-lg border border-red-200 bg-white dark:border-red-900/60 dark:bg-dark-800"
+                  >
+                    <div class="flex items-center justify-between border-b border-red-100 bg-red-50/70 px-3 py-2.5 dark:border-red-900/50 dark:bg-red-950/20">
+                      <h4 class="text-sm font-semibold text-red-800 dark:text-red-300">
+                        {{ localText("移除模型明细", "Removed model details") }}
+                      </h4>
+                      <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                        -{{ pricingCatalogPreview.removed_models }}
+                      </span>
+                    </div>
+                    <div v-if="pricingCatalogRemovedModels.length" class="max-h-48 divide-y divide-gray-100 overflow-auto dark:divide-dark-700">
+                      <div v-for="model in pricingCatalogRemovedModels" :key="model" class="flex min-w-0 items-center gap-2 px-3 py-2 text-xs">
+                        <span class="font-semibold text-red-600 dark:text-red-400">-</span>
+                        <code class="min-w-0 break-all text-gray-800 dark:text-gray-100">{{ model }}</code>
+                      </div>
+                    </div>
+                    <p v-else class="px-3 py-3 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("当前响应未包含模型名称，请重新执行检查。", "Model names were not included; run the check again.") }}
+                    </p>
+                    <p v-if="pricingCatalogPreview.removed_models_truncated" class="border-t border-red-100 px-3 py-2 text-xs text-amber-700 dark:border-red-900/50 dark:text-amber-300">
+                      {{ localText(`共 ${pricingCatalogPreview.removed_models} 个，仅显示按名称排序后的前 300 个。`, `Showing the first 300 of ${pricingCatalogPreview.removed_models}, sorted by name.`) }}
+                    </p>
+                  </section>
+                </div>
+
+                <div v-if="pricingCatalogChanges.length" class="space-y-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ localText("价格字段变化明细", "Price field change details") }}
+                    </h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText(`${pricingCatalogPreview.changed_models} 个模型，${pricingCatalogChanges.length}${pricingCatalogPreview.truncated ? "+" : ""} 项字段`, `${pricingCatalogPreview.changed_models} models, ${pricingCatalogChanges.length}${pricingCatalogPreview.truncated ? "+" : ""} fields`) }}
+                    </span>
+                  </div>
+                  <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-600 dark:bg-dark-800">
+                    <div class="max-h-80 overflow-auto">
+                      <table class="min-w-full divide-y divide-gray-200 text-left text-xs dark:divide-dark-600">
+                        <thead class="sticky top-0 z-10 bg-gray-50 text-gray-500 dark:bg-dark-700 dark:text-gray-300">
+                          <tr>
+                            <th class="px-3 py-2 font-medium">{{ localText("模型", "Model") }}</th>
+                            <th class="px-3 py-2 font-medium">{{ localText("价格字段", "Price field") }}</th>
+                            <th class="px-3 py-2 text-right font-medium">{{ localText("当前", "Current") }}</th>
+                            <th class="px-3 py-2 text-right font-medium">{{ localText("候选", "Candidate") }}</th>
+                            <th class="px-3 py-2 text-right font-medium">{{ localText("变化", "Change") }}</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
+                          <tr v-for="change in pricingCatalogChanges" :key="`${change.model}:${change.field}`">
+                            <td class="max-w-52 truncate px-3 py-2 font-medium text-gray-800 dark:text-gray-100" :title="change.model">{{ change.model }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-gray-400">{{ pricingCatalogFieldLabel(change.field) }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right text-gray-600 dark:text-gray-300">{{ formatPricingCatalogValue(change.field, change.current) }}</td>
+                            <td class="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-900 dark:text-white">{{ formatPricingCatalogValue(change.field, change.candidate) }}</td>
+                            <td :class="[
+                              'whitespace-nowrap px-3 py-2 text-right font-semibold',
+                              change.direction === 'decrease' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400',
+                            ]">
+                              {{ formatPricingCatalogChange(change.change_percent) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p v-if="pricingCatalogPreview.truncated" class="border-t border-gray-100 px-3 py-2 text-xs text-amber-700 dark:border-dark-700 dark:text-amber-300">
+                      {{ localText("变化过多，仅显示前 300 项；请结合远端提交记录复核。", "More than 300 fields changed; review the upstream commit before activation.") }}
+                    </p>
+                  </div>
+                </div>
+                <p v-else class="rounded-md bg-white px-3 py-3 text-sm text-gray-600 dark:bg-dark-800 dark:text-gray-300">
+                  {{ pricingCatalogPreview.added_models || pricingCatalogPreview.removed_models
+                    ? localText("已有模型的价格字段未变化；新增和移除模型详见上方清单。", "Existing model price fields are unchanged; added and removed models are listed above.")
+                    : localText("未检测到任何模型或价格字段变化。", "No model or price field changes were detected.") }}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <!-- Overload Cooldown (529) Settings -->
           <div class="card">
             <div
@@ -6529,6 +6944,145 @@
                 </p>
               </div>
 
+              <!-- Community Groups -->
+              <section class="border-t border-gray-100 pt-6 dark:border-dark-700">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div class="min-w-0">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t("admin.settings.site.communityGroups.title") }}
+                    </h3>
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.site.communityGroups.description") }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm shrink-0"
+                    :disabled="form.community_groups.length >= 12"
+                    @click="addCommunityGroup"
+                  >
+                    <Icon name="plus" size="sm" />
+                    {{ t("admin.settings.site.communityGroups.add") }}
+                  </button>
+                </div>
+
+                <div
+                  v-if="form.community_groups.length === 0"
+                  class="mt-4 flex items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-5 text-sm text-gray-500 dark:border-dark-600 dark:bg-dark-800/40 dark:text-gray-400"
+                >
+                  <Icon name="chatBubble" size="md" class="shrink-0 text-primary-500" />
+                  <span>{{ t("admin.settings.site.communityGroups.empty") }}</span>
+                </div>
+
+                <div v-else class="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200 dark:divide-dark-700 dark:border-dark-600">
+                  <div
+                    v-for="(group, index) in form.community_groups"
+                    :key="index"
+                    class="p-4 sm:p-5"
+                  >
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-xs font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                          {{ index + 1 }}
+                        </span>
+                        <span class="truncate text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {{ group.name || t("admin.settings.site.communityGroups.unnamed") }}
+                        </span>
+                      </div>
+                      <div class="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon h-8 w-8"
+                          :disabled="index === 0"
+                          :title="t('admin.settings.site.communityGroups.moveUp')"
+                          @click="moveCommunityGroup(index, -1)"
+                        >
+                          <Icon name="arrowUp" size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon h-8 w-8"
+                          :disabled="index === form.community_groups.length - 1"
+                          :title="t('admin.settings.site.communityGroups.moveDown')"
+                          @click="moveCommunityGroup(index, 1)"
+                        >
+                          <Icon name="arrowDown" size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          :title="t('common.remove')"
+                          @click="removeCommunityGroup(index)"
+                        >
+                          <Icon name="trash" size="sm" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.name") }}
+                        </label>
+                        <input
+                          v-model="group.name"
+                          type="text"
+                          maxlength="64"
+                          class="input"
+                          :placeholder="t('admin.settings.site.communityGroups.namePlaceholder')"
+                        />
+                      </div>
+                      <div>
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.number") }}
+                        </label>
+                        <input
+                          v-model="group.group_number"
+                          type="text"
+                          maxlength="80"
+                          class="input"
+                          :placeholder="t('admin.settings.site.communityGroups.numberPlaceholder')"
+                        />
+                      </div>
+                      <div class="md:col-span-2">
+                        <label class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.joinUrl") }}
+                          <span class="font-normal text-gray-400">({{ t("common.optional") }})</span>
+                        </label>
+                        <input
+                          v-model="group.join_url"
+                          type="url"
+                          maxlength="2048"
+                          class="input font-mono text-sm"
+                          :placeholder="t('admin.settings.site.communityGroups.joinUrlPlaceholder')"
+                        />
+                      </div>
+                      <div class="md:col-span-2">
+                        <label class="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                          {{ t("admin.settings.site.communityGroups.qrCode") }}
+                          <span class="font-normal text-gray-400">({{ t("common.optional") }})</span>
+                        </label>
+                        <ImageUpload
+                          v-model="group.qr_code_image"
+                          mode="image"
+                          size="sm"
+                          accept="image/png,image/jpeg,image/webp"
+                          :allowed-mime-types="['image/png', 'image/jpeg', 'image/webp']"
+                          :upload-label="t('admin.settings.site.communityGroups.uploadQrCode')"
+                          :remove-label="t('common.remove')"
+                          :hint="t('admin.settings.site.communityGroups.qrCodeHint')"
+                          :max-size="300 * 1024"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <p v-if="form.community_groups.length >= 12" class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  {{ t("admin.settings.site.communityGroups.limitReached") }}
+                </p>
+              </section>
+
               <!-- Doc URL -->
               <div>
                 <label
@@ -6612,6 +7166,17 @@
                   </p>
                 </div>
                 <Toggle v-model="form.hide_ccs_import_button" />
+              </div>
+
+              <div class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700">
+                <div>
+                  <label class="font-medium text-gray-900 dark:text-white">控制台界面</label>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">选择登录后用户和管理员使用现代或经典控制台。</p>
+                </div>
+                <select v-model="form.console_ui_mode" class="input w-36">
+                  <option value="modern">现代控制台</option>
+                  <option value="legacy">经典控制台</option>
+                </select>
               </div>
             </div>
           </div>
@@ -7057,6 +7622,13 @@
             </div>
 
             <div v-if="form.channel_monitor_enabled" class="space-y-5">
+              <div class="flex items-center justify-between gap-6">
+                <div>
+                  <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('admin.settings.features.channelMonitor.detailedAnalysis') }}</label>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.settings.features.channelMonitor.detailedAnalysisHint') }}</p>
+                </div>
+                <Toggle v-model="form.channel_monitor_v2_detailed_analysis_enabled" />
+              </div>
               <div>
                 <label class="input-label">
                   {{ t('admin.settings.features.channelMonitor.mode') }}
@@ -7239,6 +7811,43 @@
           </div>
         </div>
 
+        <div class="card" data-testid="online-playground-settings-card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.onlinePlayground.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.onlinePlayground.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between gap-6">
+              <div class="min-w-0">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.onlinePlayground.enabled') }}
+                </label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.onlinePlayground.enabledHint') }}
+                </p>
+              </div>
+              <Toggle
+                v-model="form.online_playground_enabled"
+                data-testid="online-playground-toggle"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="card" data-testid="usage-guide-settings-card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">使用教程页面</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">控制用户侧使用教程入口和页面是否显示。</p>
+          </div>
+          <div class="space-y-5 p-6"><div class="flex items-center justify-between gap-6">
+            <div><label class="text-sm font-medium text-gray-700 dark:text-gray-300">显示使用教程</label><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">关闭后用户菜单和直接访问都会被隐藏。</p></div>
+            <Toggle v-model="form.usage_guide_enabled" data-testid="usage-guide-toggle" />
+          </div></div>
+        </div>
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -8842,6 +9451,8 @@ import type {
   DefaultSubscriptionSetting,
   DefaultPlatformQuotasMap,
   OpenAIFastPolicyRule,
+  PricingCatalogPreview,
+  PricingCatalogStatus,
   WeChatConnectMode,
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
@@ -8849,6 +9460,7 @@ import type {
 } from "@/api/admin/settings";
 import type {
   AdminGroup,
+  CommunityGroup,
   LoginAgreementDocument,
   NotifyEmailEntry,
   Proxy,
@@ -8910,6 +9522,202 @@ const isZhLocale = computed(() => locale.value.startsWith("zh"));
 
 function localText(zh: string, en: string): string {
   return isZhLocale.value ? zh : en;
+}
+
+const pricingCatalogStatus = ref<PricingCatalogStatus | null>(null);
+const pricingCatalogPreview = ref<PricingCatalogPreview | null>(null);
+const pricingCatalogLoading = ref(false);
+const pricingCatalogChecking = ref(false);
+const pricingCatalogOperating = ref(false);
+const pricingCatalogChanges = computed(() =>
+  Array.isArray(pricingCatalogPreview.value?.price_changes)
+    ? pricingCatalogPreview.value.price_changes
+    : [],
+);
+const pricingCatalogAddedModels = computed(() =>
+  Array.isArray(pricingCatalogPreview.value?.added_model_names)
+    ? pricingCatalogPreview.value.added_model_names
+    : [],
+);
+const pricingCatalogRemovedModels = computed(() =>
+  Array.isArray(pricingCatalogPreview.value?.removed_model_names)
+    ? pricingCatalogPreview.value.removed_model_names
+    : [],
+);
+const pricingCandidateIsActive = computed(() => {
+  const candidateHash = pricingCatalogStatus.value?.candidate_hash;
+  return Boolean(
+    candidateHash &&
+      pricingCatalogStatus.value?.active_source === "remote" &&
+      candidateHash === pricingCatalogStatus.value.active_hash,
+  );
+});
+
+async function loadPricingCatalogStatus(): Promise<void> {
+  pricingCatalogLoading.value = true;
+  try {
+    pricingCatalogStatus.value =
+      await adminAPI.settings.getPricingCatalogStatus();
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("读取价格目录状态失败", "Failed to load pricing catalog status"),
+      ),
+    );
+  } finally {
+    pricingCatalogLoading.value = false;
+  }
+}
+
+async function checkRemotePricingCatalog(): Promise<void> {
+  pricingCatalogChecking.value = true;
+  try {
+    const preview = await settingsStepUp.run(() => adminAPI.settings.checkPricingCatalog());
+    pricingCatalogPreview.value = preview;
+    pricingCatalogStatus.value = preview.status;
+    appStore.showSuccess(
+      localText(
+        "候选价格表已下载并校验，请核对差异后再启用",
+        "Candidate catalog verified. Review the differences before activation.",
+      ),
+    );
+  } catch (error: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("检查远端价格失败", "Failed to check remote pricing"),
+      ),
+    );
+  } finally {
+    pricingCatalogChecking.value = false;
+  }
+}
+
+function handlePricingCatalogStepUpError(error: unknown): boolean {
+  if (isStepUpCancelled(error)) return true;
+  if (isStepUpBlocked(error)) {
+    appStore.showError(
+      stepUpBlockReason(error) === "STEP_UP_ADMIN_API_KEY_FORBIDDEN"
+        ? t("stepUp.adminApiKeyForbidden")
+        : t("stepUp.notEnabled"),
+    );
+    return true;
+  }
+  return false;
+}
+
+async function activateRemotePricingCatalog(): Promise<void> {
+  const candidateHash = pricingCatalogPreview.value?.status.candidate_hash;
+  if (!candidateHash) return;
+  if (
+    !confirm(
+      localText(
+        "确认启用这份候选价格表？启用后，后续请求将按新价格计算，已有记录不会重算。",
+        "Activate this candidate catalog? Subsequent requests will use its prices; existing usage will not be recalculated.",
+      ),
+    )
+  ) return;
+  pricingCatalogOperating.value = true;
+  try {
+    pricingCatalogStatus.value = await settingsStepUp.run(() =>
+      adminAPI.settings.activateRemotePricingCatalog(candidateHash),
+    );
+    appStore.showSuccess(
+      localText("候选价格表已启用", "Candidate pricing catalog activated"),
+    );
+  } catch (error: unknown) {
+    if (handlePricingCatalogStepUpError(error)) return;
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("启用价格表失败", "Failed to activate pricing catalog"),
+      ),
+    );
+  } finally {
+    pricingCatalogOperating.value = false;
+  }
+}
+
+async function activateBundledPricingCatalog(): Promise<void> {
+  if (
+    !confirm(
+      localText(
+        "确认改用当前版本内置的价格表？确认后，仅后续新请求会立即按内置价格计费；历史用量、余额和已完成扣费不会改变，已保存的远端快照也不会被删除。",
+        "Activate the catalog bundled with this release? Only subsequent new requests will use bundled prices; historical usage, balances, completed charges, and saved remote snapshots remain unchanged.",
+      ),
+    )
+  ) return;
+  pricingCatalogOperating.value = true;
+  try {
+    pricingCatalogStatus.value = await settingsStepUp.run(() =>
+      adminAPI.settings.activateBundledPricingCatalog(),
+    );
+    appStore.showSuccess(
+      localText("已切回内置价格表", "Bundled pricing catalog activated"),
+    );
+  } catch (error: unknown) {
+    if (handlePricingCatalogStepUpError(error)) return;
+    appStore.showError(
+      extractApiErrorMessage(
+        error,
+        localText("切换价格表失败", "Failed to switch pricing catalog"),
+      ),
+    );
+  } finally {
+    pricingCatalogOperating.value = false;
+  }
+}
+
+function shortPricingHash(hash?: string): string {
+  if (!hash) return "-";
+  return `${hash.slice(0, 10)}...${hash.slice(-6)}`;
+}
+
+function formatPricingCatalogDate(value?: string): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+const pricingCatalogFieldLabels: Record<string, [string, string]> = {
+  input_cost_per_token: ["输入 / 百万 Token", "Input / MTok"],
+  input_cost_per_token_priority: ["Priority 输入 / 百万 Token", "Priority input / MTok"],
+  output_cost_per_token: ["输出 / 百万 Token", "Output / MTok"],
+  output_cost_per_token_priority: ["Priority 输出 / 百万 Token", "Priority output / MTok"],
+  cache_creation_input_token_cost: ["缓存写入 / 百万 Token", "Cache write / MTok"],
+  cache_creation_input_token_cost_priority: ["Priority 缓存写入 / 百万 Token", "Priority cache write / MTok"],
+  cache_creation_input_token_cost_above_1hr: ["1 小时缓存写入 / 百万 Token", "1h cache write / MTok"],
+  cache_read_input_token_cost: ["缓存读取 / 百万 Token", "Cache read / MTok"],
+  cache_read_input_token_cost_priority: ["Priority 缓存读取 / 百万 Token", "Priority cache read / MTok"],
+  long_context_input_token_threshold: ["长上下文阈值", "Long-context threshold"],
+  long_context_input_cost_multiplier: ["长上下文输入倍率", "Long-context input multiplier"],
+  long_context_output_cost_multiplier: ["长上下文输出倍率", "Long-context output multiplier"],
+  output_cost_per_image: ["每张图片", "Per image"],
+  output_cost_per_image_token: ["图片输出 / 百万 Token", "Image output / MTok"],
+  input_cost_per_image_token: ["图片输入 / 百万 Token", "Image input / MTok"],
+};
+
+function pricingCatalogFieldLabel(field: string): string {
+  const label = pricingCatalogFieldLabels[field];
+  return label ? localText(label[0], label[1]) : field;
+}
+
+function formatPricingCatalogValue(field: string, value?: number): string {
+  if (value === undefined || value === null) return "-";
+  if (field === "long_context_input_token_threshold") {
+    return `${Math.round(value).toLocaleString()} tokens`;
+  }
+  if (field.endsWith("_multiplier")) return `${value.toFixed(3).replace(/\.?0+$/, "")}x`;
+  if (field === "output_cost_per_image") return `$${value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
+  const perMillion = value * 1_000_000;
+  return `$${perMillion.toLocaleString(undefined, { maximumFractionDigits: 6 })}`;
+}
+
+function formatPricingCatalogChange(value?: number): string {
+  if (value === undefined || !Number.isFinite(value)) return localText("已变化", "Changed");
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${value.toFixed(1)}%`;
 }
 
 const paymentGuideHref = computed(() =>
@@ -9018,6 +9826,13 @@ const adminApiKeyMasked = ref("");
 const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionGroups = ref<AdminGroup[]>([]);
+
+// WebUI region access state
+const webAccessRegionLoading = ref(true);
+const webAccessRegionSaving = ref(false);
+const webAccessRegionForm = reactive({
+  block_mainland_china: false,
+});
 
 // Upstream billing probe state
 const upstreamBillingProbeLoading = ref(true);
@@ -9626,11 +10441,13 @@ const form = reactive<SettingsForm>({
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
+  community_groups: [] as CommunityGroup[],
   doc_url: "",
   home_content: "",
   compact_home_enabled: false,
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
+  console_ui_mode: "legacy",
   payment_enabled: false,
   risk_control_enabled: false,
   cyber_session_block_enabled: false,
@@ -9864,6 +10681,9 @@ const form = reactive<SettingsForm>({
   channel_monitor_hide_user_ranking: false,
   // Available Channels feature switch
   available_channels_enabled: false,
+  online_playground_enabled: true,
+  usage_guide_enabled: true,
+  channel_monitor_v2_detailed_analysis_enabled: false,
   // Subscription feature switch (user sidebar "My Subscriptions" entry)
   subscription_enabled: true,
   // Model Plaza feature switches + description
@@ -10676,6 +11496,30 @@ function removeEndpoint(index: number) {
   form.custom_endpoints.splice(index, 1);
 }
 
+function addCommunityGroup() {
+  if (form.community_groups.length >= 12) return;
+  form.community_groups.push({
+    name: "",
+    group_number: "",
+    qr_code_image: "",
+    join_url: "",
+  });
+}
+
+function removeCommunityGroup(index: number) {
+  form.community_groups.splice(index, 1);
+}
+
+function moveCommunityGroup(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.community_groups.length) return;
+  const current = form.community_groups[index];
+  const target = form.community_groups[targetIndex];
+  if (!current || !target) return;
+  form.community_groups[index] = target;
+  form.community_groups[targetIndex] = current;
+}
+
 function addLoginAgreementDocument() {
   form.login_agreement_documents.push({
     id: `custom-${Date.now().toString(36)}`,
@@ -11283,11 +12127,13 @@ async function saveSettings() {
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
+      community_groups: form.community_groups,
       doc_url: form.doc_url,
       home_content: form.home_content,
       compact_home_enabled: form.compact_home_enabled,
       backend_mode_enabled: form.backend_mode_enabled,
       hide_ccs_import_button: form.hide_ccs_import_button,
+      console_ui_mode: form.console_ui_mode,
       table_default_page_size: form.table_default_page_size,
       table_page_size_options: form.table_page_size_options,
       custom_menu_items: form.custom_menu_items,
@@ -11548,6 +12394,9 @@ async function saveSettings() {
       channel_monitor_hide_user_ranking: Boolean(form.channel_monitor_hide_user_ranking),
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      online_playground_enabled: form.online_playground_enabled,
+      usage_guide_enabled: form.usage_guide_enabled,
+      channel_monitor_v2_detailed_analysis_enabled: form.channel_monitor_v2_detailed_analysis_enabled,
       // Subscription feature switch
       subscription_enabled: form.subscription_enabled,
       // Model Plaza feature switches + description
@@ -11675,6 +12524,15 @@ async function saveSettings() {
     }
     // Save web search emulation config separately (errors handled internally)
     const wsOk = await saveWebSearchConfig();
+    const savedConsoleMode = updated.console_ui_mode === 'modern' ? 'modern' : 'legacy';
+    const currentConsoleMode = appStore.cachedPublicSettings?.console_ui_mode === 'modern' ? 'modern' : 'legacy';
+    if (savedConsoleMode !== currentConsoleMode) {
+      if (wsOk) {
+        appStore.showSuccess(t("admin.settings.settingsSaved"));
+        window.location.reload();
+      }
+      return;
+    }
     // Refresh cached settings so sidebar/header update immediately
     await appStore.fetchPublicSettings(true);
     await adminSettingsStore.fetch(true);
@@ -11778,6 +12636,33 @@ async function loadAdminApiKey() {
     // Silent fail - admin API key status is non-critical
   } finally {
     adminApiKeyLoading.value = false;
+  }
+}
+
+async function loadWebAccessRegionSettings() {
+  webAccessRegionLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getWebAccessRegionSettings();
+    Object.assign(webAccessRegionForm, settings);
+  } catch (_error: unknown) {
+    appStore.showError(t("admin.settings.webAccessRegion.loadFailed"));
+  } finally {
+    webAccessRegionLoading.value = false;
+  }
+}
+
+async function saveWebAccessRegionSettings() {
+  webAccessRegionSaving.value = true;
+  try {
+    const settings = await adminAPI.settings.updateWebAccessRegionSettings({
+      block_mainland_china: webAccessRegionForm.block_mainland_china,
+    });
+    Object.assign(webAccessRegionForm, settings);
+    appStore.showSuccess(t("admin.settings.webAccessRegion.saved"));
+  } catch (_error: unknown) {
+    appStore.showError(t("admin.settings.webAccessRegion.saveFailed"));
+  } finally {
+    webAccessRegionSaving.value = false;
   }
 }
 
@@ -12640,8 +13525,10 @@ async function handleDeleteProvider() {
 
 onMounted(() => {
   loadSettings();
+  loadPricingCatalogStatus();
   loadSubscriptionGroups();
   loadAdminApiKey();
+  loadWebAccessRegionSettings();
   loadUpstreamBillingProbeSettings();
   loadOllamaCloudUsageSettings();
   loadOverloadCooldownSettings();

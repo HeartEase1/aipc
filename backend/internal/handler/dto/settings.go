@@ -149,21 +149,23 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string `json:"google_oauth_redirect_url"`
 	GoogleOAuthFrontendRedirectURL    string `json:"google_oauth_frontend_redirect_url"`
 
-	SiteName                    string           `json:"site_name"`
-	SiteLogo                    string           `json:"site_logo"`
-	SiteSubtitle                string           `json:"site_subtitle"`
-	APIBaseURL                  string           `json:"api_base_url"`
-	ContactInfo                 string           `json:"contact_info"`
-	DocURL                      string           `json:"doc_url"`
-	HomeContent                 string           `json:"home_content"`
-	CompactHomeEnabled          bool             `json:"compact_home_enabled"`
-	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled bool             `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     string           `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int              `json:"table_default_page_size"`
-	TablePageSizeOptions        []int            `json:"table_page_size_options"`
-	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
+	SiteName                    string                   `json:"site_name"`
+	SiteLogo                    string                   `json:"site_logo"`
+	SiteSubtitle                string                   `json:"site_subtitle"`
+	APIBaseURL                  string                   `json:"api_base_url"`
+	ContactInfo                 string                   `json:"contact_info"`
+	DocURL                      string                   `json:"doc_url"`
+	HomeContent                 string                   `json:"home_content"`
+	CompactHomeEnabled          bool                     `json:"compact_home_enabled"`
+	HideCcsImportButton         bool                     `json:"hide_ccs_import_button"`
+	ConsoleUIMode               string                   `json:"console_ui_mode"`
+	CommunityGroups             []service.CommunityGroup `json:"community_groups"`
+	PurchaseSubscriptionEnabled bool                     `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     string                   `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                      `json:"table_default_page_size"`
+	TablePageSizeOptions        []int                    `json:"table_page_size_options"`
+	CustomMenuItems             []CustomMenuItem         `json:"custom_menu_items"`
+	CustomEndpoints             []CustomEndpoint         `json:"custom_endpoints"`
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
@@ -316,7 +318,10 @@ type SystemSettings struct {
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature switch (user-facing aggregate view)
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled                bool `json:"available_channels_enabled"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	OnlinePlaygroundEnabled                 bool `json:"online_playground_enabled"`
+	UsageGuideEnabled                       bool `json:"usage_guide_enabled"`
 
 	// Subscription feature switch: gates the whole user-facing subscription surface
 	// (sidebar entries, purchase-page subscription tab, header badge, /subscriptions route).
@@ -390,6 +395,8 @@ type PublicSettings struct {
 	HomeContent                         string                   `json:"home_content"`
 	CompactHomeEnabled                  bool                     `json:"compact_home_enabled"`
 	HideCcsImportButton                 bool                     `json:"hide_ccs_import_button"`
+	ConsoleUIMode                       string                   `json:"console_ui_mode"`
+	CommunityGroupsEnabled              bool                     `json:"community_groups_enabled"`
 	PurchaseSubscriptionEnabled         bool                     `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL             string                   `json:"purchase_subscription_url"`
 	TableDefaultPageSize                int                      `json:"table_default_page_size"`
@@ -408,6 +415,7 @@ type PublicSettings struct {
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                      bool                     `json:"payment_enabled"`
+	PaymentBalanceRechargeMultiplier    float64                  `json:"payment_balance_recharge_multiplier"`
 	// PaymentBalanceDisabled mirrors the payment-config BALANCE_PAYMENT_DISABLED switch so the
 	// user shell can derive the site billing mode (recharge & subscription / recharge only /
 	// subscription only) before any authenticated checkout call.
@@ -429,7 +437,10 @@ type PublicSettings struct {
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
 
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled                bool `json:"available_channels_enabled"`
+	ChannelMonitorV2DetailedAnalysisEnabled bool `json:"channel_monitor_v2_detailed_analysis_enabled"`
+	OnlinePlaygroundEnabled                 bool `json:"online_playground_enabled"`
+	UsageGuideEnabled                       bool `json:"usage_guide_enabled"`
 
 	SubscriptionEnabled bool `json:"subscription_enabled"`
 

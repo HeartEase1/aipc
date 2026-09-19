@@ -26,7 +26,7 @@ export const useAppStore = defineStore('app', () => {
   // Public settings cache state
   const publicSettingsLoaded = ref<boolean>(false)
   const publicSettingsLoading = ref<boolean>(false)
-  const siteName = ref<string>('Sub2API')
+  const siteName = ref<string>('AIPC')
   const siteLogo = ref<string>('')
   const siteVersion = ref<string>('')
   const contactInfo = ref<string>('')
@@ -294,7 +294,7 @@ export const useAppStore = defineStore('app', () => {
       window.__APP_CONFIG__ = { ...config }
     }
     cachedPublicSettings.value = config
-    siteName.value = config.site_name || 'Sub2API'
+    siteName.value = config.site_name || 'AIPC'
     siteLogo.value = config.site_logo || ''
     siteVersion.value = config.version || ''
     contactInfo.value = config.contact_info || ''
@@ -348,7 +348,10 @@ export const useAppStore = defineStore('app', () => {
         home_content: '',
         compact_home_enabled: false,
         hide_ccs_import_button: false,
+        console_ui_mode: 'legacy',
+        community_groups_enabled: false,
         payment_enabled: false,
+        payment_balance_recharge_multiplier: 1,
         table_default_page_size: 20,
         table_page_size_options: [10, 20, 50, 100],
         custom_menu_items: [],
@@ -371,6 +374,9 @@ export const useAppStore = defineStore('app', () => {
         channel_monitor_enabled: true,
         channel_monitor_default_interval_seconds: 60,
         available_channels_enabled: false,
+        channel_monitor_v2_detailed_analysis_enabled: false,
+        online_playground_enabled: true,
+        usage_guide_enabled: true,
         subscription_enabled: true,
         payment_balance_disabled: false,
         model_plaza_enabled: false,

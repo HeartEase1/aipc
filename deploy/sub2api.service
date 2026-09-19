@@ -1,6 +1,6 @@
 [Unit]
-Description=Sub2API - AI API Gateway Platform
-Documentation=https://github.com/Wei-Shaw/sub2api
+Description=AIPC - Sub2API-compatible AI API Gateway Platform
+Documentation=https://github.com/HeartEase1/aipc
 After=network.target postgresql.service redis.service
 Wants=postgresql.service redis.service
 

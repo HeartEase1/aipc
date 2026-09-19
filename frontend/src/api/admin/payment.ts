@@ -13,6 +13,17 @@ import type {
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
+export interface AdminMembershipSummary {
+  current_tier: string
+  current_amount: string
+  settlement_currency: string
+}
+
+export async function getMembershipSummaries(userIds: number[], signal?: AbortSignal) {
+  const { data } = await apiClient.post<Record<number, AdminMembershipSummary>>('/admin/payment/membership-summaries', { user_ids: userIds }, { signal })
+  return data
+}
+
 /** Admin-facing payment config returned by GET /admin/payment/config */
 export interface AdminPaymentConfig {
   enabled: boolean

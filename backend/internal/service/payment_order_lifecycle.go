@@ -203,8 +203,13 @@ func (s *PaymentService) checkPaidWithOptions(ctx context.Context, o *dbent.Paym
 	}
 	if cp, ok := prov.(payment.CancelableProvider); ok {
 		finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
-		_ = cp.CancelPayment(ctx, queryRef)
+		cancelErr := cp.CancelPayment(ctx, queryRef)
 		finishProviderCall()
+		if cancelErr == nil && o.OrderType == payment.OrderTypeBalance {
+			if err := s.confirmRechargeReservationClosed(ctx, o.ID); err != nil {
+				slog.Error("persist recharge provider close failed", "orderID", o.ID, "error", err)
+			}
+		}
 	}
 	return ""
 }
@@ -394,6 +399,9 @@ func (s *PaymentService) ExpireTimedOutOrders(ctx context.Context) (int, error) 
 		if outcome != "" {
 			n++
 		}
+	}
+	if err := s.reconcileRechargeReservations(ctx); err != nil {
+		return n, fmt.Errorf("reconcile recharge reservations: %w", err)
 	}
 	return n, nil
 }

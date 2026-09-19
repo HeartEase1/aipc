@@ -341,10 +341,23 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeySiteSubtitle] = settings.SiteSubtitle
 	updates[SettingKeyAPIBaseURL] = settings.APIBaseURL
 	updates[SettingKeyContactInfo] = settings.ContactInfo
+	communityGroupsJSON, err := MarshalCommunityGroups(settings.CommunityGroups)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_COMMUNITY_GROUPS", err.Error())
+	}
+	updates[SettingKeyCommunityGroups] = communityGroupsJSON
+	updates[SettingKeyCommunityGroupsEnabled] = strconv.FormatBool(len(settings.CommunityGroups) > 0)
 	updates[SettingKeyDocURL] = settings.DocURL
 	updates[SettingKeyHomeContent] = settings.HomeContent
 	updates[SettingKeyCompactHomeEnabled] = strconv.FormatBool(settings.CompactHomeEnabled)
 	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
+	if strings.TrimSpace(settings.ConsoleUIMode) != "" {
+		mode, valid := ParseConsoleUIMode(settings.ConsoleUIMode)
+		if !valid {
+			return nil, fmt.Errorf("invalid console_ui_mode: %q", settings.ConsoleUIMode)
+		}
+		updates[SettingKeyConsoleUIMode] = mode
+	}
 	updates[SettingKeyPurchaseSubscriptionEnabled] = strconv.FormatBool(settings.PurchaseSubscriptionEnabled)
 	updates[SettingKeyPurchaseSubscriptionURL] = strings.TrimSpace(settings.PurchaseSubscriptionURL)
 	tableDefaultPageSize, tablePageSizeOptions := normalizeTablePreferences(
@@ -431,6 +444,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// Available channels feature switch
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
+	updates[SettingKeyChannelMonitorV2DetailedAnalysisEnabled] = strconv.FormatBool(settings.ChannelMonitorV2DetailedAnalysisEnabled)
+	updates[SettingKeyOnlinePlaygroundEnabled] = strconv.FormatBool(settings.OnlinePlaygroundEnabled)
+	updates[SettingKeyUsageGuideEnabled] = strconv.FormatBool(settings.UsageGuideEnabled)
 
 	// Subscription feature switch
 	updates[SettingKeySubscriptionEnabled] = strconv.FormatBool(settings.SubscriptionEnabled)

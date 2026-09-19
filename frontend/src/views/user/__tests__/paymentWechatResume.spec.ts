@@ -17,6 +17,7 @@ describe('parseWechatResumeRoute', () => {
       orderType: 'subscription',
       orderAmount: 0,
       planId: 7,
+      subscriptionAction: 'extend',
     })
   })
 
