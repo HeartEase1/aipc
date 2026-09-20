@@ -42,6 +42,13 @@ const messages: Record<string, string> = {
   'keys.allStatus': 'All Status',
   'keys.columnSettings': 'Column Settings',
   'keys.createKey': 'Create API Key',
+  'keys.discountCampaign.currentDiscount': 'Current discount',
+  'keys.discountCampaign.discountValue': '{percent}% off',
+  'keys.discountCampaign.remaining': 'Ends in {time}',
+  'keys.discountCampaign.remainingDays': 'Ends in {days}d {time}',
+  'keys.discountCampaign.endingSoon': 'Ending soon',
+  'keys.discountCampaign.balanceOnly': 'Balance billing only',
+  'keys.discountCampaign.subscriptionExcluded': 'Subscription requests are not discounted',
   'keys.created': 'Created',
   'keys.expiresAt': 'Expires',
   'keys.group': 'Group',
@@ -103,7 +110,13 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => messages[key] ?? key,
+      t: (key: string, params?: Record<string, unknown>) => {
+        let value = messages[key] ?? key
+        for (const [name, replacement] of Object.entries(params ?? {})) {
+          value = value.replace(`{${name}}`, String(replacement))
+        }
+        return value
+      },
     }),
   }
 })
@@ -351,6 +364,43 @@ describe('user KeysView column settings', () => {
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_at')
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_ip')
     expect(visibleColumnKeys(wrapper)).not.toContain('id')
+  })
+
+  it('shows active balance discount campaign details once', async () => {
+    getAvailableGroups.mockResolvedValue([
+      {
+        id: 7,
+        name: 'OpenAI Global',
+        subscription_type: 'standard',
+        rate_multiplier: 2,
+        effective_rate_multiplier: 1.8,
+        discount_campaign_id: 42,
+        discount_campaign_name: 'Sunday Reward',
+        discount_campaign_description: 'All standard balance requests receive this discount.',
+        discount_factor: 0.9,
+        discount_ends_at: '2099-08-09T23:59:00+08:00',
+      },
+      {
+        id: 8,
+        name: 'OpenAI Backup',
+        subscription_type: 'standard',
+        rate_multiplier: 1,
+        effective_rate_multiplier: 0.9,
+        discount_campaign_id: 42,
+        discount_campaign_name: 'Sunday Reward',
+        discount_factor: 0.9,
+        discount_ends_at: '2099-08-09T23:59:00+08:00',
+      },
+    ])
+
+    const wrapper = await mountView()
+
+    expect(wrapper.text().match(/Sunday Reward/g)).toHaveLength(1)
+    expect(wrapper.text()).toContain('Current discount: 10% off')
+    expect(wrapper.text()).toContain('All standard balance requests receive this discount.')
+    expect(wrapper.text()).toContain('Ends in')
+    expect(wrapper.text()).toContain('Balance billing only')
+    expect(wrapper.text()).toContain('Subscription requests are not discounted')
   })
 
   it('opens bulk editing with only selected visible keys', async () => {

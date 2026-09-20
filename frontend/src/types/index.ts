@@ -582,6 +582,7 @@ export interface Group {
   platform: GroupPlatform
   rate_multiplier: number
   effective_rate_multiplier?: number
+  discount_campaign_id?: number
   discount_factor?: number
   discount_campaign_name?: string
   discount_campaign_description?: string

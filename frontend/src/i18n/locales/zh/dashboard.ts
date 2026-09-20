@@ -77,6 +77,15 @@ export default {
       clickToCopy: '点击可复制此端点',
       speedTest: '测速',
     },
+    discountCampaign: {
+      currentDiscount: '当前折扣',
+      remaining: '剩余 {time}',
+      remainingDays: '剩余 {days} 天 {time}',
+      endingSoon: '即将结束',
+      discountValue: '{value}折',
+      balanceOnly: '仅余额请求生效',
+      subscriptionExcluded: '套餐请求不打折'
+    },
     allGroups: '全部分组',
     allStatus: '全部状态',
     columnSettings: '列设置',
