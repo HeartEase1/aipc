@@ -233,6 +233,27 @@ describe('user UsageView', () => {
     expect(getAvailable).toHaveBeenCalled()
   })
 
+  it('teleports column settings above table stacking contexts', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="usage-column-settings"]').trigger('click')
+    await flushPromises()
+
+    const menu = document.body.querySelector<HTMLElement>('[data-testid="usage-column-settings-menu"]')
+    expect(menu).not.toBeNull()
+    expect(menu?.classList.contains('fixed')).toBe(true)
+    expect(menu?.className).toContain('z-[100000020]')
+    expect(menu?.style.left).not.toBe('')
+    expect(menu?.style.top || menu?.style.bottom).not.toBe('')
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(document.body.querySelector('[data-testid="usage-column-settings-menu"]')).toBeNull()
+
+    wrapper.unmount()
+  })
+
   it('includes API keys after the first page in both record filters and queries by the selected key', async () => {
     const firstPageKeys = Array.from({ length: 100 }, (_, index) => ({
       id: index + 1,
