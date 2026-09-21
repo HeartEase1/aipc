@@ -10,6 +10,16 @@ function mountInput(value: number | null = null) {
 }
 
 describe('recharge amount input', () => {
+  it('places the custom amount before quick amounts and shows the selected currency', () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: null, currency: 'CNY' } })
+    const customLabel = wrapper.findAll('label')[0]
+    const quickLabel = wrapper.findAll('label')[1]
+
+    expect(customLabel.text()).toBe('payment.customAmount')
+    expect(quickLabel.text()).toBe('payment.quickAmounts')
+    expect(wrapper.text()).toContain('CNY')
+  })
+
   it.each(['10abc', '10.555', '-10', '1e2'])('restores the accepted amount after rejecting %s', async (value) => {
     const wrapper = mountInput(10)
     const input = wrapper.get('input')

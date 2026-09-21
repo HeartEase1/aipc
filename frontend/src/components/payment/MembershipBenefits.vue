@@ -1,7 +1,7 @@
 <template>
-  <div class="mt-4 space-y-3 border-t border-gray-200 pt-3 text-sm dark:border-dark-600">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <span class="font-semibold text-primary-700 dark:text-primary-300">{{ summary.current_tier || t('balanceMarketing.defaultTier') }}</span>
+  <div :class="embedded ? 'space-y-3 text-sm' : 'mt-4 space-y-3 border-t border-gray-200 pt-3 text-sm dark:border-dark-600'">
+    <div :class="['flex flex-wrap items-center gap-2', embedded ? 'justify-end' : 'justify-between']">
+      <span v-if="!embedded" class="font-semibold text-primary-700 dark:text-primary-300">{{ summary.current_tier || t('balanceMarketing.defaultTier') }}</span>
       <button class="btn btn-secondary !px-3 !py-1 text-xs" @click="showRules = true"><Icon name="infoCircle" size="sm" />{{ t('balanceMarketing.rules') }}</button>
     </div>
     <p>{{ t('balanceMarketing.rollingPaid') }}: <strong>{{ amountOnly(summary.current_amount) }}</strong></p>
@@ -52,7 +52,9 @@ import { useI18n } from 'vue-i18n'
 import type { MembershipSummary } from '@/api/payment'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-const props = defineProps<{ summary: MembershipSummary }>()
+const props = withDefaults(defineProps<{ summary: MembershipSummary; embedded?: boolean }>(), {
+  embedded: false,
+})
 const { t, locale } = useI18n()
 const showRules = ref(false)
 const amountOnly = (value: string) => Number(value).toFixed(2)

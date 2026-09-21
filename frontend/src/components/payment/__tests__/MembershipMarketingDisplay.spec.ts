@@ -8,6 +8,17 @@ import type { PaymentOrder } from '@/types/payment'
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 
 describe('membership and recharge offer display', () => {
+  it('does not repeat the tier heading when embedded in the compact account card', () => {
+    const summary = {
+      enabled: true, settlement_currency: 'CNY', current_tier: 'VIP', current_amount: '500',
+      current_discount_percent: '1', progress_percent: '50', first_recharge_eligible: false,
+    } as MembershipSummary
+    const wrapper = mount(MembershipBenefits, { props: { summary, embedded: true }, global: { stubs: { BaseDialog: true, Icon: true } } })
+
+    expect(wrapper.text()).not.toContain('VIP')
+    expect(wrapper.text()).toContain('balanceMarketing.rollingPaid')
+  })
+
   it.each(['eligible', 'reserved', 'used', 'ineligible'] as const)('renders a distinct first recharge state: %s', (status) => {
     const summary: MembershipSummary = {
       enabled: false, settlement_currency: 'CNY', current_amount: '0',

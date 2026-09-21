@@ -4,6 +4,7 @@ import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import AmountInput from '@/components/payment/AmountInput.vue'
+import MembershipBenefits from '@/components/payment/MembershipBenefits.vue'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
@@ -453,6 +454,44 @@ describe('PaymentView authoritative recharge quotes', () => {
   function submitButton(wrapper: Awaited<ReturnType<typeof mountRecharge>>) {
     return wrapper.findAll('button').find(button => button.text().startsWith('payment.createOrder'))!
   }
+
+  it('keeps the compact account card above the recharge form and nests the tab switcher inside it', async () => {
+    const wrapper = await mountRecharge()
+    try {
+      const accountCard = wrapper.get('[data-testid="recharge-account-card"]')
+      const rechargeLayout = wrapper.get('[data-testid="recharge-layout"]')
+
+      expect(accountCard.find('[data-testid="account-tab-switcher"]').exists()).toBe(true)
+      expect(accountCard.element.compareDocumentPosition(rechargeLayout.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(wrapper.get('[data-testid="recharge-form-card"]').classes()).toContain('card')
+      expect(wrapper.get('[data-testid="recharge-order-summary"]').classes()).toContain('xl:sticky')
+    } finally { wrapper.unmount() }
+  })
+
+  it('keeps membership details collapsed until the user expands the account card', async () => {
+    getMembership.mockResolvedValueOnce({ data: {
+      enabled: true,
+      settlement_currency: 'CNY',
+      current_tier: 'VIP',
+      current_amount: '500',
+      current_discount_percent: '1',
+      progress_percent: '50',
+      first_recharge_eligible: false,
+      rules: { window_hours: 720, tiers: [], first_recharge_offers: [] },
+    } })
+    const wrapper = await mountRecharge()
+    try {
+      const toggle = wrapper.get('[data-testid="account-details-toggle"]')
+      expect(toggle.attributes('aria-expanded')).toBe('false')
+      expect(wrapper.find('[data-testid="recharge-account-details"]').exists()).toBe(false)
+
+      await toggle.trigger('click')
+
+      expect(toggle.attributes('aria-expanded')).toBe('true')
+      expect(wrapper.get('[data-testid="recharge-account-details"]').isVisible()).toBe(true)
+      expect(wrapper.getComponent(MembershipBenefits).props('embedded')).toBe(true)
+    } finally { wrapper.unmount() }
+  })
 
   it('waits for a server quote and sends the face value separately from the accepted price', async () => {
     const wrapper = await mountRecharge()

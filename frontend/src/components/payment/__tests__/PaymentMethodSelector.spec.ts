@@ -9,6 +9,18 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('PaymentMethodSelector', () => {
+  it('can hide its heading when the parent section supplies one', () => {
+    const wrapper = mount(PaymentMethodSelector, {
+      props: {
+        selected: 'alipay',
+        methods: [{ type: 'alipay', fee_rate: 0, available: true }],
+        showLabel: false,
+      },
+    })
+
+    expect(wrapper.find('label').exists()).toBe(false)
+  })
+
   it('wraps large custom method collections without letting labels widen the selector', () => {
     const methods = Array.from({ length: 12 }, (_, index) => ({
       type: `custom_${index}`,
