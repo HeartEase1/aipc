@@ -446,7 +446,8 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64) 
 	if err != nil {
 		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
-	if o.Status != OrderStatusRefundPending && !(o.Status == OrderStatusRefunding && orderBonus(o) != nil && orderBonus(o).Refund != nil) {
+	bonusRefunding := o.Status == OrderStatusRefunding && orderBonus(o) != nil && orderBonus(o).Refund != nil
+	if o.Status != OrderStatusRefundPending && !bonusRefunding {
 		return nil, infraerrors.BadRequest("INVALID_STATUS", "only refund pending orders can be finalized")
 	}
 

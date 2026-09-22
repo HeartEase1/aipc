@@ -144,7 +144,7 @@ func (h *PaymentHandler) UploadBonusPoster(c *gin.Context) {
 		return
 	}
 	if c.Request.MultipartForm != nil {
-		defer c.Request.MultipartForm.RemoveAll()
+		defer func() { _ = c.Request.MultipartForm.RemoveAll() }()
 	}
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
