@@ -211,6 +211,9 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 		return nil, nil, infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
 	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed}
+	if b := orderBonus(o); b != nil && b.Credited {
+		ok = append(ok, OrderStatusPartiallyRefunded)
+	}
 	if !psSliceContains(ok, o.Status) {
 		return nil, nil, infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
 	}
@@ -230,11 +233,15 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	if math.IsNaN(amt) || math.IsInf(amt, 0) {
 		return nil, nil, infraerrors.BadRequest("INVALID_AMOUNT", "invalid refund amount")
 	}
+	remaining := o.Amount
+	if b := orderBonus(o); b != nil && b.Credited {
+		remaining -= bonusPrincipalRecovered(b)
+	}
 	if amt <= 0 {
-		amt = o.Amount
+		amt = remaining
 	}
 	orderCurrency := PaymentOrderCurrency(o)
-	if amt-o.Amount > paymentAmountToleranceForCurrency(orderCurrency) {
+	if amt-remaining > paymentAmountToleranceForCurrency(orderCurrency) {
 		return nil, nil, infraerrors.BadRequest("REFUND_AMOUNT_EXCEEDED", "refund amount exceeds recharge")
 	}
 	ga := calculateGatewayRefundAmount(o.Amount, o.PayAmount, amt, orderCurrency)
@@ -276,6 +283,15 @@ func (s *PaymentService) prepDeduct(ctx context.Context, o *dbent.PaymentOrder, 
 		return nil
 	}
 	p.DeductionType = payment.DeductionTypeBalance
+	if b := orderBonus(o); b != nil && b.Credited {
+		p.BonusToDeduct = bonusRefundDue(o, p.RefundAmount+bonusPrincipalRecovered(b))
+		need := p.RefundAmount + p.BonusToDeduct
+		if u.Balance-u.FrozenBalance < need && !force {
+			return &RefundResult{Success: false, Warning: "user balance is insufficient for principal and bonus rollback, use force", RequireForce: true}
+		}
+		p.BalanceToDeduct = math.Max(0, math.Min(need, u.Balance-u.FrozenBalance))
+		return nil
+	}
 	if u.Balance < p.RefundAmount && !force {
 		return &RefundResult{Success: false, Warning: "user balance is insufficient for deduction, use force", RequireForce: true}
 	}
@@ -296,6 +312,9 @@ func (s *PaymentService) deductAvailableBalance(ctx context.Context, userID int6
 }
 
 func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
+	if b := orderBonus(p.Order); b != nil && b.Credited {
+		return s.executeBonusRefund(ctx, p)
+	}
 	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("lock: %w", err)
@@ -367,10 +386,11 @@ func (s *PaymentService) gwRefund(ctx context.Context, p *RefundPlan) (*payment.
 	}
 	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
 	resp, err := prov.Refund(ctx, payment.RefundRequest{
-		TradeNo: p.Order.PaymentTradeNo,
-		OrderID: p.Order.OutTradeNo,
-		Amount:  formatGatewayRefundAmount(p.GatewayAmount, p.Order),
-		Reason:  p.Reason,
+		TradeNo:   p.Order.PaymentTradeNo,
+		OrderID:   p.Order.OutTradeNo,
+		RequestID: bonusRefundRequestID(p.Order),
+		Amount:    formatGatewayRefundAmount(p.GatewayAmount, p.Order),
+		Reason:    p.Reason,
 	})
 	finishProviderCall()
 	if err != nil {
@@ -378,6 +398,9 @@ func (s *PaymentService) gwRefund(ctx context.Context, p *RefundPlan) (*payment.
 			return resp, nil
 		}
 		return nil, err
+	}
+	if bonusRefundRequestID(p.Order) != "" && resp != nil && strings.TrimSpace(resp.Status) == payment.ProviderStatusFailed {
+		return resp, nil
 	}
 	if err := validateRefundProviderResponse(resp); err != nil {
 		return nil, err
@@ -423,13 +446,16 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64) 
 	if err != nil {
 		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
-	if o.Status != OrderStatusRefundPending {
+	if o.Status != OrderStatusRefundPending && !(o.Status == OrderStatusRefunding && orderBonus(o) != nil && orderBonus(o).Refund != nil) {
 		return nil, infraerrors.BadRequest("INVALID_STATUS", "only refund pending orders can be finalized")
 	}
 
 	prov, err := s.getRefundProvider(ctx, o)
 	if err != nil {
 		return nil, fmt.Errorf("get refund provider: %w", err)
+	}
+	if b := orderBonus(o); b != nil && b.Refund != nil {
+		return s.queryBonusRefund(ctx, o, prov)
 	}
 	queryProvider, ok := prov.(payment.RefundQueryProvider)
 	if !ok {

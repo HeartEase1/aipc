@@ -64,6 +64,10 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 		return "", fmt.Errorf("S3 PutObject: %w", err)
 	}
 
+	return s.URL(ctx, key)
+}
+
+func (s *S3ImageStorage) URL(ctx context.Context, key string) (string, error) {
 	if s.publicBaseURL != "" {
 		return s.publicBaseURL + "/" + strings.TrimLeft(key, "/"), nil
 	}
@@ -77,4 +81,9 @@ func (s *S3ImageStorage) Save(ctx context.Context, key, contentType string, data
 		return "", fmt.Errorf("presign url: %w", err)
 	}
 	return result.URL, nil
+}
+
+func (s *S3ImageStorage) Delete(ctx context.Context, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: &s.bucket, Key: &key})
+	return err
 }

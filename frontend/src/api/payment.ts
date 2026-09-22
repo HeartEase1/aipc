@@ -38,7 +38,13 @@ export interface MembershipSummary {
   first_recharge_status?: 'eligible' | 'reserved' | 'used' | 'ineligible'
 }
 
+export interface RechargeBonusSnapshot {
+ campaign_id:number; title:string; frequency:string; timezone:string; percent:string; multiplier:string; expected:string; preview?:string;
+ refunded_principal?:string; refund?:{principal:string;bonus_due:string;deduct:boolean;force:boolean;finished:boolean};
+ confirmed:boolean; awarded:boolean; credited:boolean; refunded:string; reason?:string
+}
 export interface RechargeQuote {
+  bonus?: RechargeBonusSnapshot
   original_amount: string
   discounted_amount: string
   discount_amount: string
@@ -48,6 +54,14 @@ export interface RechargeQuote {
   currency: string
   discount_source?: string
   promotion_id?: number
+  bonus_campaign_id?: number
+  bonus_percent?: string
+  bonus_amount?: string
+  bonus_credited_amount?: string
+  total_credited_amount?: string
+  bonus_title?: string
+  bonus_copy?: string
+  bonus_poster_url?: string
 }
 
 export const paymentAPI = {

@@ -47,6 +47,7 @@
         </div>
       </div>
 
+      <p v-if="order?.pricing?.bonus?.credited" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">本次按比例应收回赠送 ${{ bonusRecovery.toFixed(2) }}。{{ form.deduct_balance ? '将与本金一起扣回；强制退款仅扣可用余额，差额保留审计。' : '当前选择不扣余额：本金及赠送均保留，操作将记录审计。' }}</p>
       <!-- Deduct Balance -->
       <div>
         <div class="flex items-center gap-2">
@@ -202,6 +203,7 @@ const form = reactive({
 // Only PARTIALLY_REFUNDED / REFUNDED have real refund amounts.
 const actuallyRefunded = computed(() => {
   if (!props.order) return 0
+  if(props.order.pricing?.bonus?.credited)return Number(props.order.pricing.bonus.refunded_principal||0)
   const s = props.order.status
   if (s === 'PARTIALLY_REFUNDED' || s === 'REFUNDED') return props.order.refund_amount || 0
   return 0
@@ -212,21 +214,22 @@ const maxRefundable = computed(() => {
   return props.order.amount - actuallyRefunded.value
 })
 
+const bonusRecovery=computed(()=>{const b=props.order?.pricing?.bonus;const principal=props.order?.amount||0;return b?.credited&&principal>0?Math.max(0,Number((Number(b.expected)*(actuallyRefunded.value+form.amount)/principal-Number(b.refunded||0)).toFixed(2))):0})
 const balanceInsufficient = computed(() => {
   if (props.userBalance == null || !props.order) return false
-  return props.userBalance < form.amount
+  return props.userBalance < form.amount + bonusRecovery.value
 })
 
 watch(() => props.show, (val) => {
   if (val && props.order) {
     // For REFUND_REQUESTED, pre-fill with the requested amount
-    if (props.order.status === 'REFUND_REQUESTED' && props.order.refund_amount) {
+    if(props.order.pricing?.bonus?.refund && !props.order.pricing.bonus.refund.finished){form.amount=Number(props.order.pricing.bonus.refund.principal)}else if (props.order.status === 'REFUND_REQUESTED' && props.order.refund_amount) {
       form.amount = props.order.refund_amount
     } else {
       form.amount = maxRefundable.value
     }
     form.reason = props.order.refund_request_reason || ''
-    form.deduct_balance = true
+    form.deduct_balance = props.order.pricing?.bonus?.refund && !props.order.pricing.bonus.refund.finished ? props.order.pricing.bonus.refund.deduct : true
     form.force = false
   }
 })

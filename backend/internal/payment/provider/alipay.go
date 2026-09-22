@@ -342,7 +342,12 @@ func (a *Alipay) Refund(ctx context.Context, req payment.RefundRequest) (*paymen
 		OutTradeNo:   req.OrderID,
 		RefundAmount: req.Amount,
 		RefundReason: req.Reason,
-		OutRequestNo: fmt.Sprintf("%s-refund-%d", req.OrderID, time.Now().UnixNano()),
+		OutRequestNo: func() string {
+			if req.RequestID != "" {
+				return req.RequestID
+			}
+			return fmt.Sprintf("%s-refund-%d", req.OrderID, time.Now().UnixNano())
+		}(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("alipay TradeRefund: %w", err)

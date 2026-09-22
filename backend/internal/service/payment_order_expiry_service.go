@@ -29,9 +29,10 @@ type PaymentOrderExpiryService struct {
 	stopOnce   sync.Once
 	wg         sync.WaitGroup
 
-	lockCache  LeaderLockCache
-	db         *sql.DB
-	instanceID string
+	lockCache       LeaderLockCache
+	db              *sql.DB
+	instanceID      string
+	lastPosterSweep time.Time
 }
 
 func NewPaymentOrderExpiryService(paymentSvc *PaymentService, interval time.Duration) *PaymentOrderExpiryService {
@@ -96,6 +97,15 @@ func (s *PaymentOrderExpiryService) runOnce() {
 		return
 	}
 	defer release()
+	if time.Since(s.lastPosterSweep) >= time.Hour {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := s.paymentSvc.CleanupBonusPosters(cleanupCtx); err != nil {
+			slog.Warn("bonus poster cleanup", "error", err)
+		} else {
+			s.lastPosterSweep = time.Now()
+		}
+		cleanupCancel()
+	}
 
 	reconcileCtx, cancel := context.WithTimeout(context.Background(), expiryCheckTimeout)
 	recovered, err := s.paymentSvc.ReconcilePendingPaymentOrders(reconcileCtx)

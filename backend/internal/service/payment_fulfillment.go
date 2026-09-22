@@ -164,6 +164,7 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 		if err := lockRechargeUser(ctx, client, o.UserID); err != nil {
 			return err
 		}
+		now = time.Now()
 		if err := redeemRechargePromotionInTx(ctx, client, o.ID); err != nil {
 			return err
 		}
@@ -189,6 +190,9 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 		return s.alreadyProcessed(ctx, o)
 	}
 	if tx != nil {
+		if err := claimRechargeBonus(ctx, tx.Client(), o, now); err != nil {
+			return err
+		}
 		if err := tx.Commit(); err != nil {
 			return err
 		}
@@ -401,6 +405,9 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder, l
 
 	switch action {
 	case redeemActionSkipCompleted:
+		if err := s.applyRechargeBonus(ctx, o, lease); err != nil {
+			return err
+		}
 		if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
 			return err
 		}
@@ -416,6 +423,9 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder, l
 	}
 	if _, err := s.redeemService.redeemForPaymentFulfillment(ctx, o.UserID, o.RechargeCode); err != nil {
 		return fmt.Errorf("redeem balance: %w", err)
+	}
+	if err := s.applyRechargeBonus(ctx, o, lease); err != nil {
+		return fmt.Errorf("apply recharge bonus: %w", err)
 	}
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
 		return err
@@ -491,7 +501,7 @@ func (s *PaymentService) sendBalanceRechargeSuccessNotification(ctx context.Cont
 		SourceType:     "payment_order",
 		SourceID:       strconv.FormatInt(o.ID, 10),
 		Variables: map[string]string{
-			"recharge_amount": fmt.Sprintf("%.2f", o.Amount),
+			"recharge_amount": fmt.Sprintf("%.2f", o.Amount) + bonusDescription(o),
 			"current_balance": currentBalance,
 			"order_id":        strconv.FormatInt(o.ID, 10),
 		},
@@ -711,6 +721,9 @@ func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action 
 }
 
 func (s *PaymentService) applyAffiliateRebateForOrder(ctx context.Context, o *dbent.PaymentOrder) error {
+	if bonus := orderBonus(o); bonus != nil && bonus.Awarded {
+		return nil
+	}
 	baseAmount := affiliateRebateBaseAmount(o)
 	if o == nil || baseAmount <= 0 {
 		return nil

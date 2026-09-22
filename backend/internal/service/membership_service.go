@@ -82,15 +82,24 @@ func (s *PaymentService) listFirstRechargeDisplayOffers(ctx context.Context, cur
 }
 
 type RechargeQuote struct {
-	OriginalAmount   string `json:"original_amount"`
-	DiscountAmount   string `json:"discount_amount"`
-	DiscountedAmount string `json:"discounted_amount"`
-	FeeAmount        string `json:"fee_amount"`
-	PayAmount        string `json:"pay_amount"`
-	CreditedAmount   string `json:"credited_amount"`
-	Currency         string `json:"currency"`
-	DiscountSource   string `json:"discount_source,omitempty"`
-	PromotionID      int64  `json:"promotion_id,omitempty"`
+	Bonus               *RechargeBonusSnapshot `json:"bonus,omitempty"`
+	OriginalAmount      string                 `json:"original_amount"`
+	DiscountAmount      string                 `json:"discount_amount"`
+	DiscountedAmount    string                 `json:"discounted_amount"`
+	FeeAmount           string                 `json:"fee_amount"`
+	PayAmount           string                 `json:"pay_amount"`
+	CreditedAmount      string                 `json:"credited_amount"`
+	Currency            string                 `json:"currency"`
+	DiscountSource      string                 `json:"discount_source,omitempty"`
+	PromotionID         int64                  `json:"promotion_id,omitempty"`
+	BonusCampaignID     int64                  `json:"bonus_campaign_id,omitempty"`
+	BonusPercent        string                 `json:"bonus_percent,omitempty"`
+	BonusAmount         string                 `json:"bonus_amount,omitempty"`
+	BonusCreditedAmount string                 `json:"bonus_credited_amount,omitempty"`
+	TotalCreditedAmount string                 `json:"total_credited_amount,omitempty"`
+	BonusTitle          string                 `json:"bonus_title,omitempty"`
+	BonusCopy           string                 `json:"bonus_copy,omitempty"`
+	BonusPosterURL      string                 `json:"bonus_poster_url,omitempty"`
 }
 
 type MembershipTierAdminInput struct {
@@ -337,7 +346,11 @@ func (s *PaymentService) quoteRechargeForConfig(ctx context.Context, userID int6
 		}
 	}
 	pricing := ResolveRechargePromotion(RechargePromotionPricingInput{Amount: amount, Currency: currency, IsFirstRecharge: membership.FirstRechargeEligible, MembershipDiscount: membershipDiscount}, candidates)
-	return buildRechargeQuote(pricing, currency, cfg.RechargeFeeRate, cfg.BalanceRechargeMultiplier), nil
+	quote := buildRechargeQuote(pricing, currency, cfg.RechargeFeeRate, cfg.BalanceRechargeMultiplier)
+	if err := s.attachRechargeBonus(ctx, userID, amount, currency, cfg, &quote); err != nil {
+		return RechargeQuote{}, err
+	}
+	return quote, nil
 }
 
 func buildRechargeQuote(pricing RechargePromotionPricingResult, currency string, rechargeFeeRate, multiplier float64) RechargeQuote {

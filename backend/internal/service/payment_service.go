@@ -135,6 +135,7 @@ type RefundPlan struct {
 	DeductBalance   bool
 	DeductionType   string
 	BalanceToDeduct float64
+	BonusToDeduct   float64
 	SubDaysToDeduct int
 	SubscriptionID  int64
 }
@@ -203,6 +204,7 @@ type PaymentService struct {
 	affiliateService         *AffiliateService
 	notificationEmailService *NotificationEmailService
 	sqlDB                    *sql.DB
+	bonusImages              *ImageStorageSettingService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, sqlDB ...*sql.DB) *PaymentService {

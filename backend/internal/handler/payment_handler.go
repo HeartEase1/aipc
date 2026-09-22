@@ -86,6 +86,23 @@ func (h *PaymentHandler) QuoteRecharge(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *PaymentHandler) GetRechargeBonus(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	currency := strings.ToUpper(strings.TrimSpace(c.Query("currency")))
+	if currency == "" {
+		currency = "CNY"
+	}
+	result, show, err := h.paymentService.ClaimBonusImpression(c.Request.Context(), subject.UserID, currency)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"campaign": result, "show_popup": show})
+}
+
 // GetPlans returns subscription plans available for sale.
 // GET /api/v1/payment/plans
 func (h *PaymentHandler) GetPlans(c *gin.Context) {

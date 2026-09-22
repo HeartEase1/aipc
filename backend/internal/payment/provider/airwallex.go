@@ -279,6 +279,9 @@ func (a *Airwallex) Refund(ctx context.Context, req payment.RefundRequest) (*pay
 		Amount:          newAirwallexRequestAmount(amount),
 		Reason:          strings.TrimSpace(req.Reason),
 	}
+	if req.RequestID != "" {
+		payload.RequestID = airwallexDeterministicRequestID("refund-operation", intentID, req.RequestID)
+	}
 	if payload.Reason == "" {
 		payload.Reason = "refund"
 	}

@@ -151,6 +151,14 @@ func registerMembershipRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	promotions.DELETE("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteRechargePromotion)
 	admin.GET("/payment/balance-marketing", h.Admin.Payment.GetBalanceMarketingConfig)
 	admin.PUT("/payment/balance-marketing", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateBalanceMarketingConfig)
+	bonuses := admin.Group("/payment/recharge-bonuses")
+	bonuses.GET("/posters/stats", h.Admin.Payment.BonusPosterStats)
+	bonuses.POST("/posters", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UploadBonusPoster)
+	bonuses.DELETE("/posters/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteBonusPoster)
+	bonuses.GET("", h.Admin.Payment.ListRechargeBonusCampaigns)
+	bonuses.POST("", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.CreateRechargeBonusCampaign)
+	bonuses.PUT("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.UpdateRechargeBonusCampaign)
+	bonuses.DELETE("/:id", h.Admin.Payment.RequireMembershipStepUp, h.Admin.Payment.DeleteRechargeBonusCampaign)
 }
 
 func registerBenefitGrantRoutes(admin *gin.RouterGroup, h *handler.Handlers) {

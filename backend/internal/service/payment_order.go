@@ -309,6 +309,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 				"discount_amount": quote.DiscountAmount, "fee_amount": quote.FeeAmount,
 				"pay_amount": quote.PayAmount, "credited_amount": quote.CreditedAmount,
 				"currency": quote.Currency, "source": quote.DiscountSource, "promotion_id": quote.PromotionID,
+				"bonus": quote.Bonus, "bonus_campaign_id": quote.BonusCampaignID, "bonus_percent": quote.BonusPercent,
+				"bonus_amount": quote.BonusAmount, "bonus_credited_amount": quote.BonusCreditedAmount,
+				"total_credited_amount": quote.TotalCreditedAmount, "bonus_title": quote.BonusTitle,
 			})
 		}
 	}
@@ -340,6 +343,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("set recharge code: %w", err)
 	}
 	if len(rechargeQuotes) > 0 && rechargeQuotes[0] != nil {
+		if err := revalidateBonusOrder(ctx, tx.Client(), req.UserID, rechargeQuotes[0]); err != nil {
+			return nil, err
+		}
 		if err := reserveRechargePromotionInTx(ctx, tx.Client(), req.UserID, order.ID, rechargeQuotes[0]); err != nil {
 			return nil, err
 		}

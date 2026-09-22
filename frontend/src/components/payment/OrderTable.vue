@@ -23,6 +23,9 @@
         </div>
       </div>
     </template>
+    <template #cell-bonus="{ row }">
+     <div v-if="row.pricing?.bonus" class="text-xs text-amber-700 dark:text-amber-300"><p>{{ row.pricing.bonus.title }}</p><p>{{ row.pricing.bonus.confirmed ? (row.pricing.bonus.credited ? '已赠送' : row.pricing.bonus.awarded ? '待发放' : '未获赠') : '预计赠送' }} ${{ Number(row.pricing.bonus.confirmed ? (row.pricing.bonus.awarded ? row.pricing.bonus.expected : 0) : (row.pricing.bonus.preview ?? row.pricing.bonus.expected)).toFixed(2) }}</p></div><span v-else>—</span>
+    </template>
     <template #cell-payment_type="{ value }">
       <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.methods.' + value, value) }}</span>
     </template>
@@ -78,6 +81,7 @@ const columns = computed((): Column[] => {
   }
   cols.push(
     { key: 'pay_amount', label: t('payment.orders.payAmount') },
+    { key:'bonus', label:'活动赠送' },
     { key: 'discount_source', label: t('balanceMarketing.source') },
     { key: 'payment_type', label: t('payment.orders.paymentMethod') },
     { key: 'status', label: t('payment.orders.status') },

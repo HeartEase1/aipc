@@ -179,11 +179,20 @@
                         <span class="text-gray-500 dark:text-gray-400">{{ t('payment.creditedBalance') }}</span>
                         <span class="text-gray-900 dark:text-white">${{ Number(rechargeQuote.credited_amount).toFixed(2) }}</span>
                       </div>
+                      <div v-if="Number(rechargeQuote.bonus_credited_amount || 0) > 0" class="flex justify-between gap-4 text-amber-700 dark:text-amber-300">
+                        <span>活动赠送 ({{ rechargeQuote.bonus_percent }}%)</span>
+                        <strong>+${{ Number(rechargeQuote.bonus_credited_amount).toFixed(2) }}</strong>
+                      </div>
+                      <div v-if="Number(rechargeQuote.total_credited_amount || 0) > 0" class="flex justify-between gap-4 font-semibold">
+                        <span>合计到账余额</span>
+                        <span>${{ Number(rechargeQuote.total_credited_amount).toFixed(2) }}</span>
+                      </div>
                       <p v-if="balanceRechargeMultiplier !== 1" class="border-t border-gray-200 pt-2 text-xs text-gray-500 dark:border-dark-600 dark:text-gray-400">
                         {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: balanceRechargeMultiplier.toFixed(2) }) }}
                       </p>
                     </div>
                   </div>
+
                   <div v-else class="mt-4 border-t border-gray-100 pt-4 text-sm text-gray-400 dark:border-dark-700 dark:text-gray-500">
                     {{ t('payment.enterAmount') }}
                   </div>
@@ -195,6 +204,7 @@
                     </span>
                     <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(totalAmount) }}</span>
                   </button>
+                  <RechargeBonusCard :currency="selectedCurrency" />
                 </aside>
               </div>
             </template>
@@ -355,6 +365,7 @@
         </div>
       </Transition>
     </Teleport>
+
     <!-- Immediate reset confirmation -->
     <Teleport to="body">
       <Transition name="modal">
@@ -465,6 +476,7 @@ import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { paymentAPI, type MembershipSummary, type RechargeQuote } from '@/api/payment'
+import RechargeBonusCard from '@/components/payment/RechargeBonusCard.vue'
 import MembershipBenefits from '@/components/payment/MembershipBenefits.vue'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
@@ -920,6 +932,8 @@ const quoteLoading = ref(false)
 const quoteError = ref('')
 let quoteVersion = 0
 const feeAmount = computed(() => Number(rechargeQuote.value?.fee_amount || 0))
+
+
 const totalAmount = computed(() => Number(rechargeQuote.value?.pay_amount || 0))
 async function loadRechargeQuote(value: number, method: string, version: number) {
   try {

@@ -52,10 +52,12 @@
       <template #footer><button class="btn btn-secondary" :disabled="busy" @click="dialog = null">{{ t('common.cancel') }}</button><button form="marketing-form" type="submit" class="btn btn-primary" :disabled="busy">{{ t('common.save') }}</button></template>
     </BaseDialog>
     <ConfirmDialog :show="!!removeTarget" :title="t('common.delete')" :message="t('balanceMarketing.remove')" danger @cancel="removeTarget = null" @confirm="remove" />
+    <RechargeBonusAdmin v-if="mode === 'recharge'" />
     <TotpStepUpDialog :controller="stepUp" />
   </div>
 </template>
 <script setup lang="ts">
+import RechargeBonusAdmin from './RechargeBonusAdmin.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { balanceMarketingAPI, type MembershipTier, type RechargePromotion } from '@/api/admin/balanceMarketing'

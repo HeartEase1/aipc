@@ -471,6 +471,9 @@ func (w *Wxpay) Refund(ctx context.Context, req payment.RefundRequest) (*payment
 	rs := refunddomestic.RefundsApiService{Client: c}
 	cur := wxpayCurrency
 	outRefundNo := wxpayRefundID(req.OrderID, req.Amount)
+	if req.RequestID != "" {
+		outRefundNo = req.RequestID
+	}
 	res, _, err := rs.Create(ctx, refunddomestic.CreateRequest{
 		OutTradeNo:  core.String(req.OrderID),
 		OutRefundNo: core.String(outRefundNo),

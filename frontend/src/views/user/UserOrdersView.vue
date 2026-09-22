@@ -6,6 +6,7 @@
         <div class="flex flex-wrap items-center gap-3">
           <Select v-model="currentFilter" :options="statusFilters" class="w-36" @change="handlePageChange(1)" />
           <div class="flex flex-1 items-center justify-end gap-2">
+            <button class="btn btn-secondary" :disabled="!orders.length" @click="downloadBonusOrderCSV(orders)">导出当前页</button>
             <button @click="fetchOrders" :disabled="loading" class="btn btn-secondary" :title="t('common.refresh')">
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
@@ -18,6 +19,7 @@
       <OrderTable :orders="orders" :loading="loading">
         <template #actions="{ row }">
           <div class="flex items-center gap-2">
+            <button v-if="row.pricing?.bonus" class="btn btn-secondary btn-sm" @click="detailOrder=row">查看赠送明细</button>
             <button v-if="row.status === 'PENDING'" @click="handleCancel(row.id)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20">
               <Icon name="x" size="sm" />
               <span>{{ t('payment.orders.cancel') }}</span>
@@ -41,6 +43,7 @@
       />
     </div>
 
+    <BaseDialog :show="!!detailOrder" title="充值赠送明细" @close="detailOrder=null"><RechargeBonusOrder v-if="detailOrder" :order="detailOrder" /></BaseDialog>
     <!-- Cancel Confirm Dialog -->
     <BaseDialog :show="!!cancelTargetId" :title="t('payment.orders.cancel')" width="narrow" @close="cancelTargetId = null">
       <p class="text-sm text-gray-600 dark:text-gray-300">{{ t('payment.confirmCancel') }}</p>
@@ -81,6 +84,7 @@
 </template>
 
 <script setup lang="ts">
+import {downloadBonusOrderCSV} from '@/components/payment/bonusExport'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -90,6 +94,7 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import RechargeBonusOrder from '@/components/payment/RechargeBonusOrder.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -99,6 +104,7 @@ const { t } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
 
+const detailOrder=ref<PaymentOrder|null>(null)
 const loading = ref(false)
 const actionLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])

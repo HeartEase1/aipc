@@ -6,6 +6,7 @@
     @close="emit('close')"
   >
     <div v-if="order" class="space-y-4">
+      <RechargeBonusOrder :order="order" />
       <div class="grid grid-cols-2 gap-4">
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</p>
@@ -114,6 +115,7 @@
 </template>
 
 <script setup lang="ts">
+import RechargeBonusOrder from '@/components/payment/RechargeBonusOrder.vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
