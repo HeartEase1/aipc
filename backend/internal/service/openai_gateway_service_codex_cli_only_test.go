@@ -87,6 +87,7 @@ func TestOpenAIGatewayService_Forward_VersionGateMessage(t *testing.T) {
 		_, err := svc.Forward(context.Background(), c, account(), body)
 		require.Error(t, err)
 		require.Equal(t, http.StatusForbidden, rec.Code)
+		require.True(t, IsResponseCommitted(c))
 		require.Contains(t, rec.Body.String(), "Your Codex version (0.39.0) is below the minimum required version (0.42.0)")
 		require.NotContains(t, rec.Body.String(), "This account only allows Codex official clients")
 	})
@@ -102,6 +103,7 @@ func TestOpenAIGatewayService_Forward_VersionGateMessage(t *testing.T) {
 		_, err := svc.Forward(context.Background(), c, account(), body)
 		require.Error(t, err)
 		require.Equal(t, http.StatusForbidden, rec.Code)
+		require.True(t, IsResponseCommitted(c))
 		require.Contains(t, rec.Body.String(), "This account only allows Codex official clients")
 	})
 }

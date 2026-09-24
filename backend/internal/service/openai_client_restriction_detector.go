@@ -71,7 +71,7 @@ type CodexClientRestrictionDetector interface {
 	Detect(c *gin.Context, account *Account, policy CodexRestrictionPolicy, body []byte) CodexClientRestrictionDetectionResult
 }
 
-// OpenAICodexClientRestrictionDetector 为 OpenAI OAuth codex_cli_only 的默认实现。
+// OpenAICodexClientRestrictionDetector 为 OpenAI OAuth/API Key codex_cli_only 的默认实现。
 type OpenAICodexClientRestrictionDetector struct {
 	cfg *config.Config
 }

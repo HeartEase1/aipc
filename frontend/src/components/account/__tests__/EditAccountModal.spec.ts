@@ -418,6 +418,21 @@ describe('EditAccountModal', () => {
     expect(account.group_ids).toEqual([1, 2])
   })
 
+  it.each([false, true])('saves API Key Codex-only changes from enabled=%s', async (enabled) => {
+    const account = { ...buildAccount(), extra: { codex_cli_only: enabled } }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const toggle = wrapper.get('[data-testid="edit-openai-codex-cli-only-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe(String(enabled))
+    await toggle.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_cli_only).toBe(!enabled)
+  })
+
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
