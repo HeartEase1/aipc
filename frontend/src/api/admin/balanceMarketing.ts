@@ -54,6 +54,14 @@ export const rechargeBonusAPI = {
  list: () => apiClient.get<RechargeBonusCampaign[]>(`${root}/recharge-bonuses`),
  save: (data: Omit<RechargeBonusCampaign,'id'>, id?: number) => id ? apiClient.put(`${root}/recharge-bonuses/${id}`,data) : apiClient.post(`${root}/recharge-bonuses`,data),
  delete: (id:number) => apiClient.delete(`${root}/recharge-bonuses/${id}`),
- upload: (file:File) => { const data=new FormData();data.append('file',file);return apiClient.post<{id:number;url:string}>(`${root}/recharge-bonuses/posters`,data) },
+ upload: (file: File) => {
+   const data = new FormData()
+   data.append('file', file)
+   // Override the client's JSON default before Axios transforms the body.
+   // The browser supplies the multipart Content-Type, including its boundary.
+   return apiClient.post<{id:number;url:string}>(`${root}/recharge-bonuses/posters`, data, {
+     headers: { 'Content-Type': null },
+   })
+ },
  stats: () => apiClient.get<{count:number;size_bytes:number;failed:number}>(`${root}/recharge-bonuses/posters/stats`)
 }

@@ -29,7 +29,10 @@ type bonusPosterStorage interface {
 }
 
 func validateBonusPoster(data []byte) (string, error) {
-	if len(data) == 0 || len(data) > BonusPosterMaxBytes {
+	if len(data) == 0 {
+		return "", infraerrors.BadRequest("INVALID_POSTER", "image is empty")
+	}
+	if len(data) > BonusPosterMaxBytes {
 		return "", infraerrors.BadRequest("INVALID_POSTER", "image must be at most 5 MB")
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))

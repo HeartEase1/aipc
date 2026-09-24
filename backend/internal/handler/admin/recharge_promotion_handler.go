@@ -1,12 +1,15 @@
 package admin
 
 import (
+	"errors"
+	"io"
+	"net/http"
+	"os"
+
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
-	"io"
-	"net/http"
 )
 
 func (h *PaymentHandler) GetBalanceMarketingConfig(c *gin.Context) {
@@ -140,7 +143,16 @@ func (h *PaymentHandler) UploadBonusPoster(c *gin.Context) {
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, service.BonusPosterMaxBytes+(64<<10))
 	if err := c.Request.ParseMultipartForm(1 << 20); err != nil {
-		response.BadRequest(c, "image must be at most 5 MB")
+		var maxBytesErr *http.MaxBytesError
+		var pathErr *os.PathError
+		switch {
+		case errors.As(err, &maxBytesErr):
+			response.Error(c, http.StatusRequestEntityTooLarge, "upload request too large; image must be at most 5 MB")
+		case errors.As(err, &pathErr):
+			response.InternalError(c, "cannot process image upload; check server temporary storage")
+		default:
+			response.BadRequest(c, "invalid image upload; multipart/form-data with a valid boundary is required")
+		}
 		return
 	}
 	if c.Request.MultipartForm != nil {
