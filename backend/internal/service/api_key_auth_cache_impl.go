@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 26 // v26: AIPC per-key Fast and model long-context exemptions
+const apiKeyAuthSnapshotVersion = 27 // v27: reload group pricing after reasoning-effort map migration
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int

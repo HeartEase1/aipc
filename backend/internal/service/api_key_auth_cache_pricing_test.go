@@ -21,6 +21,7 @@ func TestAPIKeyAuthSnapshotGroupPricingRoundtrip(t *testing.T) {
 			ModelPricing: []ChannelModelPricing{{
 				Models: []string{"claude-sonnet-*"}, BillingMode: BillingModeToken,
 				InputPrice: &inputPrice, OutputPrice: &outputPrice,
+				ReasoningEffortMultipliers: map[string]float64{"high": 1.5, "max": 3},
 			}},
 		},
 	}
@@ -47,4 +48,15 @@ func TestAPIKeyAuthSnapshotGroupPricingRoundtrip(t *testing.T) {
 	require.True(t, resolved.longContextPricingEnabled)
 	require.InDelta(t, inputPrice, resolved.BasePricing.InputPricePerToken, 1e-12)
 	require.InDelta(t, outputPrice, resolved.BasePricing.OutputPricePerToken, 1e-12)
+	require.Equal(t, apiKey.Group.ModelPricing[0].ReasoningEffortMultipliers, resolved.BasePricing.ReasoningEffortMultipliers)
+}
+
+func TestAPIKeyAuthCacheRejectsPricingSnapshotBeforeEffortMapMigration(t *testing.T) {
+	svc := &APIKeyService{}
+	materialized, used, err := svc.applyAuthCacheEntry("sk-legacy-pricing", &APIKeyAuthCacheEntry{
+		Snapshot: &APIKeyAuthSnapshot{Version: 26},
+	})
+	require.NoError(t, err)
+	require.False(t, used, "pre-migration group pricing must be reloaded from the database")
+	require.Nil(t, materialized)
 }
