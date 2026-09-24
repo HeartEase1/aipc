@@ -377,7 +377,9 @@ func (s *AntigravityGatewayService) TestConnection(ctx context.Context, account 
 
 	// 构建请求体
 	var requestBody []byte
-	if strings.HasPrefix(modelID, "gemini-") {
+	if options, ok := pelicanTestOptionsFromContext(ctx); ok {
+		requestBody, err = s.buildPelicanAntigravityRequest(projectID, mappedModel, options)
+	} else if strings.HasPrefix(modelID, "gemini-") {
 		requestBody, err = s.buildGeminiTestRequest(projectID, mappedModel)
 	} else {
 		requestBody, err = s.buildClaudeTestRequest(projectID, mappedModel)

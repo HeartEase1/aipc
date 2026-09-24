@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -154,6 +155,9 @@ type AccountTestService struct {
 	openaiGatewayService      *OpenAIGatewayService
 	agentIdentityTaskMu       sync.Mutex
 	agentIdentityWS           agentIdentityWSConnectionInvalidator
+	pelicanMu                 sync.Mutex
+	pelicanActive             map[int64]int
+	pelicanTotal              int
 	// grokWSDialer is optional; realtime account tests use the default OpenAI-style
 	// WS dialer when nil (supports proxy + coder/websocket handshake).
 	grokWSDialer openAIWSClientDialer
@@ -368,6 +372,20 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return s.sendErrorAndEnd(c, "Account not found")
 	}
 
+	if options, pelican := pelicanTestOptionsFromContext(ctx); pelican {
+		capabilities, err := ResolvePelicanTestOptions(account, modelID)
+		if err != nil {
+			return s.sendErrorAndEnd(c, err.Error())
+		}
+		if options.reasoningEffort != "" && !slices.Contains(capabilities.SupportedReasoningLevels, options.reasoningEffort) {
+			return s.sendErrorAndEnd(c, "This model does not support the selected reasoning effort")
+		}
+		if !s.acquirePelicanTest(account.ID) {
+			return s.sendErrorAndEnd(c, "Too many concurrent Pelican tests; retry after existing runs finish")
+		}
+		defer s.releasePelicanTest(account.ID)
+	}
+
 	// Synthetic UI load-test accounts exercise the real SSE parsing and modal
 	// interactions, but intentionally do not send their placeholder credentials
 	// to an upstream provider.
@@ -543,7 +561,7 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	c.Writer.Flush()
 
 	// Create Claude Code style payload (same for all account types)
-	payload, err := createTestPayload(testModelID)
+	payload, err := createAccountClaudeTestPayload(ctx, testModelID)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
@@ -621,7 +639,7 @@ func (s *AccountTestService) testClaudeVertexServiceAccountConnection(c *gin.Con
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 
-	payload, err := createTestPayload(testModelID)
+	payload, err := createAccountClaudeTestPayload(ctx, testModelID)
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create test payload")
 	}
@@ -708,6 +726,17 @@ func (s *AccountTestService) testBedrockAccountConnection(c *gin.Context, ctx co
 		},
 		"max_tokens":  256,
 		"temperature": 1,
+	}
+	if options, ok := pelicanTestOptionsFromContext(ctx); ok {
+		var err error
+		bedrockPayload, err = createPelicanClaudePayload(testModelID, options.prompt, options.reasoningEffort)
+		if err != nil {
+			return s.sendErrorAndEnd(c, "Failed to create Bedrock payload")
+		}
+		for _, key := range []string{"model", "stream", "metadata", "system"} {
+			delete(bedrockPayload, key)
+		}
+		bedrockPayload["anthropic_version"] = "bedrock-2023-05-31"
 	}
 	bedrockBody, _ := json.Marshal(bedrockPayload)
 
@@ -874,6 +903,9 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		upstreamTestModelID = normalizeOpenAIModelForUpstream(credentialAccount, testModelID)
 	}
 	payload := createOpenAITestPayload(upstreamTestModelID, isOAuth)
+	if options, ok := pelicanTestOptionsFromContext(ctx); ok {
+		payload = createPelicanOpenAIPayload(upstreamTestModelID, isOAuth, options.prompt, options.reasoningEffort)
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	// Send test_start event once. A task-invalid Agent Identity response may
@@ -1237,6 +1269,11 @@ func (s *AccountTestService) testGrokResponsesConnection(c *gin.Context, ctx con
 	s.prepareGrokTestSSE(c)
 
 	payloadBytes, err := buildGrokQuotaProbeBody(testModelID)
+	if options, ok := pelicanTestOptionsFromContext(ctx); ok {
+		payload := createPelicanOpenAIPayload(testModelID, false, options.prompt, options.reasoningEffort)
+		delete(payload, "instructions")
+		payloadBytes, err = json.Marshal(payload)
+	}
 	if err != nil {
 		return s.sendErrorAndEnd(c, "Failed to create Grok test payload")
 	}
@@ -2116,6 +2153,16 @@ func (s *AccountTestService) testOpenAIChatCompletionsConnection(
 	c.Writer.Flush()
 
 	payload := createOpenAIChatCompletionsTestPayload(testModelID, prompt)
+	if options, ok := pelicanTestOptionsFromContext(ctx); ok {
+		if options.reasoningEffort != "" {
+			payload["reasoning_effort"] = options.reasoningEffort
+		}
+		if account.IsOpenAI() {
+			payload["max_completion_tokens"] = pelicanMaxOutputTokens
+		} else {
+			payload["max_tokens"] = pelicanMaxOutputTokens
+		}
+	}
 	payloadBytes, _ := json.Marshal(payload)
 
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
@@ -2394,6 +2441,9 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 
 	// Create test payload (Gemini format)
 	payload := createGeminiTestPayload(testModelID, prompt)
+	if options, ok := pelicanTestOptionsFromContext(ctx); ok {
+		payload = createPelicanGeminiPayload(testModelID, options.prompt, options.reasoningEffort)
+	}
 
 	// Build request based on account type
 	var req *http.Request
