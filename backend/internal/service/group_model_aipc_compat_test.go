@@ -23,6 +23,10 @@ func TestAIPCModelPolicyCompatibility(t *testing.T) {
 		{"deny wins over allow", GroupModelAllowlist{Enabled: true, Models: []string{"gpt-*"}, BlockedModels: []string{"gpt-6"}}, "gpt-6", false, false},
 		{"deny wins over legacy selection", GroupModelAllowlist{Enabled: true, LegacyListOnly: true, Models: []string{"gpt-*"}, BlockedModels: []string{"gpt-6"}}, "gpt-6", false, false},
 		{"gemini resource prefix", GroupModelAllowlist{BlockedModels: []string{"gemini-*"}}, "models/gemini-pro", false, false},
+		{"glob admits interior match", GroupModelAllowlist{Enabled: true, Models: []string{"gpt-*-codex"}}, "gpt-6-codex", true, true},
+		{"deny wins over interior glob", GroupModelAllowlist{Enabled: true, Models: []string{"gpt-*-codex"}, BlockedModels: []string{"gpt-6-*"}}, "gpt-6-codex", false, false},
+		{"legacy glob only filters listing", GroupModelAllowlist{Enabled: true, LegacyListOnly: true, Models: []string{"*codex"}}, "claude-opus", true, false},
+		{"legacy glob still respects denials", GroupModelAllowlist{Enabled: true, LegacyListOnly: true, Models: []string{"*codex"}, BlockedModels: []string{"gpt-6-*"}}, "gpt-6-codex", false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.allowed, tc.policy.Allows(tc.model))
