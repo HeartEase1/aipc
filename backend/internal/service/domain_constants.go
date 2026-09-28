@@ -177,6 +177,8 @@ const (
 	RedeemTypeSubscription     = domain.RedeemTypeSubscription
 	RedeemTypeInvitation       = domain.RedeemTypeInvitation
 	RedeemTypeAffiliateBalance = "affiliate_balance"
+	// Recharge bonus is a history-only type, never a redeemable code.
+	RedeemTypeRechargeBonus = "recharge_bonus"
 )
 
 // PromoCode status constants

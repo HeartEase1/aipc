@@ -29,6 +29,43 @@ async function openDialog() {
 }
 
 describe('UserBalanceHistoryModal request ordering', () => {
+  it('displays credited campaign bonuses alongside paid recharges without changing the recharge total', async () => {
+    mocks.getUserBalanceHistory.mockResolvedValue({
+      items: [
+        { id: -8, type: 'recharge_bonus', value: 100, code: 'ORDER-20260928-888', notes: 'Autumn recharge gift' },
+        { id: -8, type: 'affiliate_balance', value: 5, code: 'AFF-8' },
+        { id: 8, type: 'balance', value: 1000, code: 'redeem-888' }
+      ],
+      total: 3, total_recharged: 1000
+    })
+    const wrapper = await openDialog()
+    await flushPromises()
+    expect(wrapper.text()).toContain('admin.users.rechargeBonusCredited')
+    expect(wrapper.text()).toContain('+$100.00')
+    expect(wrapper.text()).toContain('Autumn recharge gift')
+    expect(wrapper.text()).toContain('payment.orders.orderNo: ORDER-20260928-888')
+    expect(wrapper.text()).toContain('+$5.00')
+    expect(wrapper.text()).toContain('+$1000.00')
+    expect(wrapper.text()).toContain('admin.users.totalRecharged: $1000.00')
+    expect(wrapper.text()).not.toContain('$1100.00')
+  })
+
+  it('requests the recharge bonus filter and preserves pagination', async () => {
+    mocks.getUserBalanceHistory.mockResolvedValue({ items: [], total: 16, total_recharged: 1000 })
+    const wrapper = await openDialog()
+    await flushPromises()
+    const select = wrapper.findComponent({ name: 'Select' })
+    expect(select.attributes('options')).toBeDefined()
+    select.vm.$emit('update:modelValue', 'recharge_bonus')
+    select.vm.$emit('change')
+    await flushPromises()
+    expect(mocks.getUserBalanceHistory).toHaveBeenLastCalledWith(1, 1, 15, 'recharge_bonus')
+    const next = wrapper.findAll('button').find(button => button.text() === 'pagination.next')
+    await next!.trigger('click')
+    await flushPromises()
+    expect(mocks.getUserBalanceHistory).toHaveBeenLastCalledWith(1, 2, 15, 'recharge_bonus')
+  })
+
   it('keeps the new user history when an old response finishes later', async () => {
     const old = deferred()
     mocks.getUserBalanceHistory.mockReturnValueOnce(old.promise).mockResolvedValueOnce(result(20))
