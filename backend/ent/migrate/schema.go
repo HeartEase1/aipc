@@ -1136,6 +1136,7 @@ var (
 		{Name: "discount_source", Type: field.TypeString, Size: 32, Default: ""},
 		{Name: "pricing_snapshot", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "fee_rate", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "bonus_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
 		{Name: "recharge_code", Type: field.TypeString, Size: 64},
 		{Name: "out_trade_no", Type: field.TypeString, Size: 64, Default: ""},
 		{Name: "payment_type", Type: field.TypeString, Size: 30},
@@ -1179,7 +1180,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "payment_orders_users_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[46]},
+				Columns:    []*schema.Column{PaymentOrdersColumns[47]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1188,7 +1189,7 @@ var (
 			{
 				Name:    "paymentorder_out_trade_no",
 				Unique:  true,
-				Columns: []*schema.Column{PaymentOrdersColumns[14]},
+				Columns: []*schema.Column{PaymentOrdersColumns[15]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "out_trade_no <> ''",
 				},
@@ -1196,42 +1197,42 @@ var (
 			{
 				Name:    "paymentorder_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[46]},
+				Columns: []*schema.Column{PaymentOrdersColumns[47]},
 			},
 			{
 				Name:    "paymentorder_status",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[28]},
+				Columns: []*schema.Column{PaymentOrdersColumns[29]},
 			},
 			{
 				Name:    "paymentorder_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[36]},
+				Columns: []*schema.Column{PaymentOrdersColumns[37]},
 			},
 			{
 				Name:    "paymentorder_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[44]},
+				Columns: []*schema.Column{PaymentOrdersColumns[45]},
 			},
 			{
 				Name:    "paymentorder_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[37]},
+				Columns: []*schema.Column{PaymentOrdersColumns[38]},
 			},
 			{
 				Name:    "paymentorder_payment_type_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[15], PaymentOrdersColumns[37]},
+				Columns: []*schema.Column{PaymentOrdersColumns[16], PaymentOrdersColumns[38]},
 			},
 			{
 				Name:    "paymentorder_order_type",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[20]},
+				Columns: []*schema.Column{PaymentOrdersColumns[21]},
 			},
 			{
 				Name:    "idx_payment_orders_active_restart_unique",
 				Unique:  true,
-				Columns: []*schema.Column{PaymentOrdersColumns[46], PaymentOrdersColumns[23]},
+				Columns: []*schema.Column{PaymentOrdersColumns[47], PaymentOrdersColumns[24]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "subscription_action = 'restart' AND status IN ('PENDING', 'PAID', 'RECHARGING')",
 				},
