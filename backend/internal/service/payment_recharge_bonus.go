@@ -213,6 +213,7 @@ func (s *PaymentConfigService) resolveRechargeBonusUpdate(ctx context.Context, r
 }
 
 // matchRechargeBonusTier 返回不超过 paymentAmount 的最大档位；tiers 需已按 MinAmount 升序。
+//nolint:unused // Reserved for the official tier quote path; AIPC's campaign path currently owns checkout calculation.
 func matchRechargeBonusTier(tiers []RechargeBonusTier, paymentAmount float64) (RechargeBonusTier, bool) {
 	if math.IsNaN(paymentAmount) || math.IsInf(paymentAmount, 0) || paymentAmount <= 0 {
 		return RechargeBonusTier{}, false
@@ -230,6 +231,7 @@ func matchRechargeBonusTier(tiers []RechargeBonusTier, paymentAmount float64) (R
 }
 
 // calculateRechargeBonus 赠送金额 = 到账基数 × 百分比，保留两位小数（四舍五入）。
+//nolint:unused // Reserved for the official tier quote path; AIPC's campaign path currently owns checkout calculation.
 func calculateRechargeBonus(baseCredited, bonusPercent float64) float64 {
 	if baseCredited <= 0 || bonusPercent <= 0 || math.IsNaN(baseCredited) || math.IsNaN(bonusPercent) {
 		return 0
@@ -242,6 +244,7 @@ func calculateRechargeBonus(baseCredited, bonusPercent float64) float64 {
 }
 
 // addRechargeBonus 到账总额 = 基数 + 赠送，两位小数。
+//nolint:unused // Reserved for the official tier quote path; AIPC's campaign path currently owns checkout calculation.
 func addRechargeBonus(baseCredited, bonus float64) float64 {
 	return decimal.NewFromFloat(baseCredited).
 		Add(decimal.NewFromFloat(bonus)).
@@ -250,6 +253,7 @@ func addRechargeBonus(baseCredited, bonus float64) float64 {
 }
 
 // calculateDiscountedPayBase 折扣模式实付基数 = 支付金额 × (1 − 百分比)，按币种精度四舍五入。
+//nolint:unused // Reserved for the official tier quote path; AIPC's campaign path currently owns checkout calculation.
 func calculateDiscountedPayBase(paymentAmount, discountPercent float64, currency string) float64 {
 	digits := int32(payment.CurrencyMaxFractionDigits(currency))
 	return decimal.NewFromFloat(paymentAmount).
@@ -260,6 +264,7 @@ func calculateDiscountedPayBase(paymentAmount, discountPercent float64, currency
 }
 
 // rechargeBonusQuote 一笔余额充值的报价结果。
+//nolint:unused // Reserved for the official tier quote path; AIPC's campaign path currently owns checkout calculation.
 type rechargeBonusQuote struct {
 	// PayBase 网关收款基数（支付币种，不含手续费）；赠金模式等于支付金额，折扣模式为折后金额。
 	PayBase float64
@@ -273,6 +278,7 @@ type rechargeBonusQuote struct {
 
 // quoteRechargeBonus 按配置模式报价。currency 用于折扣模式实付基数的精度。
 // 未配置阶梯、未命中、或折扣百分比 ≥ 100（非法历史数据，fail-safe）时按无优惠处理。
+//nolint:unused // Reserved for the official tier quote path; AIPC's campaign path currently owns checkout calculation.
 func quoteRechargeBonus(cfg *PaymentConfig, paymentAmount float64, currency string) rechargeBonusQuote {
 	multiplier := defaultBalanceRechargeMultiplier
 	var tiers []RechargeBonusTier
