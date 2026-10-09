@@ -418,6 +418,8 @@ export default {
     outputRateAverageFormula: '输出 Token ÷ 总耗时，从请求开始计算',
     outputRateGenerationFormula: '输出 Token ÷ 生成耗时，从首个输出开始计算',
     outputRateGenerationWarning: '生成速率更接近模型开始回复后的输出速度，但会受上游计时和数据缓冲影响，仅供参考。',
+    outputTps: '输出 TPS',
+    outputTpsHint: '输出 Token ÷ 总耗时（包含首字等待），单位 tok/s。输出 Token 可能包含推理 Token。',
     time: '时间',
     ws: 'WS',
     stream: '流式',

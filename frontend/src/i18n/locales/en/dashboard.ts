@@ -413,6 +413,8 @@ export default {
     outputRateAverageFormula: 'Output tokens / total duration, measured from the start of the request',
     outputRateGenerationFormula: 'Output tokens / generation duration, measured from the first output',
     outputRateGenerationWarning: 'Generation rate better reflects output speed after the response begins, but is affected by upstream timing and event buffering and is for reference only.',
+    outputTps: 'Output TPS',
+    outputTpsHint: 'Output tokens divided by total duration, including first-token wait, in tok/s. Output tokens may include reasoning tokens.',
     time: 'Time',
     ws: 'WS',
     stream: 'Stream',
