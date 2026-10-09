@@ -38,7 +38,19 @@
           ]"
           @click="selectAmount(amt)"
         >
-          {{ amt }}
+          <span :data-testid="`quick-amount-${amt}`" class="flex flex-col items-center gap-0.5">
+            <span class="inline-flex items-center gap-1">
+              <span>{{ amt }}</span>
+              <span
+                v-if="bonusFor(amt)"
+                data-testid="quick-amount-bonus-badge"
+                class="rounded bg-primary-100 px-1 text-xs text-primary-700 dark:bg-primary-900/40 dark:text-primary-300"
+              >{{ bonusLabel(bonusFor(amt)!) }}</span>
+            </span>
+            <span v-if="bonusTiers?.length" data-testid="quick-amount-credited" class="text-xs text-gray-500 dark:text-gray-400">
+              {{ creditedLabel(amt) }}
+            </span>
+          </span>
         </button>
       </div>
     </div>
@@ -55,11 +67,16 @@ const props = withDefaults(defineProps<{
   min?: number
   max?: number
   currency?: string
+  bonusTiers?: Array<{ min_amount: number; bonus_percent: number }>
+  bonusMode?: 'bonus' | 'discount'
+  multiplier?: number
 }>(), {
   amounts: () => [10, 20, 50, 100, 200, 500, 1000, 2000, 5000],
   min: 0,
   max: 0,
   currency: 'USD',
+  bonusMode: 'bonus',
+  multiplier: 1,
 })
 
 const emit = defineEmits<{
@@ -82,6 +99,27 @@ const placeholderText = computed(() => {
   if (props.max > 0) return `≤ ${props.max}`
   return t('payment.enterAmount')
 })
+
+function bonusFor(amount: number) {
+  return props.bonusTiers?.filter((tier) => amount >= tier.min_amount)
+    .sort((a, b) => b.min_amount - a.min_amount)[0]
+}
+
+function creditedAmount(amount: number) {
+  const tier = bonusFor(amount)
+  if (!tier) return amount * (props.multiplier ?? 1)
+  if (props.bonusMode === 'discount') return amount * (1 - tier.bonus_percent / 100)
+  return amount * (props.multiplier ?? 1) * (1 + tier.bonus_percent / 100)
+}
+
+function bonusLabel(tier: { bonus_percent: number }) {
+  return props.bonusMode === 'discount' ? `${tier.bonus_percent}% OFF` : `+${tier.bonus_percent}%`
+}
+
+function creditedLabel(amount: number) {
+  const symbol = currencyLabel.value === 'USD' ? '$' : currencyLabel.value === 'CNY' ? '¥' : `${currencyLabel.value} `
+  return `${symbol}${creditedAmount(amount).toFixed(2)}`
+}
 
 const AMOUNT_PATTERN = /^\d*(\.\d{0,2})?$/
 
