@@ -57,7 +57,7 @@ func TestTokenMarketingFallbackPricingIsTagged(t *testing.T) {
 	require.Positive(t, cost.ActualCost)
 	require.Equal(t, string(BillingModeToken), cost.BillingMode)
 	openai := &OpenAIGatewayService{billingService: billing}
-	cost, err := openai.calculateOpenAIRecordUsageTokenCost(context.Background(), apiKey, "gpt-5", 1, time.Now(), UsageTokens{InputTokens: 100, OutputTokens: 50}, "", "", nil)
+	cost, err := openai.calculateOpenAIRecordUsageTokenCost(context.Background(), apiKey, "gpt-5", 1, time.Now(), UsageTokens{InputTokens: 100, OutputTokens: 50}, "", "", nil, false)
 	require.NoError(t, err)
 	require.Positive(t, cost.ActualCost)
 	require.Equal(t, string(BillingModeToken), cost.BillingMode)

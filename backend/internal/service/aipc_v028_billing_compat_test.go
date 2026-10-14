@@ -33,7 +33,7 @@ func TestAIPCEffortPricingStacksOnceWithExemptionAndMarketing(t *testing.T) {
 				gateway.resolver = NewModelPricingResolver(nil, bs)
 			}
 			cost, err := gateway.calculateOpenAIRecordUsageTokenCost(context.Background(), &APIKey{Group: group},
-				"gpt-5.4", 0.5, now, UsageTokens{InputTokens: 120, OutputTokens: 10}, "", "high", nil)
+				"gpt-5.4", 0.5, now, UsageTokens{InputTokens: 120, OutputTokens: 10}, "", "high", nil, exempt)
 			require.NoError(t, err)
 			base := 120*2e-6 + 10*3e-6
 			if exempt {

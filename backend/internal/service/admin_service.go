@@ -233,6 +233,7 @@ type AdminBoundAuthIdentityChannel struct {
 }
 
 type CreateGroupInput struct {
+	I18n                           GroupI18n
 	Name                           string
 	Description                    string
 	Platform                       string
@@ -245,6 +246,7 @@ type CreateGroupInput struct {
 	LongContextPricingEnabled      bool
 	LongContextPricingExemptModels []string
 	ModelPricing                   []ChannelModelPricing
+
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration         bool
 	AllowBatchImageGeneration    bool
@@ -314,6 +316,7 @@ type CreateGroupInput struct {
 }
 
 type UpdateGroupInput struct {
+	I18n                           *GroupI18n
 	Name                           string
 	Description                    *string
 	Platform                       string
@@ -327,6 +330,7 @@ type UpdateGroupInput struct {
 	LongContextPricingEnabled      *bool
 	LongContextPricingExemptModels *[]string
 	ModelPricing                   *[]ChannelModelPricing
+
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration         *bool
 	AllowBatchImageGeneration    *bool
