@@ -268,6 +268,17 @@ func TestBonusRefundCompletionAndDuplicateAreIdempotent(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, result.Success)
 }
+func TestBonusRefundQueryIDRecoversAlipayRequestID(t *testing.T) {
+	requestedAt := time.Date(2026, time.October, 17, 12, 0, 0, 0, time.UTC)
+	o := &dbent.PaymentOrder{PricingSnapshot: map[string]any{"bonus": &RechargeBonusSnapshot{CampaignID: 1,
+		Refund: &RechargeBonusRefund{ID: "br0123456789abcdef0123456789abcd", ProviderRefundID: "alipay-trade-no", RequestedAt: &requestedAt},
+	}}}
+	require.Equal(t, "br0123456789abcdef0123456789abcd", bonusRefundQueryID(o, "alipay"))
+	require.Equal(t, "alipay-trade-no", bonusRefundQueryID(o, "stripe"))
+	require.Equal(t, requestedAt, bonusRefundRequestedAt(o))
+	o.PricingSnapshot = map[string]any{"bonus": &RechargeBonusSnapshot{Refund: &RechargeBonusRefund{ID: "legacy"}}}
+	require.True(t, bonusRefundRequestedAt(o).IsZero())
+}
 func TestBonusRefundGatewayRoundingUsesCumulativeAmounts(t *testing.T) {
 	o := &dbent.PaymentOrder{Amount: 3, PayAmount: 1, SettlementCurrency: "CNY"}
 	require.InDelta(t, .33, bonusGatewayRefundAmount(o, &RechargeBonusRefund{Before: "0", Principal: "1"}), 1e-9)

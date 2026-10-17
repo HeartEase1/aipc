@@ -18,17 +18,18 @@ import (
 
 // The deduction and this record commit together. Restoring or finalizing uses the same record.
 type RechargeBonusRefund struct {
-	ID               string `json:"id"`
-	Reason           string `json:"reason"`
-	Principal        string `json:"principal"`
-	Before           string `json:"before"`
-	BonusDue         string `json:"bonus_due"`
-	Deducted         string `json:"deducted"`
-	Deduct           bool   `json:"deduct"`
-	Force            bool   `json:"force"`
-	Restored         bool   `json:"restored"`
-	Finished         bool   `json:"finished"`
-	ProviderRefundID string `json:"provider_refund_id,omitempty"`
+	ID               string     `json:"id"`
+	Reason           string     `json:"reason"`
+	Principal        string     `json:"principal"`
+	Before           string     `json:"before"`
+	BonusDue         string     `json:"bonus_due"`
+	Deducted         string     `json:"deducted"`
+	Deduct           bool       `json:"deduct"`
+	Force            bool       `json:"force"`
+	Restored         bool       `json:"restored"`
+	Finished         bool       `json:"finished"`
+	ProviderRefundID string     `json:"provider_refund_id,omitempty"`
+	RequestedAt      *time.Time `json:"requested_at,omitempty"`
 }
 
 func bonusPrincipalRecovered(b *RechargeBonusSnapshot) float64 {
@@ -44,6 +45,27 @@ func bonusRefundRequestID(o *dbent.PaymentOrder) string {
 		return ""
 	}
 	return b.Refund.ID
+}
+func bonusRefundQueryID(o *dbent.PaymentOrder, providerKey string) string {
+	b := orderBonus(o)
+	if b == nil || b.Refund == nil {
+		return ""
+	}
+	// Older AIPC versions stored Alipay's trade number instead of out_request_no.
+	// Bonus refunds use a deterministic RequestID, so it remains recoverable for query/retry.
+	if strings.EqualFold(strings.TrimSpace(providerKey), "alipay") {
+		return b.Refund.ID
+	}
+	return b.Refund.ProviderRefundID
+}
+func bonusRefundRequestedAt(o *dbent.PaymentOrder) time.Time {
+	b := orderBonus(o)
+	if b != nil && b.Refund != nil && b.Refund.RequestedAt != nil && !b.Refund.RequestedAt.IsZero() {
+		return *b.Refund.RequestedAt
+	}
+	// Do not infer an age for pre-upgrade pending refunds: UpdatedAt changes while
+	// reconciliation runs and could prematurely classify an unconfirmed refund as failed.
+	return time.Time{}
 }
 func decimalValue(s string) decimal.Decimal { v, _ := decimal.NewFromString(s); return v }
 func bonusRefundID(o *dbent.PaymentOrder, amount float64) string {
@@ -143,6 +165,8 @@ func (s *PaymentService) executeBonusRefund(ctx context.Context, p *RefundPlan) 
 		if err = s.bonusRefundDebit(ctx, tx, o, r); err != nil {
 			return nil, err
 		}
+		now := time.Now()
+		r.RequestedAt = &now
 	}
 	if err = saveOrderBonus(ctx, tx.Client(), o, b); err != nil {
 		return nil, err
@@ -269,7 +293,8 @@ func (s *PaymentService) queryBonusRefund(ctx context.Context, o *dbent.PaymentO
 	if !ok {
 		return nil, infraerrors.BadRequest("REFUND_QUERY_UNSUPPORTED", "provider requires manual refund verification")
 	}
-	resp, err := query.QueryRefund(ctx, payment.RefundQueryRequest{TradeNo: o.PaymentTradeNo, OrderID: o.OutTradeNo, RefundID: r.ProviderRefundID, Amount: formatGatewayRefundAmount(p.GatewayAmount, o)})
+	requestedAt := bonusRefundRequestedAt(o)
+	resp, err := query.QueryRefund(ctx, payment.RefundQueryRequest{TradeNo: o.PaymentTradeNo, OrderID: o.OutTradeNo, RefundID: bonusRefundQueryID(o, provider.ProviderKey()), Amount: formatGatewayRefundAmount(p.GatewayAmount, o), RequestedAt: requestedAt})
 	if err != nil {
 		return nil, err
 	}
