@@ -19,6 +19,7 @@ func TestUsageLogMarketingFieldsRoundTrip(t *testing.T) {
 	log := &service.UsageLog{
 		UserID: 1, APIKeyID: 2, AccountID: 3, RequestID: "discount-round-trip", Model: "gpt-5",
 		InputTokens: 100, OutputTokens: 10, TotalCost: 5, ActualCost: 8,
+		CacheCreation30mTokens: 123, CacheCreation12hTokens: 456,
 		DiscountCampaignID: &campaignID, DiscountFactor: &factor, OriginalRateMultiplier: &original,
 		DiscountAmount: 2, CreatedAt: time.Now().UTC(),
 	}
@@ -44,5 +45,7 @@ func TestUsageLogMarketingFieldsRoundTrip(t *testing.T) {
 	require.Equal(t, &original, got.OriginalRateMultiplier)
 	require.Equal(t, float64(2), got.DiscountAmount)
 	require.Equal(t, float64(8), got.ActualCost)
+	require.Equal(t, 123, got.CacheCreation30mTokens)
+	require.Equal(t, 456, got.CacheCreation12hTokens)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

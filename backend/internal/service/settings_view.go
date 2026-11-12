@@ -390,6 +390,7 @@ type PublicSettings struct {
 	GitHubOAuthEnabled               bool
 	GoogleOAuthEnabled               bool
 	Version                          string
+	MCPEnabled                       bool
 
 	BalanceLowNotifyEnabled     bool
 	AccountQuotaNotifyEnabled   bool

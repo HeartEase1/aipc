@@ -354,6 +354,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMPEnabled:                weChatMPEnabled,
 		WeChatOAuthMobileEnabled:            weChatMobileEnabled,
 		BackendModeEnabled:                  settings[SettingKeyBackendModeEnabled] == "true",
+		MCPEnabled:                          s.cfg != nil && s.cfg.MCP.Enabled(),
 		PaymentEnabled:                      settings[SettingPaymentEnabled] == "true",
 		PaymentBalanceRechargeMultiplier:    normalizeBalanceRechargeMultiplier(pcParseFloat(settings[SettingBalanceRechargeMult], defaultBalanceRechargeMultiplier)),
 		PaymentBalanceDisabled:              settings[SettingBalancePayDisabled] == "true",
@@ -623,6 +624,7 @@ type PublicSettingsInjectionPayload struct {
 	GitHubOAuthEnabled                  bool                     `json:"github_oauth_enabled"`
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
+	MCPEnabled                          bool                     `json:"mcp_enabled"`
 	PaymentEnabled                      bool                     `json:"payment_enabled"`
 	PaymentBalanceRechargeMultiplier    float64                  `json:"payment_balance_recharge_multiplier"`
 	PaymentBalanceDisabled              bool                     `json:"payment_balance_disabled"`
@@ -723,6 +725,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GitHubOAuthEnabled:                  settings.GitHubOAuthEnabled,
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,
+		MCPEnabled:                          settings.MCPEnabled,
 		PaymentEnabled:                      settings.PaymentEnabled,
 		PaymentBalanceRechargeMultiplier:    settings.PaymentBalanceRechargeMultiplier,
 		PaymentBalanceDisabled:              settings.PaymentBalanceDisabled,

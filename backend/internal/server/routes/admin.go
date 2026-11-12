@@ -30,6 +30,8 @@ func RegisterAdminRoutes(
 	// 审计中间件挂在认证之后：所有管理面变更类操作 + 敏感读取入审计日志
 	admin.Use(gin.HandlerFunc(auditLog))
 	admin.Use(middleware.AdminComplianceGuard(settingService))
+	// 受限密钥的账户操作走独立资源校验，普通管理员保持原处理器。
+	admin.Use(h.Admin.Account.ScopedAdminKeyAccounts)
 	{
 		// 部署与运营合规确认
 		registerAdminComplianceRoutes(admin, h)
@@ -362,6 +364,8 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		users.GET("/:id/rpm-status", h.Admin.User.GetUserRPMStatus)
 		users.POST("/batch-concurrency", h.Admin.User.BatchUpdateConcurrency)
 		users.POST("/batch-limits", h.Admin.User.BatchUpdateLimits)
+		users.POST("/batch-disable", h.Admin.User.BatchDisable)
+		users.POST("/blacklist-matches", h.Admin.User.FindBlacklistedEmailUsers)
 		users.GET("/:id/platform-quotas", h.Admin.User.GetUserPlatformQuotas)
 		users.PUT("/:id/platform-quotas", h.Admin.User.UpdateUserPlatformQuotas)
 		users.POST("/:id/platform-quotas/reset", h.Admin.User.ResetUserPlatformQuotaWindow)
@@ -374,6 +378,7 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	groups := admin.Group("/groups")
+	groups.Use(h.Admin.Group.ScopedAdminKeyGroupModels)
 	{
 		groups.GET("", h.Admin.Group.List)
 		groups.GET("/all", h.Admin.Group.GetAll)
@@ -616,6 +621,7 @@ func registerPromoCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 
 func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
 	adminSettings := admin.Group("/settings")
+	registerScopedAdminKeyRoutes(adminSettings, h, stepUpAuth)
 	{
 		adminSettings.GET("/pricing-catalog", h.Admin.Channel.GetPricingCatalogStatus)
 		adminSettings.POST("/pricing-catalog/check", gin.HandlerFunc(stepUpAuth), h.Admin.Channel.CheckPricingCatalog)
@@ -632,8 +638,8 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpA
 		adminSettings.POST("/email-templates/:event/:locale/restore-official", h.Admin.Setting.RestoreOfficialEmailTemplate)
 		// Admin API Key 管理
 		adminSettings.GET("/admin-api-key", h.Admin.Setting.GetAdminAPIKey)
-		adminSettings.POST("/admin-api-key/regenerate", h.Admin.Setting.RegenerateAdminAPIKey)
-		adminSettings.DELETE("/admin-api-key", h.Admin.Setting.DeleteAdminAPIKey)
+		adminSettings.POST("/admin-api-key/regenerate", gin.HandlerFunc(stepUpAuth), h.Admin.Setting.RegenerateAdminAPIKey)
+		adminSettings.DELETE("/admin-api-key", gin.HandlerFunc(stepUpAuth), h.Admin.Setting.DeleteAdminAPIKey)
 		// WebUI 地区访问限制（不影响 API）
 		adminSettings.GET("/web-access-region", h.Admin.Setting.GetWebAccessRegionSettings)
 		adminSettings.PUT("/web-access-region", h.Admin.Setting.UpdateWebAccessRegionSettings)
@@ -646,6 +652,9 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpA
 		// OpenAI OAuth image-tool unavailable cooldown configuration
 		adminSettings.GET("/openai-images-oauth-unavailable-cooldown", h.Admin.Setting.GetOpenAIImagesOAuthUnavailableCooldownSettings)
 		adminSettings.PUT("/openai-images-oauth-unavailable-cooldown", h.Admin.Setting.UpdateOpenAIImagesOAuthUnavailableCooldownSettings)
+		// 注册邮箱精确黑名单
+		adminSettings.GET("/registration-email-blacklist", h.Admin.Setting.GetRegistrationEmailBlacklist)
+		adminSettings.PUT("/registration-email-blacklist", h.Admin.Setting.UpdateRegistrationEmailBlacklist)
 		// 面板 API 限流配置
 		adminSettings.GET("/panel-rate-limit", h.Admin.Setting.GetPanelRateLimitSettings)
 		adminSettings.PUT("/panel-rate-limit", h.Admin.Setting.UpdatePanelRateLimitSettings)
